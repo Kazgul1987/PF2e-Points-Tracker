@@ -12,10 +12,12 @@
           {{localize "PF2E.PointsTracker.Research.Export"}}
         </button>
       {{/if}}
-      <button type="button" class="research-tracker__create" data-action="create-topic">
-        <i class="fas fa-plus"></i>
-        {{localize "PF2E.PointsTracker.Research.CreateTopic"}}
-      </button>
+      {{#if isGM}}
+        <button type="button" class="research-tracker__create" data-action="create-topic">
+          <i class="fas fa-plus"></i>
+          {{localize "PF2E.PointsTracker.Research.CreateTopic"}}
+        </button>
+      {{/if}}
     </div>
   </header>
 
@@ -24,26 +26,137 @@
       {{#each topics as |topic|}}
         <article class="research-topic" data-topic-id="{{topic.id}}">
           <header class="research-topic__header">
-            <div>
+            <div class="research-topic__title">
               <h3 class="research-topic__name">{{topic.name}}</h3>
-              <p class="research-topic__meta">
-                {{localize "PF2E.PointsTracker.Research.TargetLabel" target=topic.target progress=topic.progress}}
-                &bull;
-                {{localize "PF2E.PointsTracker.Research.DifficultyLabel" difficulty=topic.difficulty}}
-              </p>
+              <div class="research-topic__meta">
+                {{#if topic.skill}}
+                  <span>{{localize "PF2E.PointsTracker.Research.SkillLabel" skill=topic.skill}}</span>
+                {{/if}}
+                {{#if topic.difficulty}}
+                  <span>{{localize "PF2E.PointsTracker.Research.DifficultyLabel" difficulty=topic.difficulty}}</span>
+                {{/if}}
+              </div>
             </div>
-            <div class="research-topic__controls">
-              <button type="button" data-action="add-points"><i class="fas fa-plus"></i></button>
-              <button type="button" data-action="spend-points"><i class="fas fa-minus"></i></button>
-              <button type="button" data-action="delete-topic"><i class="fas fa-trash"></i></button>
-            </div>
+            {{#if ../isGM}}
+              <div class="research-topic__controls">
+                <button type="button" data-action="add-points">
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button type="button" data-action="spend-points">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <button type="button" data-action="delete-topic">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            {{/if}}
           </header>
+
           <div class="research-topic__progress">
-            <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
+            <div class="research-topic__progress-track">
+              <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
+            </div>
+            <div class="research-topic__progress-label">
+              {{#if topic.locations.length}}
+                {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.locationTotals.displayMax}}
+              {{else}}
+                {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.target}}
+              {{/if}}
+              {{#if topic.completed}}
+                <span class="research-topic__badge">{{localize "PF2E.PointsTracker.Research.Completed"}}</span>
+              {{/if}}
+            </div>
           </div>
-          {{#if topic.summary}}
-            <p class="research-topic__summary">{{topic.summary}}</p>
-          {{/if}}
+
+          <section class="research-topic__statblock">
+            {{#if topic.summaryHtml}}
+              <div class="research-topic__summary">{{{topic.summaryHtml}}}</div>
+            {{/if}}
+            <div class="research-topic__statblock-section">
+              <h4>{{localize "PF2E.PointsTracker.Research.GatherInformation"}}</h4>
+              {{#if topic.gatherInformationHtml}}
+                <div class="research-topic__statblock-content">{{{topic.gatherInformationHtml}}}</div>
+              {{else}}
+                <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoGatherInformation"}}</p>
+              {{/if}}
+            </div>
+            <div class="research-topic__statblock-section">
+              <h4>{{localize "PF2E.PointsTracker.Research.ResearchChecks"}}</h4>
+              {{#if topic.researchChecksHtml}}
+                <div class="research-topic__statblock-content">{{{topic.researchChecksHtml}}}</div>
+              {{else}}
+                <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoResearchChecks"}}</p>
+              {{/if}}
+            </div>
+          </section>
+
+          <section class="research-topic__locations">
+            <header class="research-topic__locations-header">
+              <h4>{{localize "PF2E.PointsTracker.Research.LocationsHeading"}}</h4>
+              <div class="research-topic__locations-actions">
+                <span class="research-topic__locations-total">
+                  {{localize "PF2E.PointsTracker.Research.LocationTotals" collected=topic.locationTotals.collected max=topic.locationTotals.displayMax}}
+                </span>
+                {{#if ../isGM}}
+                  <button type="button" data-action="create-location">
+                    <i class="fas fa-map-marker-alt"></i>
+                    {{localize "PF2E.PointsTracker.Research.AddLocation"}}
+                  </button>
+                {{/if}}
+              </div>
+            </header>
+            {{#if topic.locations.length}}
+              <table class="research-topic__location-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationNameHeader"}}</th>
+                    <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationProgressHeader"}}</th>
+                    {{#if ../isGM}}
+                      <th scope="col" class="research-topic__location-actions-header">{{localize "PF2E.PointsTracker.Research.Actions"}}</th>
+                    {{/if}}
+                  </tr>
+                </thead>
+                <tbody>
+                  {{#each topic.locations as |location|}}
+                    <tr class="research-location" data-location-id="{{location.id}}">
+                      <th scope="row">
+                        <span class="research-location__name">{{location.name}}</span>
+                      </th>
+                      <td>
+                        <div class="research-location__progress">
+                          <div class="research-location__progress-track">
+                            <div class="research-location__progress-bar" style="width: {{location.percent}}%"></div>
+                          </div>
+                          <div class="research-location__progress-label">
+                            {{localize "PF2E.PointsTracker.Research.LocationProgress" collected=location.collected max=location.displayMax}}
+                          </div>
+                        </div>
+                      </td>
+                      {{#if ../isGM}}
+                        <td class="research-location__actions">
+                          <button type="button" data-action="add-points" data-location-id="{{location.id}}">
+                            <i class="fas fa-plus"></i>
+                          </button>
+                          <button type="button" data-action="spend-points" data-location-id="{{location.id}}">
+                            <i class="fas fa-minus"></i>
+                          </button>
+                          <button type="button" data-action="edit-location">
+                            <i class="fas fa-edit"></i>
+                          </button>
+                          <button type="button" data-action="delete-location">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </td>
+                      {{/if}}
+                    </tr>
+                  {{/each}}
+                </tbody>
+              </table>
+            {{else}}
+              <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoLocations"}}</p>
+            {{/if}}
+          </section>
+
           {{#if topic.thresholds.length}}
             <section class="research-topic__thresholds">
               <header>
@@ -51,9 +164,7 @@
               </header>
               <ul>
                 {{#each topic.thresholds as |threshold|}}
-                  <li
-                    class="research-threshold{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}"
-                  >
+                  <li class="research-threshold{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}">
                     <div class="research-threshold__meta">
                       <span class="research-threshold__points">
                         {{localize "PF2E.PointsTracker.Research.ThresholdPoints" points=threshold.points}}
@@ -115,12 +226,15 @@
               </ul>
             </section>
           {{/if}}
+
           <section class="research-topic__participants">
             <header>
               <h4>{{localize "PF2E.PointsTracker.Research.Participants"}}</h4>
-              <button type="button" data-action="add-participant">
-                <i class="fas fa-user-plus"></i>
-              </button>
+              {{#if ../isGM}}
+                <button type="button" data-action="add-participant">
+                  <i class="fas fa-user-plus"></i>
+                </button>
+              {{/if}}
             </header>
             {{#if topic.participants.length}}
               <ul>
@@ -139,15 +253,17 @@
                       <button type="button" data-action="perform-roll">
                         <i class="fas fa-dice-d20"></i>
                       </button>
-                      <button type="button" data-action="remove-participant">
-                        <i class="fas fa-user-minus"></i>
-                      </button>
+                      {{#if ../isGM}}
+                        <button type="button" data-action="remove-participant">
+                          <i class="fas fa-user-minus"></i>
+                        </button>
+                      {{/if}}
                     </div>
                   </li>
                 {{/each}}
               </ul>
             {{else}}
-              <p class="research-topic__no-participants">{{localize "PF2E.PointsTracker.Research.NoParticipants"}}</p>
+              <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoParticipants"}}</p>
             {{/if}}
           </section>
         </article>

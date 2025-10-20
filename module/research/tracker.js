@@ -49,6 +49,14 @@ function createId() {
  */
 
 /**
+ * @typedef {object} ResearchLocation
+ * @property {string} id
+ * @property {string} name
+ * @property {number} maxPoints
+ * @property {number} collected
+ */
+
+/**
  * @typedef {object} ResearchTopic
  * @property {string} id
  * @property {string} name
@@ -58,6 +66,9 @@ function createId() {
  * @property {string} [skill]
  * @property {ResearchParticipant[]} participants
  * @property {string} [summary]
+ * @property {string} [gatherInformation]
+ * @property {string} [researchChecks]
+ * @property {ResearchLocation[]} locations
  * @property {ResearchRevealThreshold[]} thresholds
  * @property {string[]} revealedThresholdIds
  */
@@ -128,7 +139,7 @@ export class ResearchTracker {
 
     const payload = {
       topics: this.getTopics().map((topic) => {
-        const { progressPercent, thresholds, ...rest } = topic;
+        const { progressPercent, thresholds, locations, ...rest } = topic;
         return {
           ...rest,
           thresholds: (thresholds ?? []).map((threshold) => ({
@@ -139,6 +150,16 @@ export class ResearchTracker {
             revealedAt: Number.isFinite(threshold.revealedAt)
               ? Number(threshold.revealedAt)
               : threshold.revealedAt ?? null,
+          })),
+          locations: (locations ?? []).map((location) => ({
+            id: location.id,
+            name: location.name,
+            maxPoints: Number.isFinite(location.maxPoints)
+              ? Number(location.maxPoints)
+              : 0,
+            collected: Number.isFinite(location.collected)
+              ? Number(location.collected)
+              : 0,
           })),
           participants: topic.participants.map((p) => ({ ...p })),
         };
@@ -181,8 +202,11 @@ export class ResearchTracker {
       difficulty: data.difficulty ?? "standard",
       skill: data.skill ?? "society",
       summary: data.summary ?? "",
+      gatherInformation: data.gatherInformation ?? "",
+      researchChecks: data.researchChecks ?? "",
       participants: Array.isArray(data.participants) ? data.participants : [],
       thresholds: Array.isArray(data.thresholds) ? data.thresholds : [],
+      locations: Array.isArray(data.locations) ? data.locations : [],
       revealedThresholdIds: Array.isArray(data.revealedThresholdIds)
         ? data.revealedThresholdIds
         : [],
@@ -268,6 +292,19 @@ export class ResearchTracker {
   async adjustPoints(topicId, delta, metadata = {}) {
     const topic = this.topics.get(topicId);
     if (!topic) return;
+    const locationId = metadata.locationId;
+
+    if (locationId && (topic.locations ?? []).length) {
+      await this.adjustLocationPoints(topicId, locationId, delta, metadata);
+      return;
+    }
+
+    if ((topic.locations ?? []).length) {
+      console.warn(
+        "Adjusting topic points directly is not supported when locations are defined. Provide a locationId in metadata instead."
+      );
+      return;
+    }
     const progress = Number(topic.progress ?? 0) + Number(delta ?? 0);
     topic.progress = Math.max(progress, 0);
     this.topics.set(topicId, this._normalizeTopic(topic));
@@ -290,15 +327,157 @@ export class ResearchTracker {
   }
 
   /**
+   * Create a new location on a topic.
+   * @param {string} topicId
+   * @param {Partial<ResearchLocation>} data
+   */
+  async createLocation(topicId, data = {}) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const id = data.id ?? createId();
+    const locations = Array.isArray(topic.locations)
+      ? topic.locations.slice()
+      : [];
+    locations.push({
+      id,
+      name:
+        data.name ??
+        game?.i18n?.localize?.("PF2E.PointsTracker.Research.LocationDefaultName") ??
+          "Location",
+      maxPoints: Number.isFinite(data.maxPoints) ? Number(data.maxPoints) : 0,
+      collected: Number.isFinite(data.collected) ? Number(data.collected) : 0,
+    });
+
+    const normalized = this._normalizeTopic({ ...topic, locations });
+    this.topics.set(topicId, normalized);
+    await this._saveState();
+    return normalized.locations.find((location) => location.id === id);
+  }
+
+  /**
+   * Update an existing location on a topic.
+   * @param {string} topicId
+   * @param {string} locationId
+   * @param {Partial<ResearchLocation>} updates
+   */
+  async updateLocation(topicId, locationId, updates) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const locations = Array.isArray(topic.locations)
+      ? topic.locations.slice()
+      : [];
+    const index = locations.findIndex((location) => location.id === locationId);
+    if (index === -1) return;
+
+    const existing = locations[index];
+    locations.splice(index, 1, {
+      ...existing,
+      ...updates,
+      id: locationId,
+    });
+
+    const normalized = this._normalizeTopic({ ...topic, locations });
+    this.topics.set(topicId, normalized);
+    await this._saveState();
+    return normalized.locations.find((location) => location.id === locationId);
+  }
+
+  /**
+   * Remove a location from a topic.
+   * @param {string} topicId
+   * @param {string} locationId
+   */
+  async deleteLocation(topicId, locationId) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const locations = (topic.locations ?? []).filter(
+      (location) => location.id !== locationId
+    );
+
+    const normalized = this._normalizeTopic({ ...topic, locations });
+    this.topics.set(topicId, normalized);
+    await this._saveState();
+  }
+
+  /**
+   * Adjust collected points at a specific location.
+   * @param {string} topicId
+   * @param {string} locationId
+   * @param {number} delta
+   * @param {object} [metadata]
+   */
+  async adjustLocationPoints(topicId, locationId, delta, metadata = {}) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const locations = Array.isArray(topic.locations)
+      ? topic.locations.slice()
+      : [];
+    const index = locations.findIndex((location) => location.id === locationId);
+    if (index === -1) return;
+
+    const existing = { ...locations[index] };
+    const maxPoints = Number.isFinite(existing.maxPoints)
+      ? Number(existing.maxPoints)
+      : 0;
+    const current = Number.isFinite(existing.collected)
+      ? Number(existing.collected)
+      : 0;
+    const change = Number(delta ?? 0);
+    const newValue = Math.max(
+      0,
+      Math.min(maxPoints || Number.POSITIVE_INFINITY, current + change)
+    );
+    existing.collected = Number.isFinite(newValue) ? Number(newValue) : 0;
+    locations.splice(index, 1, existing);
+
+    const normalized = this._normalizeTopic({ ...topic, locations });
+    this.topics.set(topicId, normalized);
+    await this._saveState();
+
+    if (change !== 0) {
+      const { actorUuid, actorName, reason, roll } = metadata;
+      await this.recordLog({
+        topicId,
+        message:
+          reason ?? this._buildDefaultLogMessage(change, existing.name ?? ""),
+        points: change,
+        actorUuid,
+        actorName,
+        roll,
+      });
+    }
+
+    await this._autoRevealThresholds(topicId);
+  }
+
+  /**
    * Internal helper to create a log message when none is provided.
    * @param {number} points
    * @returns {string}
    */
-  _buildDefaultLogMessage(points) {
+  _buildDefaultLogMessage(points, locationName = "") {
+    const locationSuffix = locationName
+      ? game?.i18n?.format?.(
+          "PF2E.PointsTracker.Research.LocationLogSuffix",
+          { location: locationName }
+        ) ?? ` (${locationName})`
+      : "";
     if (points > 0) {
-      return game?.i18n?.format?.("PF2E.PointsTracker.Research.PointsEarned", { points }) ?? `Earned ${points} RP`;
+      const base =
+        game?.i18n?.format?.("PF2E.PointsTracker.Research.PointsEarned", {
+          points,
+        }) ?? `Earned ${points} RP`;
+      return `${base}${locationSuffix}`;
     } else if (points < 0) {
-      return game?.i18n?.format?.("PF2E.PointsTracker.Research.PointsSpent", { points: Math.abs(points) }) ?? `Spent ${Math.abs(points)} RP`;
+      const base =
+        game?.i18n?.format?.("PF2E.PointsTracker.Research.PointsSpent", {
+          points: Math.abs(points),
+        }) ?? `Spent ${Math.abs(points)} RP`;
+      return `${base}${locationSuffix}`;
     }
     return game?.i18n?.localize?.("PF2E.PointsTracker.Research.PointsNoChange") ?? "No point change";
   }
@@ -513,8 +692,18 @@ export class ResearchTracker {
    * @returns {ResearchTopic}
    */
   _normalizeTopic(topic) {
-    const target = Number.isFinite(topic.target) ? Number(topic.target) : 0;
-    const progress = Number.isFinite(topic.progress) ? Number(topic.progress) : 0;
+    const { locations, totalCollected, totalMax } = this._normalizeLocations(
+      topic
+    );
+    const rawTarget = Number.isFinite(topic.target) ? Number(topic.target) : 0;
+    const rawProgress = Number.isFinite(topic.progress)
+      ? Number(topic.progress)
+      : 0;
+    const hasLocations = locations.length > 0;
+    const target = hasLocations ? totalMax : rawTarget;
+    const progress = hasLocations
+      ? Math.min(totalCollected, target || totalCollected)
+      : Math.max(rawProgress, 0);
     const participants = Array.isArray(topic.participants) ? topic.participants : [];
     const { thresholds, revealedThresholdIds } = this._normalizeThresholds(
       topic,
@@ -529,6 +718,9 @@ export class ResearchTracker {
       difficulty: topic.difficulty ?? "standard",
       skill: topic.skill ?? "",
       summary: topic.summary ?? "",
+      gatherInformation: topic.gatherInformation ?? "",
+      researchChecks: topic.researchChecks ?? "",
+      locations,
       participants,
       thresholds,
       revealedThresholdIds,
@@ -597,6 +789,58 @@ export class ResearchTracker {
     const normalizedRevealed = Array.from(revealedSet);
 
     return { thresholds: normalizedThresholds, revealedThresholdIds: normalizedRevealed };
+  }
+
+  /**
+   * Normalize the locations of a topic.
+   * @param {Partial<ResearchTopic>} topic
+   * @returns {{ locations: ResearchLocation[]; totalCollected: number; totalMax: number }}
+   */
+  _normalizeLocations(topic) {
+    const rawLocations = Array.isArray(topic.locations)
+      ? topic.locations.slice()
+      : [];
+
+    const normalized = rawLocations.map((location, index) => {
+      const fallbackId = `${topic.id ?? "location"}-${index}`;
+      const id = String(location?.id ?? fallbackId || createId());
+      const name = location?.name
+        ? String(location.name)
+        : game?.i18n?.localize?.(
+            "PF2E.PointsTracker.Research.LocationDefaultName"
+          ) ?? "Location";
+      const maxPoints = Number.isFinite(location?.maxPoints)
+        ? Math.max(Number(location.maxPoints), 0)
+        : 0;
+      const collectedRaw = Number.isFinite(location?.collected)
+        ? Number(location.collected)
+        : 0;
+      const collected = Math.max(0, Math.min(maxPoints || Number.POSITIVE_INFINITY, collectedRaw));
+      return {
+        id,
+        name,
+        maxPoints,
+        collected,
+        order: index,
+      };
+    });
+
+    normalized.sort((a, b) => a.order - b.order);
+
+    const totalCollected = normalized.reduce(
+      (sum, location) => sum + (Number.isFinite(location.collected) ? Number(location.collected) : 0),
+      0
+    );
+    const totalMax = normalized.reduce(
+      (sum, location) => sum + (Number.isFinite(location.maxPoints) ? Number(location.maxPoints) : 0),
+      0
+    );
+
+    return {
+      locations: normalized.map(({ order, ...entry }) => entry),
+      totalCollected,
+      totalMax,
+    };
   }
 }
 
