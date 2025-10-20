@@ -26,7 +26,7 @@
     }
   ],
   "packs": [],
-  "manifest": "https://raw.githubusercontent.com/PF2e-Points-Tracker/PF2e-Points-Tracker/main/module.json",
-  "download": "https://github.com/PF2e-Points-Tracker/PF2e-Points-Tracker/releases/download/v0.1.0/module.zip",
+  "manifest": "https://raw.githubusercontent.com/Kazgul1987/PF2e-Points-Tracker/main/module.json",
+  "download": "https://github.com/Kazgul1987/PF2e-Points-Tracker/releases/latest/download/module.zip",
   "license": "LICENSE"
 }
