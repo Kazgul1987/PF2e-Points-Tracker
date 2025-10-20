@@ -1,0 +1,32 @@
+{
+  "id": "pf2e-points-tracker",
+  "title": "PF2e Points Tracker",
+  "description": "Provides a research points tracker for Pathfinder Second Edition campaigns.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "PF2e Points Tracker Maintainers"
+    }
+  ],
+  "esmodules": [
+    "module/main.js"
+  ],
+  "styles": [
+    "styles/module.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "packs": [],
+  "manifest": "https://example.com/module.json",
+  "download": "https://example.com/module.zip",
+  "license": "LICENSE"
+}
