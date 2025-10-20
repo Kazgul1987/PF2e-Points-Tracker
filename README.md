@@ -1,1 +1,1 @@
-# PF2e-Social-Encounter-Tracker
+# PF2e-Points-Tracker
