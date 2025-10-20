@@ -803,7 +803,8 @@ export class ResearchTracker {
 
     const normalized = rawLocations.map((location, index) => {
       const fallbackId = `${topic.id ?? "location"}-${index}`;
-      const id = String(location?.id ?? fallbackId || createId());
+      const rawId = location?.id ?? fallbackId;
+      const id = String(rawId || createId());
       const name = location?.name
         ? String(location.name)
         : game?.i18n?.localize?.(
