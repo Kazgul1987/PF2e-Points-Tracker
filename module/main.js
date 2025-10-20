@@ -24,8 +24,16 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
-  await tracker.initialize();
-  console.log(`${MODULE_ID} | PF2e Points Tracker is ready.`);
+  console.log(`${MODULE_ID} | Starting PF2e Points Tracker initialization.`);
+
+  try {
+    await tracker.initialize();
+  } catch (error) {
+    console.error(`${MODULE_ID} | Failed to initialize PF2e Points Tracker.`, error);
+    return;
+  }
+
+  console.log(`${MODULE_ID} | PF2e Points Tracker initialized successfully.`);
 
   game.pf2ePointsTracker = {
     tracker,
@@ -33,6 +41,8 @@ Hooks.once("ready", async () => {
     import: () => ResearchImportExport.promptImport(tracker),
     export: () => ResearchImportExport.exportTopics(tracker),
   };
+
+  console.log(`${MODULE_ID} | PF2e Points Tracker global API registered.`);
 });
 
 Hooks.on("getSceneControlButtons", (controls) => {
