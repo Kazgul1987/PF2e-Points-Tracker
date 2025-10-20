@@ -1,4 +1,4 @@
-import { InlineRollLinks } from "systems/pf2e/module/system/inline-roll-links.js";
+import { InlineRollLinks } from "/systems/pf2e/module/system/inline-roll-links.js";
 import { ResearchImportExport } from "../research/importer.js";
 
 const MODULE_ID = "pf2e-points-tracker";
