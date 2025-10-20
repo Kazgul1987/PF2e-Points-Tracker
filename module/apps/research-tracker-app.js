@@ -1,3 +1,5 @@
+import { ResearchImportExport } from "../research/importer.js";
+
 const MODULE_ID = "pf2e-points-tracker";
 
 export class ResearchTrackerApp extends FormApplication {
@@ -35,11 +37,21 @@ export class ResearchTrackerApp extends FormApplication {
         timestampFormatted: new Date(entry.timestamp).toLocaleString(),
         rollSummary: this._formatRoll(entry.roll),
       }));
+    const isGM = game.user?.isGM ?? false;
 
     return {
+      isGM,
       topics: topics.map((topic) => ({
         ...topic,
         completed: topic.target > 0 && topic.progress >= topic.target,
+        thresholds: (topic.thresholds ?? []).map((threshold) => ({
+          ...threshold,
+          isUnlocked: topic.progress >= threshold.points,
+          isRevealed:
+            Array.isArray(topic.revealedThresholdIds)
+              ? topic.revealedThresholdIds.includes(threshold.id)
+              : Boolean(threshold.revealedAt),
+        })),
       })),
       log,
     };
@@ -59,6 +71,10 @@ export class ResearchTrackerApp extends FormApplication {
     html.find("[data-action='add-participant']").on("click", (event) => this._onAddParticipant(event));
     html.find("[data-action='remove-participant']").on("click", (event) => this._onRemoveParticipant(event));
     html.find("[data-action='perform-roll']").on("click", (event) => this._onPerformRoll(event));
+    html.find("[data-action='send-reveal']").on("click", (event) => this._onSendReveal(event, false));
+    html.find("[data-action='resend-reveal']").on("click", (event) => this._onSendReveal(event, true));
+    html.find("[data-action='import-topics']").on("click", (event) => this._onImportTopics(event));
+    html.find("[data-action='export-topics']").on("click", (event) => this._onExportTopics(event));
   }
 
   /** @private */
@@ -290,6 +306,31 @@ export class ResearchTrackerApp extends FormApplication {
       roll: roll.toJSON ? roll.toJSON() : roll,
     });
     this.render();
+  }
+
+  /** @private */
+  async _onSendReveal(event, resend) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const topicId = button.closest("[data-topic-id]")?.dataset.topicId;
+    const thresholdId = button.dataset.thresholdId;
+    if (!topicId || !thresholdId) return;
+
+    await this.tracker.sendThresholdReveal(topicId, thresholdId, { resend });
+    this.render();
+  }
+
+  /** @private */
+  async _onImportTopics(event) {
+    event.preventDefault();
+    await ResearchImportExport.promptImport(this.tracker);
+    this.render();
+  }
+
+  /** @private */
+  async _onExportTopics(event) {
+    event.preventDefault();
+    await ResearchImportExport.exportTopics(this.tracker);
   }
 
   /**
