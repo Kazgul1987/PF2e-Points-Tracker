@@ -1,0 +1,18 @@
+/* Basic styling for PF2e Points Tracker UI components */
+
+.pf2e-points-tracker {
+  font-family: var(--font-primary);
+  color: var(--color-text-light-highlight);
+}
+
+.pf2e-points-tracker .tracker-header {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.pf2e-points-tracker .tracker-body {
+  padding: 0.5rem;
+  background: var(--color-bg-option);
+  border-radius: 4px;
+}
