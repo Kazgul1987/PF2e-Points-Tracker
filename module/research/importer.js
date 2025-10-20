@@ -5,6 +5,169 @@ function createLocalId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function clampNumber(value, { min = -999999, max = 999999, fallback = 0 } = {}) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(min, Math.min(max, numeric));
+}
+
+function sanitizeString(value) {
+  if (typeof value !== "string") return undefined;
+  return value.trim();
+}
+
+function sanitizeStructured(value) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return clampNumber(value);
+  if (typeof value === "boolean" || value === null) return value;
+  if (Array.isArray(value)) {
+    const sanitized = value
+      .map((entry) => sanitizeStructured(entry))
+      .filter((entry) => {
+        if (entry === undefined) return false;
+        if (Array.isArray(entry)) return entry.length > 0;
+        if (entry && typeof entry === "object") return Object.keys(entry).length > 0;
+        return true;
+      });
+    return sanitized.length ? sanitized : undefined;
+  }
+  if (value && typeof value === "object") {
+    const sanitizedObject = Object.entries(value).reduce((acc, [key, entry]) => {
+      const sanitizedEntry = sanitizeStructured(entry);
+      if (sanitizedEntry === undefined) return acc;
+      acc[key] = sanitizedEntry;
+      return acc;
+    }, {});
+    return Object.keys(sanitizedObject).length ? sanitizedObject : undefined;
+  }
+  return undefined;
+}
+
+function sanitizeLocationEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const id = entry.id ? String(entry.id) : createLocalId();
+  const name = sanitizeString(entry.name);
+  const maxPoints = clampNumber(entry.maxPoints, {
+    min: 0,
+    max: Number.MAX_SAFE_INTEGER,
+    fallback: 0,
+  });
+  const collected = clampNumber(entry.collected, {
+    min: 0,
+    max: maxPoints || Number.MAX_SAFE_INTEGER,
+    fallback: 0,
+  });
+  const payload = {
+    id,
+    maxPoints,
+    collected,
+  };
+  if (name) payload.name = name;
+  return payload;
+}
+
+function sanitizeLocationTotals(source, entries) {
+  if (source && typeof source === "object") {
+    const collected = clampNumber(source.collected, {
+      min: 0,
+      max: Number.MAX_SAFE_INTEGER,
+      fallback: 0,
+    });
+    const max = clampNumber(source.max, {
+      min: 0,
+      max: Number.MAX_SAFE_INTEGER,
+      fallback: 0,
+    });
+    return { collected, max };
+  }
+  if (Array.isArray(entries) && entries.length) {
+    const collected = entries.reduce(
+      (sum, entry) => sum + (Number.isFinite(entry.collected) ? Number(entry.collected) : 0),
+      0
+    );
+    const max = entries.reduce(
+      (sum, entry) => sum + (Number.isFinite(entry.maxPoints) ? Number(entry.maxPoints) : 0),
+      0
+    );
+    return { collected, max };
+  }
+  return undefined;
+}
+
+function buildLocationObject({ entries = [], totals } = {}) {
+  const result = {};
+  if (entries.length) result.entries = entries;
+  if (totals) result.totals = totals;
+  return Object.keys(result).length ? result : undefined;
+}
+
+function sanitizeLocations(value) {
+  const rawEntries = Array.isArray(value)
+    ? value
+    : Array.isArray(value?.entries)
+    ? value.entries
+    : [];
+  const entries = rawEntries
+    .map((entry) => sanitizeLocationEntry(entry))
+    .filter((entry) => entry);
+
+  const totalsSource =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? value.totals ?? value.locationTotals ?? value.total
+      : undefined;
+  const totals = sanitizeLocationTotals(totalsSource, entries);
+
+  return { entries, totals };
+}
+
+function sanitizeStatblock(rawStatblock, fallbackLocations) {
+  if (!rawStatblock || typeof rawStatblock !== "object") return undefined;
+  const sanitized = sanitizeStructured(rawStatblock);
+  if (!sanitized || typeof sanitized !== "object") return undefined;
+
+  if (sanitized.locations !== undefined) {
+    const { entries, totals } = sanitizeLocations(sanitized.locations);
+    const normalized = buildLocationObject({ entries, totals });
+    if (normalized) sanitized.locations = normalized;
+    else delete sanitized.locations;
+  } else if (fallbackLocations?.entries?.length || fallbackLocations?.totals) {
+    const normalized = buildLocationObject(fallbackLocations);
+    if (normalized) sanitized.locations = normalized;
+  }
+
+  if (sanitized.knowledgeChecks || sanitized.knowledge) {
+    const knowledgeSection =
+      sanitized.knowledge && typeof sanitized.knowledge === "object" && !Array.isArray(sanitized.knowledge)
+        ? { ...sanitized.knowledge }
+        : {};
+    if (Array.isArray(sanitized.knowledgeChecks)) {
+      knowledgeSection.checks = sanitized.knowledgeChecks;
+    } else if (Array.isArray(knowledgeSection.checks)) {
+      knowledgeSection.checks = knowledgeSection.checks;
+    }
+    if (Object.keys(knowledgeSection).length) sanitized.knowledge = knowledgeSection;
+    else delete sanitized.knowledge;
+    delete sanitized.knowledgeChecks;
+  }
+
+  if (sanitized.researchChecks || sanitized.research) {
+    const researchSection =
+      sanitized.research && typeof sanitized.research === "object" && !Array.isArray(sanitized.research)
+        ? { ...sanitized.research }
+        : {};
+    if (Array.isArray(sanitized.researchChecks)) {
+      researchSection.checks = sanitized.researchChecks;
+    } else if (Array.isArray(researchSection.checks)) {
+      researchSection.checks = researchSection.checks;
+    }
+    if (Object.keys(researchSection).length) sanitized.research = researchSection;
+    else delete sanitized.research;
+    delete sanitized.researchChecks;
+  }
+
+  return Object.keys(sanitized).length ? sanitized : undefined;
+}
+
 function sanitizeParticipant(participant) {
   if (!participant || typeof participant !== "object") return null;
   const id = participant.id ? String(participant.id) : createLocalId();
@@ -40,6 +203,23 @@ function sanitizeTopic(topic) {
   const name = typeof topic.name === "string" ? topic.name.trim() : "";
   if (!name) return null;
 
+  const statblockSource = topic.statblock && typeof topic.statblock === "object"
+    ? topic.statblock
+    : undefined;
+
+  const summary = sanitizeString(topic.summary ?? statblockSource?.summary);
+  const gatherInformation = sanitizeString(
+    topic.gatherInformation ?? statblockSource?.gatherInformation
+  );
+  const researchChecks = sanitizeString(
+    topic.researchChecks ??
+      statblockSource?.researchChecks ??
+      (statblockSource?.research &&
+        typeof statblockSource.research === "object"
+        ? statblockSource.research.text
+        : undefined)
+  );
+
   const thresholds = Array.isArray(topic.thresholds)
     ? topic.thresholds
         .map((entry) => sanitizeThreshold(entry))
@@ -57,19 +237,98 @@ function sanitizeTopic(topic) {
         .filter((entry) => entry)
     : [];
 
-  return {
+  const { entries: locations, totals: locationTotals } = sanitizeLocations(
+    topic.locations !== undefined ? topic.locations : statblockSource?.locations
+  );
+
+  const statblock = sanitizeStatblock(statblockSource, {
+    entries: locations,
+    totals: locationTotals,
+  });
+
+  if (statblock) {
+    if (summary !== undefined) statblock.summary = summary;
+    if (gatherInformation !== undefined) statblock.gatherInformation = gatherInformation;
+
+    const locationsPayload = buildLocationObject({
+      entries: locations,
+      totals: locationTotals,
+    });
+    if (locationsPayload) statblock.locations = locationsPayload;
+    else delete statblock.locations;
+
+    const knowledgeSection =
+      statblock.knowledge && typeof statblock.knowledge === "object" && !Array.isArray(statblock.knowledge)
+        ? { ...statblock.knowledge }
+        : {};
+    if (Array.isArray(statblock.knowledgeChecks)) {
+      knowledgeSection.checks = statblock.knowledgeChecks;
+    } else if (Array.isArray(statblock.knowledge?.checks)) {
+      knowledgeSection.checks = statblock.knowledge.checks;
+    }
+    if (Object.keys(knowledgeSection).length) {
+      statblock.knowledge = knowledgeSection;
+    } else {
+      delete statblock.knowledge;
+    }
+    delete statblock.knowledgeChecks;
+
+    const researchSection =
+      statblock.research && typeof statblock.research === "object" && !Array.isArray(statblock.research)
+        ? { ...statblock.research }
+        : {};
+    if (Array.isArray(statblock.researchChecks)) {
+      researchSection.checks = statblock.researchChecks;
+    } else if (Array.isArray(statblock.research?.checks)) {
+      researchSection.checks = statblock.research.checks;
+    }
+    if (researchChecks !== undefined) researchSection.text = researchChecks;
+    if (Object.keys(researchSection).length) {
+      statblock.research = researchSection;
+    } else {
+      delete statblock.research;
+    }
+    delete statblock.researchChecks;
+  }
+
+  const payload = {
     ...(topic.id ? { id: String(topic.id) } : {}),
     name,
     progress: Number.isFinite(topic.progress) ? Number(topic.progress) : 0,
     target: Number.isFinite(topic.target) ? Number(topic.target) : 0,
     difficulty:
-      typeof topic.difficulty === "string" ? topic.difficulty : undefined,
-    skill: typeof topic.skill === "string" ? topic.skill : undefined,
-    summary: typeof topic.summary === "string" ? topic.summary : undefined,
+      typeof topic.difficulty === "string" ? topic.difficulty.trim() : undefined,
+    skill: typeof topic.skill === "string" ? topic.skill.trim() : undefined,
+    ...(summary !== undefined ? { summary } : {}),
+    ...(gatherInformation !== undefined ? { gatherInformation } : {}),
+    ...(researchChecks !== undefined ? { researchChecks } : {}),
     thresholds,
     revealedThresholdIds: revealed,
     participants,
+    locations,
+    ...(locationTotals ? { locationTotals } : {}),
+    ...(statblock ? { statblock } : {}),
   };
+
+  const knowledgeChecks = Array.isArray(statblock?.knowledgeChecks)
+    ? statblock.knowledgeChecks
+    : Array.isArray(statblock?.knowledge?.checks)
+    ? statblock.knowledge.checks
+    : undefined;
+  if (Array.isArray(knowledgeChecks) && knowledgeChecks.length) {
+    payload.knowledgeChecks = knowledgeChecks;
+  }
+
+  const researchCheckEntries = Array.isArray(statblock?.researchChecks)
+    ? statblock.researchChecks
+    : Array.isArray(statblock?.research?.checks)
+    ? statblock.research.checks
+    : undefined;
+  if (Array.isArray(researchCheckEntries) && researchCheckEntries.length) {
+    payload.researchCheckEntries = researchCheckEntries;
+  }
+
+  return payload;
 }
 
 function sanitizePayload(payload) {
@@ -95,9 +354,19 @@ async function mergeTopic(tracker, topicData) {
     difficulty: topicData.difficulty,
     skill: topicData.skill,
     summary: topicData.summary,
+    gatherInformation: topicData.gatherInformation,
+    researchChecks: topicData.researchChecks,
     participants: topicData.participants,
     thresholds: topicData.thresholds,
+    locations: topicData.locations,
     revealedThresholdIds: topicData.revealedThresholdIds,
+    ...(topicData.statblock ? { statblock: topicData.statblock } : {}),
+    ...(Array.isArray(topicData.knowledgeChecks)
+      ? { knowledgeChecks: topicData.knowledgeChecks }
+      : {}),
+    ...(Array.isArray(topicData.researchCheckEntries)
+      ? { researchCheckEntries: topicData.researchCheckEntries }
+      : {}),
   };
 
   if (existing) {
@@ -112,24 +381,99 @@ async function mergeTopic(tracker, topicData) {
 function buildExportPayload(tracker) {
   const topics = tracker.getTopics().map((topic) => {
     const { progressPercent, ...rest } = topic;
+
+    const summary = sanitizeString(rest.summary ?? "") ?? "";
+    const gatherInformation = sanitizeString(rest.gatherInformation ?? "") ?? "";
+    const researchChecks = sanitizeString(rest.researchChecks ?? "") ?? "";
+
+    const participants = (rest.participants ?? [])
+      .map((participant) => sanitizeParticipant(participant))
+      .filter((participant) => participant);
+
+    const thresholds = (rest.thresholds ?? [])
+      .map((threshold) => sanitizeThreshold(threshold))
+      .filter((threshold) => threshold);
+
+    const { entries: locations, totals: locationTotals } = sanitizeLocations(
+      rest.locations ?? []
+    );
+
+    const statblockSource = rest.statblock && typeof rest.statblock === "object"
+      ? rest.statblock
+      : undefined;
+    const baseStatblock = sanitizeStatblock(statblockSource, {
+      entries: locations,
+      totals: locationTotals,
+    }) ?? {};
+
+    const knowledgeChecksData = sanitizeStructured(rest.knowledgeChecks);
+    if (Array.isArray(knowledgeChecksData)) {
+      const knowledgeSection =
+        baseStatblock.knowledge && typeof baseStatblock.knowledge === "object" && !Array.isArray(baseStatblock.knowledge)
+          ? { ...baseStatblock.knowledge, checks: knowledgeChecksData }
+          : { checks: knowledgeChecksData };
+      baseStatblock.knowledge = knowledgeSection;
+    }
+
+    const researchChecksData = sanitizeStructured(rest.researchCheckEntries);
+    if (Array.isArray(researchChecksData)) {
+      const researchSection =
+        baseStatblock.research && typeof baseStatblock.research === "object" && !Array.isArray(baseStatblock.research)
+          ? { ...baseStatblock.research, checks: researchChecksData }
+          : { checks: researchChecksData };
+      baseStatblock.research = researchSection;
+    }
+
+    delete baseStatblock.knowledgeChecks;
+    delete baseStatblock.researchChecks;
+
+    if (summary !== undefined) baseStatblock.summary = summary;
+    if (gatherInformation !== undefined)
+      baseStatblock.gatherInformation = gatherInformation;
+    if (researchChecks !== undefined) {
+      const existingResearch =
+        baseStatblock.research &&
+        typeof baseStatblock.research === "object" &&
+        !Array.isArray(baseStatblock.research)
+          ? baseStatblock.research
+          : undefined;
+      const researchSection = existingResearch ? { ...existingResearch } : {};
+      researchSection.text = researchChecks;
+      baseStatblock.research = researchSection;
+    }
+    const locationPayload = buildLocationObject({ entries: locations, totals: locationTotals });
+    if (locationPayload) baseStatblock.locations = locationPayload;
+    else delete baseStatblock.locations;
+
+    const statblock = Object.keys(baseStatblock).length ? baseStatblock : undefined;
+
+    const exportedKnowledgeChecks = Array.isArray(statblock?.knowledge?.checks)
+      ? statblock.knowledge.checks
+      : Array.isArray(knowledgeChecksData)
+      ? knowledgeChecksData
+      : undefined;
+    const exportedResearchChecks = Array.isArray(statblock?.research?.checks)
+      ? statblock.research.checks
+      : Array.isArray(researchChecksData)
+      ? researchChecksData
+      : undefined;
+
     return {
       ...rest,
-      participants: (rest.participants ?? []).map((participant) => ({
-        id: participant.id,
-        name: participant.name,
-        actorUuid: participant.actorUuid,
-        skill: participant.skill,
-        role: participant.role,
-      })),
-      thresholds: (rest.thresholds ?? []).map((threshold) => ({
-        id: threshold.id,
-        points: threshold.points,
-        gmText: threshold.gmText ?? "",
-        playerText: threshold.playerText ?? "",
-        revealedAt: Number.isFinite(threshold.revealedAt)
-          ? Number(threshold.revealedAt)
-          : null,
-      })),
+      summary,
+      gatherInformation,
+      researchChecks,
+      participants,
+      thresholds,
+      locations,
+      ...(locationTotals ? { locationTotals } : {}),
+      ...(statblock ? { statblock } : {}),
+      ...(Array.isArray(exportedKnowledgeChecks) && exportedKnowledgeChecks.length
+        ? { knowledgeChecks: exportedKnowledgeChecks }
+        : {}),
+      ...(Array.isArray(exportedResearchChecks) && exportedResearchChecks.length
+        ? { researchCheckEntries: exportedResearchChecks }
+        : {}),
     };
   });
   return { topics };
