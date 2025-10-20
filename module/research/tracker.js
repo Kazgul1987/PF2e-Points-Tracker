@@ -40,6 +40,15 @@ function createId() {
  */
 
 /**
+ * @typedef {object} ResearchRevealThreshold
+ * @property {string} id
+ * @property {number} points
+ * @property {string} [gmText]
+ * @property {string} [playerText]
+ * @property {number|null} [revealedAt]
+ */
+
+/**
  * @typedef {object} ResearchTopic
  * @property {string} id
  * @property {string} name
@@ -49,6 +58,8 @@ function createId() {
  * @property {string} [skill]
  * @property {ResearchParticipant[]} participants
  * @property {string} [summary]
+ * @property {ResearchRevealThreshold[]} thresholds
+ * @property {string[]} revealedThresholdIds
  */
 
 /**
@@ -116,10 +127,22 @@ export class ResearchTracker {
     if (!this._initialized || !game?.settings?.set) return;
 
     const payload = {
-      topics: this.getTopics().map((topic) => ({
-        ...topic,
-        participants: topic.participants.map((p) => ({ ...p })),
-      })),
+      topics: this.getTopics().map((topic) => {
+        const { progressPercent, thresholds, ...rest } = topic;
+        return {
+          ...rest,
+          thresholds: (thresholds ?? []).map((threshold) => ({
+            id: threshold.id,
+            points: threshold.points,
+            gmText: threshold.gmText ?? "",
+            playerText: threshold.playerText ?? "",
+            revealedAt: Number.isFinite(threshold.revealedAt)
+              ? Number(threshold.revealedAt)
+              : threshold.revealedAt ?? null,
+          })),
+          participants: topic.participants.map((p) => ({ ...p })),
+        };
+      }),
       log: this.getLog().map((entry) => ({ ...entry })),
     };
     await game.settings.set(this.moduleId, this.settingKey, payload);
@@ -151,13 +174,18 @@ export class ResearchTracker {
     const id = data.id ?? createId();
     const topic = this._normalizeTopic({
       id,
-      name: data.name ?? game.i18n.localize("PF2E.PointsTracker.Research.DefaultName"),
+      name:
+        data.name ?? game.i18n.localize("PF2E.PointsTracker.Research.DefaultName"),
       progress: Number.isFinite(data.progress) ? Number(data.progress) : 0,
       target: Number.isFinite(data.target) ? Number(data.target) : 10,
       difficulty: data.difficulty ?? "standard",
       skill: data.skill ?? "society",
       summary: data.summary ?? "",
       participants: Array.isArray(data.participants) ? data.participants : [],
+      thresholds: Array.isArray(data.thresholds) ? data.thresholds : [],
+      revealedThresholdIds: Array.isArray(data.revealedThresholdIds)
+        ? data.revealedThresholdIds
+        : [],
     });
     this.topics.set(id, topic);
     await this._saveState();
@@ -173,7 +201,7 @@ export class ResearchTracker {
   async updateTopic(topicId, updates) {
     const topic = this.topics.get(topicId);
     if (!topic) return undefined;
-    const merged = this._normalizeTopic({ ...topic, ...updates });
+    const merged = this._normalizeTopic({ ...topic, ...updates, id: topicId });
     this.topics.set(topicId, merged);
     await this._saveState();
     return this.getTopic(topicId);
@@ -257,6 +285,8 @@ export class ResearchTracker {
         roll,
       });
     }
+
+    await this._autoRevealThresholds(topicId);
   }
 
   /**
@@ -315,6 +345,169 @@ export class ResearchTracker {
   }
 
   /**
+   * Manually send or resend a reveal for a threshold.
+   * @param {string} topicId
+   * @param {string} thresholdId
+   * @param {object} [options]
+   * @param {boolean} [options.resend=false]
+   */
+  async sendThresholdReveal(topicId, thresholdId, { resend = false } = {}) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+    const thresholds = Array.isArray(topic.thresholds) ? topic.thresholds : [];
+    const threshold = thresholds.find((entry) => entry.id === thresholdId);
+    if (!threshold) return;
+
+    const revealed = new Set(
+      Array.isArray(topic.revealedThresholdIds) ? topic.revealedThresholdIds : []
+    );
+    const alreadyRevealed = revealed.has(thresholdId);
+    if (!alreadyRevealed) {
+      revealed.add(thresholdId);
+      threshold.revealedAt = Date.now();
+      topic.revealedThresholdIds = Array.from(revealed);
+      this.topics.set(topicId, this._normalizeTopic(topic));
+      await this._saveState();
+    }
+
+    const normalizedTopic = this.getTopic(topicId);
+    const normalizedThreshold = normalizedTopic?.thresholds?.find(
+      (entry) => entry.id === threshold.id
+    );
+
+    await this._notifyThresholdReveal(
+      normalizedTopic,
+      normalizedThreshold ?? threshold,
+      {
+        resend: resend && alreadyRevealed,
+      }
+    );
+  }
+
+  /**
+   * Ensure any thresholds met by current progress are automatically revealed.
+   * @param {string} topicId
+   */
+  async _autoRevealThresholds(topicId) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const progress = Number(topic.progress ?? 0);
+    const thresholds = Array.isArray(topic.thresholds) ? topic.thresholds : [];
+    const revealed = new Set(
+      Array.isArray(topic.revealedThresholdIds) ? topic.revealedThresholdIds : []
+    );
+
+    const newlyUnlocked = thresholds.filter((threshold) => {
+      const cost = Number.isFinite(threshold.points)
+        ? Number(threshold.points)
+        : 0;
+      return progress >= cost && !revealed.has(threshold.id);
+    });
+
+    if (!newlyUnlocked.length) return;
+
+    const timestamp = Date.now();
+    newlyUnlocked.forEach((threshold) => {
+      revealed.add(threshold.id);
+      threshold.revealedAt = timestamp;
+    });
+    topic.revealedThresholdIds = Array.from(revealed);
+    this.topics.set(topicId, this._normalizeTopic(topic));
+    await this._saveState();
+
+    for (const threshold of newlyUnlocked) {
+      const normalizedTopic = this.getTopic(topicId);
+      const normalizedThreshold = normalizedTopic?.thresholds?.find(
+        (entry) => entry.id === threshold.id
+      );
+      await this._notifyThresholdReveal(
+        normalizedTopic,
+        normalizedThreshold ?? threshold,
+        {
+          resend: false,
+        }
+      );
+      await this.recordLog({
+        topicId,
+        message:
+          game?.i18n?.format?.(
+            "PF2E.PointsTracker.Research.RevealUnlockedLog",
+            {
+              topic: normalizedTopic?.name ?? "",
+              points: threshold.points ?? 0,
+            }
+          ) ?? `Unlocked reveal at ${threshold.points} RP for ${normalizedTopic?.name ?? ""}.`,
+      });
+    }
+  }
+
+  /**
+   * Notify the table that a threshold has been revealed.
+   * @param {ResearchTopic} topic
+   * @param {ResearchRevealThreshold} threshold
+   * @param {object} [options]
+   * @param {boolean} [options.resend]
+   */
+  async _notifyThresholdReveal(topic, threshold, { resend = false } = {}) {
+    if (!topic || !threshold) return;
+    if (!game?.users) return;
+
+    const headerText =
+      game?.i18n?.format?.("PF2E.PointsTracker.Research.RevealMessageHeader", {
+        topic: topic.name,
+        points: threshold.points ?? 0,
+      }) ?? `${topic.name} - ${threshold.points ?? 0} RP`;
+
+    const playerRecipients = game.users
+      .filter((user) => !user.isGM)
+      .map((user) => user.id);
+    const gmRecipients = ChatMessage?.getWhisperRecipients
+      ? ChatMessage.getWhisperRecipients("GM").map((user) => user.id)
+      : [];
+
+    const playerText = threshold.playerText?.trim();
+    if (playerText) {
+      const enrichedPlayer = await this._enrichText(playerText);
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: topic.name },
+        content: `<div class="pf2e-research-reveal pf2e-research-reveal--player"><p><strong>${headerText}</strong></p>${enrichedPlayer}</div>`,
+        whisper: playerRecipients.length ? playerRecipients : undefined,
+      });
+    }
+
+    const gmText = threshold.gmText?.trim();
+    if (gmText && gmRecipients.length) {
+      const enrichedGm = await this._enrichText(gmText);
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: topic.name },
+        content: `<div class="pf2e-research-reveal pf2e-research-reveal--gm"><p><strong>${headerText}</strong></p>${enrichedGm}</div>`,
+        whisper: gmRecipients,
+      });
+    }
+  }
+
+  /**
+   * Attempt to enrich HTML content for chat display.
+   * @param {string} text
+   * @returns {Promise<string>}
+   */
+  async _enrichText(text) {
+    if (!text) return "";
+    if (globalThis.TextEditor?.enrichHTML) {
+      try {
+        const enriched = await TextEditor.enrichHTML(text, { async: true });
+        if (typeof enriched === "string") return enriched;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    return text;
+  }
+
+  /**
    * Normalize a topic, ensuring the expected shape.
    * @param {Partial<ResearchTopic>} topic
    * @returns {ResearchTopic}
@@ -323,6 +516,10 @@ export class ResearchTracker {
     const target = Number.isFinite(topic.target) ? Number(topic.target) : 0;
     const progress = Number.isFinite(topic.progress) ? Number(topic.progress) : 0;
     const participants = Array.isArray(topic.participants) ? topic.participants : [];
+    const { thresholds, revealedThresholdIds } = this._normalizeThresholds(
+      topic,
+      progress
+    );
     const percent = target > 0 ? Math.min((progress / target) * 100, 100) : 0;
     return {
       id: String(topic.id ?? createId()),
@@ -333,8 +530,73 @@ export class ResearchTracker {
       skill: topic.skill ?? "",
       summary: topic.summary ?? "",
       participants,
+      thresholds,
+      revealedThresholdIds,
       progressPercent: Math.round(percent * 100) / 100,
     };
+  }
+
+  /**
+   * Normalize the threshold structure on a topic.
+   * @param {Partial<ResearchTopic>} topic
+   * @param {number} progress
+   * @returns {{thresholds: ResearchRevealThreshold[], revealedThresholdIds: string[]}}
+   */
+  _normalizeThresholds(topic, progress) {
+    const rawThresholds = Array.isArray(topic.thresholds)
+      ? topic.thresholds.slice()
+      : [];
+    const withIds = rawThresholds.map((threshold, index) => {
+      const fallbackId = `${topic.id ?? "threshold"}-${index}`;
+      const rawId = threshold?.id ?? fallbackId;
+      return {
+        id: String(rawId || createId()),
+        points: Number.isFinite(threshold?.points)
+          ? Number(threshold.points)
+          : 0,
+        gmText: threshold?.gmText ?? "",
+        playerText: threshold?.playerText ?? "",
+        revealedAt: Number.isFinite(threshold?.revealedAt)
+          ? Number(threshold.revealedAt)
+          : null,
+        order: index,
+      };
+    });
+
+    withIds.sort((a, b) => {
+      if (a.points === b.points) return a.order - b.order;
+      return a.points - b.points;
+    });
+
+    const rawRevealed = Array.isArray(topic.revealedThresholdIds)
+      ? topic.revealedThresholdIds
+      : [];
+    const validIds = new Set(withIds.map((threshold) => threshold.id));
+    const revealedSet = new Set(
+      rawRevealed
+        .map((id) => String(id))
+        .filter((id) => validIds.has(id))
+    );
+
+    const normalizedThresholds = withIds.map((threshold) => {
+      const isRevealed = revealedSet.has(threshold.id);
+      return {
+        id: threshold.id,
+        points: threshold.points,
+        gmText: threshold.gmText,
+        playerText: threshold.playerText,
+        revealedAt:
+          Number.isFinite(threshold.revealedAt) && threshold.revealedAt !== null
+            ? Number(threshold.revealedAt)
+            : isRevealed
+            ? threshold.revealedAt ?? null
+            : null,
+      };
+    });
+
+    const normalizedRevealed = Array.from(revealedSet);
+
+    return { thresholds: normalizedThresholds, revealedThresholdIds: normalizedRevealed };
   }
 }
 

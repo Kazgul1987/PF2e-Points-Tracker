@@ -1,5 +1,6 @@
 import { createResearchTracker } from "./research/tracker.js";
 import { ResearchTrackerApp } from "./apps/research-tracker-app.js";
+import { ResearchImportExport } from "./research/importer.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const SETTING_KEY = "research-tracker-state";
@@ -16,6 +17,8 @@ Hooks.once("init", () => {
     Object.assign(moduleData.api, {
       tracker,
       openResearchTracker: () => ResearchTrackerApp.open(tracker),
+      importResearchTopics: () => ResearchImportExport.promptImport(tracker),
+      exportResearchTopics: () => ResearchImportExport.exportTopics(tracker),
     });
   }
 });
@@ -27,6 +30,8 @@ Hooks.once("ready", async () => {
   game.pf2ePointsTracker = {
     tracker,
     open: () => ResearchTrackerApp.open(tracker),
+    import: () => ResearchImportExport.promptImport(tracker),
+    export: () => ResearchImportExport.exportTopics(tracker),
   };
 });
 

@@ -29,6 +29,12 @@
   align-items: center;
 }
 
+.research-tracker__actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .research-tracker__create {
   display: inline-flex;
   align-items: center;
@@ -70,6 +76,82 @@
 .research-topic__progress-bar {
   height: 100%;
   background: linear-gradient(90deg, #2a9d8f, #264653);
+}
+
+.research-topic__summary {
+  margin: 0.5rem 0;
+}
+
+.research-topic__thresholds {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.research-topic__thresholds header {
+  margin-bottom: 0.5rem;
+}
+
+.research-topic__thresholds ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.research-threshold {
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.research-threshold.is-unlocked {
+  border: 1px solid rgba(42, 157, 143, 0.6);
+}
+
+.research-threshold.is-revealed {
+  border-color: rgba(244, 162, 97, 0.8);
+}
+
+.research-threshold__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.research-threshold__status {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.research-threshold__player-text,
+.research-threshold__player-preview,
+.research-threshold__gm-text {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.research-threshold__player-preview strong,
+.research-threshold__gm-text strong {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.15rem;
+  opacity: 0.7;
+}
+
+.research-threshold__controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .research-topic__participants header {
