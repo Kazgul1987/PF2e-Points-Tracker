@@ -116,7 +116,7 @@ export class ResearchTrackerApp extends FormApplication {
                   skill: entry.skill,
                 })
               : "";
-            const dcLabel = entry.dc !== null
+            const dcLabel = isGM && entry.dc !== null
               ? game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", {
                   dc: entry.dc,
                 })
