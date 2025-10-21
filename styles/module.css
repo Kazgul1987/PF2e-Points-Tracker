@@ -155,7 +155,7 @@
 .research-location-editor-row__fields {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 90px 120px 120px minmax(0, 1.6fr);
   flex: 1;
 }
 
@@ -235,6 +235,28 @@
   font-weight: 600;
 }
 
+.research-location__details {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.research-location__detail {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.research-location__description {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
 .research-location__progress {
   display: flex;
   flex-direction: column;
@@ -257,6 +279,23 @@
 .research-location__progress-label {
   font-size: 0.85rem;
   opacity: 0.75;
+}
+
+.research-location__chat {
+  margin-top: 0.5rem;
+}
+
+.research-location__chat button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.research-location__chat button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .research-topic__location-actions-header {

@@ -124,6 +124,23 @@
                     <tr class="research-location" data-location-id="{{location.id}}">
                       <th scope="row">
                         <span class="research-location__name">{{location.name}}</span>
+                        {{#if location.skillLabel}}
+                          <div class="research-location__details">
+                            <span class="research-location__detail">{{location.skillLabel}}</span>
+                            {{#if location.dcLabel}}
+                              <span class="research-location__detail">{{location.dcLabel}}</span>
+                            {{/if}}
+                          </div>
+                        {{else}}
+                          {{#if location.dcLabel}}
+                            <div class="research-location__details">
+                              <span class="research-location__detail">{{location.dcLabel}}</span>
+                            </div>
+                          {{/if}}
+                        {{/if}}
+                        {{#if location.description}}
+                          <p class="research-location__description">{{location.description}}</p>
+                        {{/if}}
                       </th>
                       <td>
                         <div class="research-location__progress">
@@ -133,6 +150,17 @@
                           <div class="research-location__progress-label">
                             {{localize "PF2E.PointsTracker.Research.LocationProgress" collected=location.collected max=location.displayMax}}
                           </div>
+                        </div>
+                        <div class="research-location__chat">
+                          <button
+                            type="button"
+                            data-action="post-location-check"
+                            data-location-id="{{location.id}}"
+                            {{#unless location.hasCheckData}}disabled{{/unless}}
+                          >
+                            <i class="fas fa-comment-dots"></i>
+                            {{localize "PF2E.PointsTracker.Research.LocationPostCheck"}}
+                          </button>
                         </div>
                       </td>
                       {{#if ../isGM}}

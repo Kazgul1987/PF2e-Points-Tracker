@@ -57,12 +57,19 @@ function sanitizeLocationEntry(entry) {
     max: maxPoints || Number.MAX_SAFE_INTEGER,
     fallback: 0,
   });
+  const skill = sanitizeString(entry.skill);
+  const dcNumber = Number(entry.dc);
+  const dc = Number.isFinite(dcNumber) && dcNumber > 0 ? dcNumber : undefined;
+  const description = sanitizeString(entry.description);
   const payload = {
     id,
     maxPoints,
     collected,
   };
   if (name) payload.name = name;
+  if (skill) payload.skill = skill;
+  if (dc !== undefined) payload.dc = dc;
+  if (description) payload.description = description;
   return payload;
 }
 
