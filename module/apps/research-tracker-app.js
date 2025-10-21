@@ -1378,8 +1378,10 @@ export class ResearchTrackerApp extends FormApplication {
     const locationName =
       location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
     const createInlineForCheck = (check) => {
-      const parameters = [`type:skill`, `skill:${check.skill}`, `dc:${check.dc}`];
       const skillKey = typeof check.skill === "string" ? check.skill : "";
+      const skillParameter =
+        skillKey && skillKey.trim() ? `statistic:skill:${skillKey.toLowerCase()}` : null;
+      const parameters = [skillParameter, `dc:${check.dc}`].filter((parameter) => parameter);
       const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
       if (typeof skillConfig === "string" && skillConfig.trim()) {
         return `@Check[${parameters.join(",")}]{${
