@@ -35,6 +35,7 @@ export class ResearchTrackerApp extends FormApplication {
     super(tracker, options);
     this.tracker = tracker;
     this._dragDropHandlers = [];
+    this._expandedTopics = new Set();
   }
 
   static get defaultOptions() {
@@ -54,6 +55,15 @@ export class ResearchTrackerApp extends FormApplication {
    */
   async getData() {
     const topics = this.tracker.getTopics();
+    const topicIds = new Set();
+    for (const topic of topics) {
+      if (topic?.id) topicIds.add(topic.id);
+    }
+    for (const topicId of Array.from(this._expandedTopics)) {
+      if (!topicIds.has(topicId)) {
+        this._expandedTopics.delete(topicId);
+      }
+    }
     const log = this.tracker
       .getLog()
       .slice()
@@ -185,6 +195,7 @@ export class ResearchTrackerApp extends FormApplication {
         completed: topic.target > 0 && topic.progress >= topic.target,
         thresholds,
         locations,
+        isCollapsed: !this._expandedTopics.has(topic.id),
         locationTotals: {
           collected: totalCollected,
           max: totalMax,
@@ -216,6 +227,10 @@ export class ResearchTrackerApp extends FormApplication {
       .find("[data-action='create-topic']")
       .off("click")
       .on("click", (event) => this._onCreateTopic(event));
+    html
+      .find("[data-action='toggle-topic']")
+      .off("click")
+      .on("click", (event) => this._onToggleTopic(event));
     html
       .find("[data-action='edit-topic']")
       .off("click")
@@ -274,6 +289,34 @@ export class ResearchTrackerApp extends FormApplication {
       .find("[data-action='remove-assigned-actor']")
       .off("click")
       .on("click", (event) => this._onRemoveAssignedActor(event));
+  }
+
+  /** @private */
+  _onToggleTopic(event) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const topicElement = button.closest("[data-topic-id]");
+    if (!topicElement) return;
+
+    const topicId = topicElement.dataset.topicId;
+    if (!topicId) return;
+
+    const body = topicElement.querySelector("[data-topic-body]");
+    if (!body) return;
+
+    const shouldCollapse = !body.classList.contains("is-collapsed");
+    body.classList.toggle("is-collapsed", shouldCollapse);
+    button.setAttribute("aria-expanded", shouldCollapse ? "false" : "true");
+
+    const labelKey = shouldCollapse
+      ? "PF2E.PointsTracker.Research.ExpandTopic"
+      : "PF2E.PointsTracker.Research.CollapseTopic";
+    const label = game.i18n?.localize?.(labelKey) ?? labelKey;
+    button.setAttribute("title", label);
+    button.setAttribute("aria-label", label);
+
+    if (shouldCollapse) this._expandedTopics.delete(topicId);
+    else this._expandedTopics.add(topicId);
   }
 
   /** @private */

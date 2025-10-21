@@ -61,11 +61,61 @@
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.research-topic__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.research-topic__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-dark);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms ease-in-out, border-color 120ms ease-in-out;
+}
+
+.research-topic__toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.research-topic__toggle:focus-visible {
+  outline: 2px solid var(--color-border-highlight, #ffffff);
+  outline-offset: 2px;
+}
+
+.research-topic__toggle-icon {
+  transition: transform 160ms ease-in-out;
+}
+
+.research-topic__toggle[aria-expanded="true"] .research-topic__toggle-icon {
+  transform: rotate(90deg);
 }
 
 .research-topic__controls button {
   margin-left: 0.35rem;
+}
+
+.research-topic__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.research-topic__body.is-collapsed {
+  display: none;
 }
 
 .research-topic__progress {
