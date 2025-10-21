@@ -46,16 +46,36 @@ Hooks.once("ready", async () => {
 });
 
 Hooks.on("getSceneControlButtons", (controls) => {
-  const tokenControls = controls.find((control) => control.name === "token");
-  if (!tokenControls) return;
-  if (tokenControls.tools.some((tool) => tool.name === "research-tracker")) return;
+  const localizedTitle = game.i18n.localize("PF2E.PointsTracker.Research.Title");
 
-  tokenControls.tools.push({
-    name: "research-tracker",
-    title: game.i18n.localize("PF2E.PointsTracker.Research.Title"),
+  const tokenControls = controls.find((control) => control.name === "token");
+  if (tokenControls && !tokenControls.tools.some((tool) => tool.name === "research-tracker")) {
+    tokenControls.tools.push({
+      name: "research-tracker",
+      title: localizedTitle,
+      icon: "fas fa-flask",
+      onClick: () => ResearchTrackerApp.open(tracker),
+      button: true,
+    });
+  }
+
+  const existingControl = controls.find((control) => control.name === "pf2e-points-tracker");
+  if (existingControl) return;
+
+  controls.push({
+    name: "pf2e-points-tracker",
+    title: localizedTitle,
     icon: "fas fa-flask",
-    onClick: () => ResearchTrackerApp.open(tracker),
-    button: true,
+    layer: "TokenLayer",
+    tools: [
+      {
+        name: "research-tracker",
+        title: localizedTitle,
+        icon: "fas fa-flask",
+        onClick: () => ResearchTrackerApp.open(tracker),
+        button: true,
+      },
+    ],
   });
 });
 
