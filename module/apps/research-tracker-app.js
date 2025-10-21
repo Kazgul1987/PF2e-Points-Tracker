@@ -15,7 +15,7 @@ export class ResearchTrackerApp extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "research-tracker-app",
-      template: `modules/${MODULE_ID}/templates/research-tracker.hbs`,
+      template: `modules/${MODULE_ID}/module/templates/research-tracker.hbs`,
       title: game.i18n.localize("PF2E.PointsTracker.Research.Title"),
       width: 720,
       height: "auto",
