@@ -861,7 +861,14 @@ export class ResearchTrackerApp extends FormApplication {
           .filter((entry) => entry.uuid);
         const checks = Array.from(form.querySelectorAll("[data-check-entry]"))
           .map((row) => {
-            const skill = row.querySelector("[data-check-field='skill']")?.value?.trim();
+            const skillElement = row.querySelector("[data-check-field='skill']");
+            const rawSkill = skillElement?.value;
+            const skill =
+              typeof rawSkill === "string"
+                ? rawSkill.trim()
+                : rawSkill !== undefined && rawSkill !== null
+                ? String(rawSkill).trim()
+                : "";
             const dcRaw = row.querySelector("[data-check-field='dc']")?.value;
             const dcNumeric = Number(dcRaw);
             const hasDc = Number.isFinite(dcNumeric) && dcNumeric > 0;
@@ -1045,7 +1052,14 @@ export class ResearchTrackerApp extends FormApplication {
           .filter((entry) => entry.uuid);
         const checks = Array.from(form.querySelectorAll("[data-check-entry]"))
           .map((row) => {
-            const skill = row.querySelector("[data-check-field='skill']")?.value?.trim();
+            const skillElement = row.querySelector("[data-check-field='skill']");
+            const rawSkill = skillElement?.value;
+            const skill =
+              typeof rawSkill === "string"
+                ? rawSkill.trim()
+                : rawSkill !== undefined && rawSkill !== null
+                ? String(rawSkill).trim()
+                : "";
             const dcRaw = row.querySelector("[data-check-field='dc']")?.value;
             const dcNumeric = Number(dcRaw);
             const hasDc = Number.isFinite(dcNumeric) && dcNumeric > 0;
@@ -1540,6 +1554,11 @@ export class ResearchTrackerApp extends FormApplication {
 
     container.innerHTML = "";
 
+    const pf2eSkills =
+      game?.system?.id === "pf2e" && CONFIG?.PF2E?.skills
+        ? CONFIG.PF2E.skills
+        : null;
+
     const createInput = (type, value) => {
       const input = document.createElement("input");
       input.type = type;
@@ -1558,9 +1577,36 @@ export class ResearchTrackerApp extends FormApplication {
       row.classList.add("research-location-check-editor__row");
       row.dataset.checkEntry = "true";
 
-      const skillInput = createInput("text", values?.skill ?? "");
-      skillInput.dataset.checkField = "skill";
-      skillInput.placeholder = skillLabel;
+      let skillInput;
+      if (pf2eSkills) {
+        skillInput = document.createElement("select");
+        skillInput.dataset.checkField = "skill";
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = skillLabel;
+        skillInput.appendChild(emptyOption);
+        for (const [skillKey, skillName] of Object.entries(pf2eSkills)) {
+          const option = document.createElement("option");
+          option.value = skillKey;
+          option.textContent = skillName;
+          skillInput.appendChild(option);
+        }
+        const selectedValue = values?.skill ?? "";
+        if (selectedValue) {
+          skillInput.value = selectedValue;
+          if (skillInput.value !== selectedValue) {
+            const customOption = document.createElement("option");
+            customOption.value = selectedValue;
+            customOption.textContent = selectedValue;
+            skillInput.appendChild(customOption);
+            skillInput.value = selectedValue;
+          }
+        }
+      } else {
+        skillInput = createInput("text", values?.skill ?? "");
+        skillInput.dataset.checkField = "skill";
+        skillInput.placeholder = skillLabel;
+      }
 
       const dcValue = values?.dc ?? "";
       const dcInput = createInput("number", dcValue ?? "");
