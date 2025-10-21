@@ -340,32 +340,35 @@
     <p class="research-tracker__empty">{{localize "PF2E.PointsTracker.Research.NoTopics"}}</p>
   {{/if}}
 
-  <section class="research-tracker__log">
-    <header>
+  <details class="research-tracker__log">
+    <summary class="research-tracker__log-summary">
+      <span class="research-tracker__log-icon" aria-hidden="true"></span>
       <h3>{{localize "PF2E.PointsTracker.Research.Log"}}</h3>
-    </header>
-    {{#if log.length}}
-      <ul>
-        {{#each log as |entry|}}
-          <li>
-            <div class="log-entry__header">
-              <time>{{entry.timestampFormatted}}</time>
-              {{#if entry.actorName}}
-                <span class="log-entry__actor">{{entry.actorName}}</span>
+    </summary>
+    <div class="research-tracker__log-content">
+      {{#if log.length}}
+        <ul>
+          {{#each log as |entry|}}
+            <li>
+              <div class="log-entry__header">
+                <time>{{entry.timestampFormatted}}</time>
+                {{#if entry.actorName}}
+                  <span class="log-entry__actor">{{entry.actorName}}</span>
+                {{/if}}
+                {{#if entry.points}}
+                  <span class="log-entry__points">{{entry.points}}</span>
+                {{/if}}
+              </div>
+              <p class="log-entry__message">{{entry.message}}</p>
+              {{#if entry.rollSummary}}
+                <p class="log-entry__roll">{{entry.rollSummary}}</p>
               {{/if}}
-              {{#if entry.points}}
-                <span class="log-entry__points">{{entry.points}}</span>
-              {{/if}}
-            </div>
-            <p class="log-entry__message">{{entry.message}}</p>
-            {{#if entry.rollSummary}}
-              <p class="log-entry__roll">{{entry.rollSummary}}</p>
-            {{/if}}
-          </li>
-        {{/each}}
-      </ul>
-    {{else}}
-      <p class="research-tracker__no-log">{{localize "PF2E.PointsTracker.Research.NoLog"}}</p>
-    {{/if}}
-  </section>
+            </li>
+          {{/each}}
+        </ul>
+      {{else}}
+        <p class="research-tracker__no-log">{{localize "PF2E.PointsTracker.Research.NoLog"}}</p>
+      {{/if}}
+    </div>
+  </details>
 </section>
