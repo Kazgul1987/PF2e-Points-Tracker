@@ -74,6 +74,85 @@ function normalizeAssignedActors(raw) {
   return normalized;
 }
 
+function sanitizeCheckArray(raw, { fallbackSkill, fallbackDc, allowFallback = true } = {}) {
+  const source = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray(raw.entries)
+    ? raw.entries
+    : [];
+
+  const entries = [];
+  for (const entry of source) {
+    if (entry === null || entry === undefined) continue;
+
+    let skill = "";
+    let dcValue = undefined;
+
+    if (typeof entry === "string") {
+      skill = entry.trim();
+    } else if (typeof entry === "object") {
+      const skillSource =
+        typeof entry.skill === "string"
+          ? entry.skill
+          : typeof entry.slug === "string"
+          ? entry.slug
+          : typeof entry.name === "string"
+          ? entry.name
+          : "";
+      if (typeof skillSource === "string") {
+        skill = skillSource.trim();
+      }
+
+      if (Object.prototype.hasOwnProperty.call(entry, "dc")) {
+        dcValue = entry.dc;
+      } else if (Object.prototype.hasOwnProperty.call(entry, "DC")) {
+        dcValue = entry.DC;
+      } else if (Object.prototype.hasOwnProperty.call(entry, "difficultyClass")) {
+        dcValue = entry.difficultyClass;
+      } else if (Object.prototype.hasOwnProperty.call(entry, "value")) {
+        dcValue = entry.value;
+      }
+    }
+
+    const numericDc = Number(dcValue);
+    const dc = Number.isFinite(numericDc) && numericDc > 0 ? Number(numericDc) : null;
+
+    if (!skill && dc === null) continue;
+
+    const normalized = {};
+    if (skill) normalized.skill = skill;
+    normalized.dc = dc;
+    entries.push(normalized);
+  }
+
+  if (!entries.length && allowFallback) {
+    const fallbackSkillValue =
+      typeof fallbackSkill === "string" ? fallbackSkill.trim() : "";
+    const fallbackNumericDc = Number(fallbackDc);
+    const fallbackDcValue =
+      Number.isFinite(fallbackNumericDc) && fallbackNumericDc > 0
+        ? Number(fallbackNumericDc)
+        : null;
+    if (fallbackSkillValue || fallbackDcValue !== null) {
+      const normalized = {};
+      if (fallbackSkillValue) normalized.skill = fallbackSkillValue;
+      normalized.dc = fallbackDcValue;
+      entries.push(normalized);
+    }
+  }
+
+  const seen = new Set();
+  const unique = [];
+  for (const entry of entries) {
+    const key = `${entry.skill ?? ""}::${entry.dc ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(entry);
+  }
+
+  return unique;
+}
+
 /**
  * @typedef {object} ResearchRevealThreshold
  * @property {string} id
@@ -91,6 +170,7 @@ function normalizeAssignedActors(raw) {
  * @property {number} collected
  * @property {string} [skill]
  * @property {number|null} [dc]
+ * @property {{ skill?: string; dc: number|null }[]} [checks]
  * @property {string} [description]
  * @property {{uuid: string, name?: string}[]} [assignedActors]
  */
@@ -167,6 +247,8 @@ export class ResearchTracker {
     );
     this.log = Array.isArray(stored.log) ? stored.log : [];
     this._initialized = true;
+
+    await this._runMigrations(stored);
   }
 
   /**
@@ -198,10 +280,35 @@ export class ResearchTracker {
         collected: Number.isFinite(location.collected)
           ? Number(location.collected)
           : 0,
-        skill: typeof location.skill === "string" ? location.skill : "",
-        dc: Number.isFinite(location.dc)
-          ? Number(location.dc)
-          : null,
+        ...(() => {
+          const checks = sanitizeCheckArray(
+            location.checks ??
+              ((location.skill || location.dc !== undefined)
+                ? [{ skill: location.skill, dc: location.dc }]
+                : []),
+            {
+              fallbackSkill: location.skill,
+              fallbackDc: location.dc,
+            }
+          );
+          const primary = checks[0] ?? {};
+          return {
+            skill: typeof location.skill === "string" ? location.skill : primary.skill ?? "",
+            dc:
+              Number.isFinite(location.dc)
+                ? Number(location.dc)
+                : typeof primary.dc === "number"
+                ? primary.dc
+                : null,
+            checks: checks.map((entry) => ({
+              ...(entry.skill ? { skill: entry.skill } : {}),
+              dc:
+                Number.isFinite(entry.dc) && entry.dc > 0
+                  ? Number(entry.dc)
+                  : null,
+            })),
+          };
+        })(),
         description:
           typeof location.description === "string" ? location.description : "",
         assignedActors: normalizeAssignedActors(location.assignedActors ?? []).map(
@@ -216,6 +323,32 @@ export class ResearchTracker {
       log: this.getLog().map((entry) => ({ ...entry })),
     };
     await game.settings.set(this.moduleId, this.settingKey, payload);
+  }
+
+  async _runMigrations(storedState) {
+    if (!this._initialized) return;
+    const storedTopics = Array.isArray(storedState?.topics) ? storedState.topics : [];
+    const needsMigration = storedTopics.some((topic) => {
+      if (!topic || typeof topic !== "object") return false;
+      const locations = Array.isArray(topic.locations) ? topic.locations : [];
+      return locations.some((location) => {
+        if (!location || typeof location !== "object") return false;
+        if (Array.isArray(location.checks)) return false;
+        return (
+          typeof location.skill === "string" ||
+          location.dc !== undefined ||
+          location.checks !== undefined
+        );
+      });
+    });
+
+    if (!needsMigration) return;
+
+    try {
+      await this._saveState();
+    } catch (error) {
+      console.error("pf2e-points-tracker | Failed to migrate research tracker data.", error);
+    }
   }
 
   /**
@@ -346,6 +479,22 @@ export class ResearchTracker {
     const assignedActors = normalizeAssignedActors(
       data.assignedActors ?? data.assignedActorIds ?? data.assignedActorUuids ?? []
     );
+    const checks = sanitizeCheckArray(
+      data.checks ??
+        ((data.skill || data.dc !== undefined)
+          ? [{ skill: data.skill, dc: data.dc }]
+          : []),
+      {
+        fallbackSkill:
+          typeof data.skill === "string"
+            ? data.skill
+            : typeof topic.skill === "string"
+            ? topic.skill
+            : "",
+        fallbackDc: data.dc,
+      }
+    );
+    const primaryCheck = checks[0] ?? {};
     const locations = Array.isArray(topic.locations)
       ? topic.locations.slice()
       : [];
@@ -360,10 +509,17 @@ export class ResearchTracker {
       skill:
         typeof data.skill === "string"
           ? data.skill.trim()
+          : typeof primaryCheck.skill === "string"
+          ? primaryCheck.skill
           : typeof topic.skill === "string"
           ? topic.skill
           : "",
-      dc: Number.isFinite(data.dc) ? Number(data.dc) : null,
+      dc: Number.isFinite(data.dc)
+        ? Number(data.dc)
+        : typeof primaryCheck.dc === "number"
+        ? primaryCheck.dc
+        : null,
+      checks,
       description:
         typeof data.description === "string"
           ? data.description.trim()
@@ -407,13 +563,72 @@ export class ResearchTracker {
         )
       : existing.assignedActors;
 
-    const { assignedActorIds, assignedActorUuids, ...rest } = updates;
+    const {
+      assignedActorIds,
+      assignedActorUuids,
+      checks: rawChecks,
+      ...rest
+    } = updates;
+    const skillProvided = Object.prototype.hasOwnProperty.call(rest, "skill");
+    const dcProvided = Object.prototype.hasOwnProperty.call(rest, "dc");
+    const checksProvided = Object.prototype.hasOwnProperty.call(updates, "checks");
+
+    let updatedChecks = sanitizeCheckArray(
+      Array.isArray(existing.checks) ? existing.checks : existing.checks ?? [],
+      {
+        fallbackSkill: existing.skill ?? topic.skill ?? "",
+        fallbackDc: existing.dc,
+      }
+    );
+
+    if (checksProvided || skillProvided || dcProvided) {
+      const fallbackSkillValue = skillProvided
+        ? rest.skill
+        : existing.skill ?? topic.skill ?? "";
+      const fallbackDcValue = dcProvided ? rest.dc : existing.dc;
+      const checkSource = checksProvided
+        ? rawChecks
+        : [
+            {
+              skill: fallbackSkillValue,
+              dc: fallbackDcValue,
+            },
+          ];
+      updatedChecks = sanitizeCheckArray(checkSource, {
+        fallbackSkill: fallbackSkillValue,
+        fallbackDc: fallbackDcValue,
+        allowFallback: !checksProvided,
+      });
+    }
+
+    const primaryCheck = updatedChecks[0] ?? {};
 
     locations.splice(index, 1, {
       ...existing,
       ...rest,
       id: locationId,
       assignedActors: sanitizedAssignments,
+      checks: updatedChecks,
+      ...(skillProvided
+        ? {}
+        : {
+            skill:
+              typeof primaryCheck.skill === "string"
+                ? primaryCheck.skill
+                : typeof existing.skill === "string"
+                ? existing.skill
+                : primaryCheck.skill ?? existing.skill ?? "",
+          }),
+      ...(dcProvided
+        ? {}
+        : {
+            dc:
+              typeof primaryCheck.dc === "number"
+                ? primaryCheck.dc
+                : Number.isFinite(existing.dc)
+                ? Number(existing.dc)
+                : existing.dc ?? null,
+          }),
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -841,9 +1056,33 @@ export class ResearchTracker {
         ? Number(location.collected)
         : 0;
       const collected = Math.max(0, Math.min(maxPoints || Number.POSITIVE_INFINITY, collectedRaw));
-      const skill = location?.skill ? String(location.skill).trim() : "";
-      const dcRaw = Number(location?.dc);
-      const dc = Number.isFinite(dcRaw) && dcRaw > 0 ? Number(dcRaw) : null;
+      const rawChecks =
+        location?.checks ??
+        location?.skills ??
+        (location?.skill !== undefined || location?.dc !== undefined
+          ? [
+              {
+                skill: location?.skill,
+                dc: location?.dc,
+              },
+            ]
+          : []);
+      const checks = sanitizeCheckArray(rawChecks, {
+        fallbackSkill:
+          typeof location?.skill === "string"
+            ? location.skill
+            : typeof topic?.skill === "string"
+            ? topic.skill
+            : "",
+        fallbackDc: location?.dc,
+      });
+      const primaryCheck = checks[0] ?? {};
+      const skill = primaryCheck?.skill
+        ? String(primaryCheck.skill).trim()
+        : location?.skill
+        ? String(location.skill).trim()
+        : "";
+      const dc = typeof primaryCheck?.dc === "number" ? primaryCheck.dc : null;
       const description = location?.description
         ? String(location.description).trim()
         : "";
@@ -865,6 +1104,7 @@ export class ResearchTracker {
         collected,
         skill,
         dc,
+        checks,
         description,
         assignedActors,
         order: index,

@@ -83,6 +83,75 @@ function sanitizeAssignedActors(value) {
   return entries.length ? entries : undefined;
 }
 
+function sanitizeLocationChecks(value, { fallbackSkill, fallbackDc, enforceFallback = true } = {}) {
+  const source = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray(value.entries)
+    ? value.entries
+    : [];
+
+  const entries = [];
+  for (const entry of source) {
+    if (entry === null || entry === undefined) continue;
+    let skill = "";
+    let dcCandidate = undefined;
+    if (typeof entry === "string") {
+      skill = entry.trim();
+    } else if (typeof entry === "object") {
+      const skillSource =
+        typeof entry.skill === "string"
+          ? entry.skill
+          : typeof entry.slug === "string"
+          ? entry.slug
+          : typeof entry.name === "string"
+          ? entry.name
+          : "";
+      if (typeof skillSource === "string") {
+        skill = skillSource.trim();
+      }
+      if (Object.prototype.hasOwnProperty.call(entry, "dc")) {
+        dcCandidate = entry.dc;
+      } else if (Object.prototype.hasOwnProperty.call(entry, "DC")) {
+        dcCandidate = entry.DC;
+      }
+    }
+    const skillValue = sanitizeString(skill);
+    const dcNumber = Number(dcCandidate);
+    const dcValue = Number.isFinite(dcNumber) && dcNumber > 0 ? Number(dcNumber) : null;
+    if (!skillValue && dcValue === null) continue;
+    const payload = {};
+    if (skillValue) payload.skill = skillValue;
+    payload.dc = dcValue;
+    entries.push(payload);
+  }
+
+  if (!entries.length && enforceFallback) {
+    const fallbackSkillValue = sanitizeString(fallbackSkill);
+    const fallbackNumeric = Number(fallbackDc);
+    const fallbackDcValue =
+      Number.isFinite(fallbackNumeric) && fallbackNumeric > 0
+        ? Number(fallbackNumeric)
+        : null;
+    if (fallbackSkillValue || fallbackDcValue !== null) {
+      const payload = {};
+      if (fallbackSkillValue) payload.skill = fallbackSkillValue;
+      payload.dc = fallbackDcValue;
+      entries.push(payload);
+    }
+  }
+
+  const seen = new Set();
+  const unique = [];
+  for (const entry of entries) {
+    const key = `${entry.skill ?? ""}::${entry.dc ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(entry);
+  }
+
+  return unique;
+}
+
 function sanitizeLocationEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
   const id = entry.id ? String(entry.id) : createLocalId();
@@ -104,6 +173,11 @@ function sanitizeLocationEntry(entry) {
   const assignedActors = sanitizeAssignedActors(
     entry.assignedActors ?? entry.assignedActorIds ?? entry.assignedActorUuids
   );
+  const checks = sanitizeLocationChecks(entry.checks ?? entry.skills, {
+    fallbackSkill: skill,
+    fallbackDc: dc,
+    enforceFallback: entry.checks === undefined && entry.skills === undefined,
+  });
   const payload = {
     id,
     maxPoints,
@@ -114,6 +188,7 @@ function sanitizeLocationEntry(entry) {
   if (dc !== undefined) payload.dc = dc;
   if (description) payload.description = description;
   if (assignedActors) payload.assignedActors = assignedActors;
+  if (checks.length) payload.checks = checks;
   return payload;
 }
 
