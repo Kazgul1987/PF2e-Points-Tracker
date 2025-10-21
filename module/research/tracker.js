@@ -30,6 +30,50 @@ function createId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function normalizeAssignedActors(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+    ? Array.isArray(raw.entries)
+      ? raw.entries
+      : [raw]
+    : typeof raw === "string"
+    ? [raw]
+    : [];
+
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of list) {
+    if (entry === null || entry === undefined) continue;
+    let uuid = "";
+    let name = "";
+    if (typeof entry === "string") {
+      uuid = entry.trim();
+    } else if (typeof entry === "object") {
+      if (typeof entry.uuid === "string" && entry.uuid.trim()) {
+        uuid = entry.uuid.trim();
+      } else if (typeof entry.id === "string" && entry.id.trim()) {
+        uuid = entry.id.trim();
+      } else if (typeof entry.actorUuid === "string" && entry.actorUuid.trim()) {
+        uuid = entry.actorUuid.trim();
+      } else if (typeof entry.actorId === "string" && entry.actorId.trim()) {
+        uuid = entry.actorId.trim();
+      }
+      if (typeof entry.name === "string" && entry.name.trim()) {
+        name = entry.name.trim();
+      } else if (typeof entry.actorName === "string" && entry.actorName.trim()) {
+        name = entry.actorName.trim();
+      }
+    }
+
+    if (!uuid || seen.has(uuid)) continue;
+    seen.add(uuid);
+    normalized.push({ uuid, ...(name ? { name } : {}) });
+  }
+
+  return normalized;
+}
+
 /**
  * @typedef {object} ResearchRevealThreshold
  * @property {string} id
@@ -48,6 +92,7 @@ function createId() {
  * @property {string} [skill]
  * @property {number|null} [dc]
  * @property {string} [description]
+ * @property {{uuid: string, name?: string}[]} [assignedActors]
  */
 
 /**
@@ -159,6 +204,12 @@ export class ResearchTracker {
           : null,
         description:
           typeof location.description === "string" ? location.description : "",
+        assignedActors: normalizeAssignedActors(location.assignedActors ?? []).map(
+          (actor) => ({
+            uuid: actor.uuid,
+            ...(actor.name ? { name: actor.name } : {}),
+          })
+        ),
       })),
     };
   }),
@@ -292,6 +343,9 @@ export class ResearchTracker {
     if (!topic) return;
 
     const id = data.id ?? createId();
+    const assignedActors = normalizeAssignedActors(
+      data.assignedActors ?? data.assignedActorIds ?? data.assignedActorUuids ?? []
+    );
     const locations = Array.isArray(topic.locations)
       ? topic.locations.slice()
       : [];
@@ -314,6 +368,7 @@ export class ResearchTracker {
         typeof data.description === "string"
           ? data.description.trim()
           : "",
+      assignedActors,
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -339,10 +394,26 @@ export class ResearchTracker {
     if (index === -1) return;
 
     const existing = locations[index];
+    const assignmentProvided =
+      Object.prototype.hasOwnProperty.call(updates, "assignedActors") ||
+      Object.prototype.hasOwnProperty.call(updates, "assignedActorIds") ||
+      Object.prototype.hasOwnProperty.call(updates, "assignedActorUuids");
+    const sanitizedAssignments = assignmentProvided
+      ? normalizeAssignedActors(
+          updates.assignedActors ??
+            updates.assignedActorIds ??
+            updates.assignedActorUuids ??
+            []
+        )
+      : existing.assignedActors;
+
+    const { assignedActorIds, assignedActorUuids, ...rest } = updates;
+
     locations.splice(index, 1, {
       ...existing,
-      ...updates,
+      ...rest,
       id: locationId,
+      assignedActors: sanitizedAssignments,
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -776,6 +847,17 @@ export class ResearchTracker {
       const description = location?.description
         ? String(location.description).trim()
         : "";
+      const assignedSource = [];
+      if (Array.isArray(location?.assignedActors)) {
+        assignedSource.push(...location.assignedActors);
+      }
+      if (Array.isArray(location?.assignedActorIds)) {
+        assignedSource.push(...location.assignedActorIds);
+      }
+      if (Array.isArray(location?.assignedActorUuids)) {
+        assignedSource.push(...location.assignedActorUuids);
+      }
+      const assignedActors = normalizeAssignedActors(assignedSource);
       return {
         id,
         name,
@@ -784,6 +866,7 @@ export class ResearchTracker {
         skill,
         dc,
         description,
+        assignedActors,
         order: index,
       };
     });

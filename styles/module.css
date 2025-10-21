@@ -256,6 +256,70 @@
   line-height: 1.4;
   opacity: 0.85;
 }
+.research-location__assignments {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.research-location__assignment-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+.research-location__assignment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+}
+.research-location__assignment {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.85rem;
+}
+.research-location__assignment.is-inactive {
+  opacity: 0.7;
+  font-style: italic;
+}
+.research-location__assignment-note {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.research-location__assignment-fieldset {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.research-location__assignment-fieldset legend {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.research-location__assignment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.research-location__assignment-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+.research-location__assignment-option input {
+  margin: 0;
+}
+.research-location__assignment-empty {
+  font-style: italic;
+  opacity: 0.7;
+}
 
 .research-location__progress {
   display: flex;

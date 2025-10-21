@@ -43,6 +43,46 @@ function sanitizeStructured(value) {
   return undefined;
 }
 
+function sanitizeAssignedActors(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : value && typeof value === "object"
+    ? Array.isArray(value.entries)
+      ? value.entries
+      : [value]
+    : typeof value === "string"
+    ? [value]
+    : [];
+
+  const seen = new Set();
+  const entries = [];
+  for (const entry of raw) {
+    if (entry === null || entry === undefined) continue;
+    let uuid = "";
+    let name = "";
+    if (typeof entry === "string") {
+      uuid = entry.trim();
+    } else if (typeof entry === "object") {
+      if (typeof entry.uuid === "string" && entry.uuid.trim()) {
+        uuid = entry.uuid.trim();
+      } else if (typeof entry.id === "string" && entry.id.trim()) {
+        uuid = entry.id.trim();
+      }
+      if (typeof entry.name === "string" && entry.name.trim()) {
+        name = entry.name.trim();
+      }
+    }
+
+    if (!uuid || seen.has(uuid)) continue;
+    seen.add(uuid);
+    const payload = { uuid };
+    if (name) payload.name = name;
+    entries.push(payload);
+  }
+
+  return entries.length ? entries : undefined;
+}
+
 function sanitizeLocationEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
   const id = entry.id ? String(entry.id) : createLocalId();
@@ -61,6 +101,9 @@ function sanitizeLocationEntry(entry) {
   const dcNumber = Number(entry.dc);
   const dc = Number.isFinite(dcNumber) && dcNumber > 0 ? dcNumber : undefined;
   const description = sanitizeString(entry.description);
+  const assignedActors = sanitizeAssignedActors(
+    entry.assignedActors ?? entry.assignedActorIds ?? entry.assignedActorUuids
+  );
   const payload = {
     id,
     maxPoints,
@@ -70,6 +113,7 @@ function sanitizeLocationEntry(entry) {
   if (skill) payload.skill = skill;
   if (dc !== undefined) payload.dc = dc;
   if (description) payload.description = description;
+  if (assignedActors) payload.assignedActors = assignedActors;
   return payload;
 }
 
