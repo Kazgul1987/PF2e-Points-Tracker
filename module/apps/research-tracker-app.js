@@ -1422,32 +1422,31 @@ export class ResearchTrackerApp extends FormApplication {
       location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
     const createInlineForCheck = (check) => {
       const skillKey = typeof check.skill === "string" ? check.skill : "";
-      const skillParameter =
-        skillKey && skillKey.trim() ? `statistic:skill:${skillKey.toLowerCase()}` : null;
-      const parameters = [];
-      if (skillParameter) {
-        parameters.push(skillParameter);
+      const skillSlug = skillKey && skillKey.trim() ? skillKey.toLowerCase() : "";
+      const parts = [];
+      if (skillSlug) {
+        parts.push(skillSlug);
       }
-      parameters.push("type:skill-check");
       const dcValue = Number(check.dc);
       if (Number.isFinite(dcValue)) {
-        parameters.push(`dc:${dcValue}`);
+        parts.push(`dc:${dcValue}`);
       }
-      const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
+      const skillConfig =
+        skillSlug && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillSlug] : null;
       if (typeof skillConfig === "string" && skillConfig.trim()) {
-        return `@Check[${parameters.join(",")}]{${
+        return `@Check[${parts.join("|")}]{${
           typeof game.i18n?.localize === "function"
             ? game.i18n.localize(skillConfig)
             : skillConfig
         }}`;
       }
       if (skillConfig && typeof skillConfig?.label === "string" && skillConfig.label.trim()) {
-        return `@Check[${parameters.join(",")}]{${skillConfig.label.trim()}}`;
+        return `@Check[${parts.join("|")}]{${skillConfig.label.trim()}}`;
       }
       if (skillKey) {
-        return `@Check[${parameters.join(",")}]{${skillKey}}`;
+        return `@Check[${parts.join("|")}]{${skillKey}}`;
       }
-      return `@Check[${parameters.join(",")}]{${locationName}}`;
+      return `@Check[${parts.join("|")}]{${locationName}}`;
     };
 
     const inlineChecks = rollableChecks.map((check) => createInlineForCheck(check));
