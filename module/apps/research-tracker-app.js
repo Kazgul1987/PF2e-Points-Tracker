@@ -1424,10 +1424,11 @@ export class ResearchTrackerApp extends FormApplication {
       const skillKey = typeof check.skill === "string" ? check.skill : "";
       const skillParameter =
         skillKey && skillKey.trim() ? `statistic:skill:${skillKey.toLowerCase()}` : null;
-      const parameters = ["type:skill-check"];
+      const parameters = [];
       if (skillParameter) {
         parameters.push(skillParameter);
       }
+      parameters.push("type:skill-check");
       const dcValue = Number(check.dc);
       if (Number.isFinite(dcValue)) {
         parameters.push(`dc:${dcValue}`);
