@@ -1375,80 +1375,35 @@ export class ResearchTrackerApp extends FormApplication {
       return;
     }
 
-    let selectedCheck = rollableChecks[0];
-
-    if (rollableChecks.length > 1) {
-      const options = rollableChecks
-        .map((check, index) => {
-          const labelParts = [];
-          if (check.skill) {
-            labelParts.push(
-              game.i18n.format("PF2E.PointsTracker.Research.LocationSkillLabel", {
-                skill: check.skill,
-              })
-            );
-          }
-          if (check.dc !== null) {
-            labelParts.push(
-              game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", {
-                dc: check.dc,
-              })
-            );
-          }
-          const label = labelParts.join(" • ") || check.skill;
-          return `<option value="${index}">${escapeHtml(label)}</option>`;
-        })
-        .join("");
-
-      const response = await Dialog.prompt({
-        title: game.i18n.localize(
-          "PF2E.PointsTracker.Research.LocationSelectCheck"
-        ),
-        content: `
-          <form class="flexcol">
-            <div class="form-group">
-              <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSelectCheck")}</label>
-              <select name="checkIndex">${options}</select>
-            </div>
-          </form>
-        `,
-        label: game.i18n.localize("PF2E.PointsTracker.Research.Apply"),
-        callback: (html) => {
-          const select = html[0].querySelector("select[name='checkIndex']");
-          const value = select ? Number(select.value) : 0;
-          return Number.isFinite(value) ? value : 0;
-        },
-        rejectClose: false,
-      });
-
-      if (response === undefined) return;
-      const chosen = rollableChecks[Number(response)];
-      if (!chosen) return;
-      selectedCheck = chosen;
-    }
-
-    const parameters = [`type:skill`, `skill:${selectedCheck.skill}`, `dc:${selectedCheck.dc}`];
     const locationName =
       location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
-    const skillKey = typeof selectedCheck.skill === "string" ? selectedCheck.skill : "";
-    const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
-    let inlineLabel = "";
-    if (typeof skillConfig === "string" && skillConfig.trim()) {
-      inlineLabel =
-        typeof game.i18n?.localize === "function"
-          ? game.i18n.localize(skillConfig)
-          : skillConfig;
-    } else if (skillConfig && typeof skillConfig?.label === "string" && skillConfig.label.trim()) {
-      inlineLabel = skillConfig.label.trim();
-    } else if (skillKey) {
-      inlineLabel = skillKey;
-    } else {
-      inlineLabel = locationName;
-    }
-    const inline = `@Check[${parameters.join(",")}]{${inlineLabel}}`;
+    const createInlineForCheck = (check) => {
+      const parameters = [`type:skill`, `skill:${check.skill}`, `dc:${check.dc}`];
+      const skillKey = typeof check.skill === "string" ? check.skill : "";
+      const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
+      if (typeof skillConfig === "string" && skillConfig.trim()) {
+        return `@Check[${parameters.join(",")}]{${
+          typeof game.i18n?.localize === "function"
+            ? game.i18n.localize(skillConfig)
+            : skillConfig
+        }}`;
+      }
+      if (skillConfig && typeof skillConfig?.label === "string" && skillConfig.label.trim()) {
+        return `@Check[${parameters.join(",")}]{${skillConfig.label.trim()}}`;
+      }
+      if (skillKey) {
+        return `@Check[${parameters.join(",")}]{${skillKey}}`;
+      }
+      return `@Check[${parameters.join(",")}]{${locationName}}`;
+    };
+
+    const inlineChecks = rollableChecks.map((check) => createInlineForCheck(check));
+
     const description =
       typeof location.description === "string" ? location.description.trim() : "";
-    const contentParts = [`<p>${escapeHtml(locationName)} ${inline}</p>`];
+    const contentParts = [
+      `<p>${escapeHtml(locationName)} ${inlineChecks.join(" ")}</p>`,
+    ];
     if (description) {
       contentParts.push(`<p>${escapeHtml(description)}</p>`);
     }
