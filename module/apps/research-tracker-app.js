@@ -1546,30 +1546,89 @@ export class ResearchTrackerApp extends FormApplication {
     const isActorDrag =
       data?.type === "pf2e-research-participant" ||
       data?.type === "Actor" ||
-      data?.actorUuid !== undefined;
+      data?.type === "Token" ||
+      data?.actorUuid !== undefined ||
+      data?.actorId !== undefined;
     if (!isActorDrag) return;
 
-    let actorUuid =
-      typeof data?.actorUuid === "string"
-        ? data.actorUuid.trim()
-        : typeof data?.uuid === "string"
-        ? data.uuid.trim()
-        : typeof data?.id === "string"
-        ? data.id.trim()
-        : typeof data?.actorId === "string"
-        ? data.actorId.trim()
-        : typeof data?.documentId === "string"
-        ? data.documentId.trim()
-        : typeof data?._id === "string"
-        ? data._id.trim()
-        : "";
-    if (!actorUuid) return;
+    const trimString = (value) => (typeof value === "string" ? value.trim() : "");
+
+    const rawActorUuid = trimString(data?.actorUuid);
+    const rawActorId = trimString(data?.actorId);
+    const rawTokenUuid = trimString(data?.tokenUuid);
+    const rawUuid = trimString(data?.uuid);
+    const rawId = trimString(data?.id);
+    const rawDocumentId = trimString(data?.documentId);
+    const rawUnderscoreId = trimString(data?._id);
+
+    let actorUuid = "";
+    let tokenUuid = rawTokenUuid;
+
+    if (rawActorUuid) actorUuid = rawActorUuid;
+    else if (rawActorId) actorUuid = rawActorId;
+    else if (rawUuid) actorUuid = rawUuid;
+    else if (rawId) actorUuid = rawId;
+    else if (rawDocumentId) actorUuid = rawDocumentId;
+    else if (rawUnderscoreId) actorUuid = rawUnderscoreId;
+
+    if (!tokenUuid && data?.type === "Token") {
+      if (rawUuid && (rawUuid.startsWith("Scene.") || rawUuid.startsWith("Token."))) {
+        tokenUuid = rawUuid;
+      } else {
+        const sceneId = trimString(data?.sceneId);
+        const tokenId = trimString(data?.tokenId);
+        if (sceneId && tokenId) {
+          tokenUuid = `Scene.${sceneId}.Token.${tokenId}`;
+        }
+      }
+    }
+
+    if (actorUuid.startsWith("Scene.") || actorUuid.startsWith("Token.")) {
+      if (!tokenUuid) tokenUuid = actorUuid;
+      actorUuid = "";
+    }
 
     const hasDocumentPrefix =
       actorUuid.startsWith("Actor.") ||
       actorUuid.startsWith("Compendium.") ||
       actorUuid.includes(".");
-    if (!hasDocumentPrefix) {
+    if (actorUuid && !hasDocumentPrefix) {
+      actorUuid = `Actor.${actorUuid}`;
+    }
+
+    let actorDocument = null;
+    if (actorUuid && typeof fromUuid === "function") {
+      try {
+        actorDocument = await fromUuid(actorUuid);
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    if ((!actorDocument || !actorUuid) && tokenUuid && typeof fromUuid === "function") {
+      try {
+        const tokenDocument = await fromUuid(tokenUuid);
+        const tokenActor = tokenDocument?.actor;
+        if (tokenActor) {
+          actorDocument = tokenActor;
+          actorUuid = tokenActor.uuid ?? actorUuid;
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+
+    if (!actorUuid) {
+      actorUuid = trimString(actorDocument?.uuid);
+    }
+
+    if (!actorUuid) return;
+
+    const hasFinalPrefix =
+      actorUuid.startsWith("Actor.") ||
+      actorUuid.startsWith("Compendium.") ||
+      actorUuid.includes(".");
+    if (actorUuid && !hasFinalPrefix) {
       actorUuid = `Actor.${actorUuid}`;
     }
 
@@ -1582,7 +1641,9 @@ export class ResearchTrackerApp extends FormApplication {
         ? data.data.name
         : "";
 
-    if (!actorName && actorUuid && typeof fromUuid === "function") {
+    if (!actorName && actorDocument?.name) {
+      actorName = actorDocument.name;
+    } else if (!actorName && actorUuid && typeof fromUuid === "function") {
       try {
         const actor = await fromUuid(actorUuid);
         if (actor?.name) {
