@@ -63,22 +63,26 @@ Hooks.on("getSceneControlButtons", (controls) => {
   }
 
   const existingControl = controls.find((control) => control.name === "pf2e-points-tracker");
-  if (existingControl) return;
-
-  controls.push({
-    name: "pf2e-points-tracker",
-    title: localizedTitle,
-    icon: "fas fa-flask",
-    layer: "TokenLayer",
-    tools: [
-      {
+  if (existingControl) {
+    existingControl.tools = existingControl.tools ?? [];
+    if (!existingControl.tools.some((tool) => tool.name === "research-tracker")) {
+      existingControl.tools.push({
         name: "research-tracker",
         title: localizedTitle,
         icon: "fas fa-flask",
         onClick: () => ResearchTrackerApp.open(tracker),
         button: true,
-      },
-    ],
+      });
+    }
+    return;
+  }
+
+  controls.push({
+    name: "pf2e-points-tracker",
+    title: localizedTitle,
+    icon: "fas fa-flask",
+    button: true,
+    onClick: () => ResearchTrackerApp.open(tracker),
   });
 });
 
