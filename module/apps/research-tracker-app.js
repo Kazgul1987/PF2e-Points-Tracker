@@ -1,4 +1,3 @@
-import { InlineRollLinks } from "/systems/pf2e/module/system/inline-roll-links.js";
 import { ResearchImportExport } from "../research/importer.js";
 
 const MODULE_ID = "pf2e-points-tracker";
@@ -608,23 +607,13 @@ export class ResearchTrackerApp extends FormApplication {
       return;
     }
 
-    const inlineCommand = `@Check[type:${skillKey}|traits:research]`;
-    const inlineResult = await this._performInlineCheck({ actor, event, inlineCommand });
-
-    let roll = this._extractRollFromInlineResult(inlineResult);
-
-    if (!roll) {
-      if (inlineResult != null) {
-        console.warn("PF2E Points Tracker | Unable to read inline roll result", inlineResult);
-      }
-      roll = await skill.roll({
-        event,
-        callback: null,
-        createMessage: true,
-        extraRollOptions: ["research"],
-        dc: null,
-      });
-    }
+    const roll = await skill.roll({
+      event,
+      callback: null,
+      createMessage: true,
+      extraRollOptions: ["research"],
+      dc: null,
+    });
 
     if (!roll) return;
 
@@ -649,59 +638,6 @@ export class ResearchTrackerApp extends FormApplication {
       });
     }
     this.render();
-  }
-
-  /**
-   * Attempt to perform an inline check via InlineRollLinks.
-   * @private
-   */
-  async _performInlineCheck({ actor, event, inlineCommand }) {
-    if (!InlineRollLinks) return null;
-
-    const context = { actor, event, inlineCommand };
-
-    try {
-      if (typeof InlineRollLinks.inlineLink === "function") {
-        return await InlineRollLinks.inlineLink(inlineCommand, { actor, event });
-      }
-
-      if (typeof InlineRollLinks.rollInline === "function") {
-        return await InlineRollLinks.rollInline(inlineCommand, { actor, event });
-      }
-
-      if (typeof InlineRollLinks.roll === "function") {
-        return await InlineRollLinks.roll({ actor, event, inline: inlineCommand });
-      }
-
-      if (typeof InlineRollLinks.createInlineRoll === "function") {
-        return await InlineRollLinks.createInlineRoll(inlineCommand, { actor, event });
-      }
-    } catch (error) {
-      console.warn("PF2E Points Tracker | Inline roll failed", context, error);
-    }
-
-    return null;
-  }
-
-  /**
-   * Extract a Roll from whatever InlineRollLinks returned.
-   * @private
-   */
-  _extractRollFromInlineResult(result) {
-    if (!result) return null;
-
-    if (result instanceof Roll) return result;
-    if (result.roll instanceof Roll) return result.roll;
-    if (result.result instanceof Roll) return result.result;
-    if (result.check?.roll instanceof Roll) return result.check.roll;
-
-    const message = result instanceof ChatMessage ? result : result.message;
-    const rollCandidates = [
-      ...(Array.isArray(result.rolls) ? result.rolls : []),
-      ...(message?.rolls ?? []),
-    ].filter((rollCandidate) => rollCandidate instanceof Roll);
-
-    return rollCandidates.at(-1) ?? null;
   }
 
   /** @private */
