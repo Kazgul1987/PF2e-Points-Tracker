@@ -1381,7 +1381,14 @@ export class ResearchTrackerApp extends FormApplication {
       const skillKey = typeof check.skill === "string" ? check.skill : "";
       const skillParameter =
         skillKey && skillKey.trim() ? `statistic:skill:${skillKey.toLowerCase()}` : null;
-      const parameters = [skillParameter, `dc:${check.dc}`].filter((parameter) => parameter);
+      const parameters = ["type:skill-check"];
+      if (skillParameter) {
+        parameters.push(skillParameter);
+      }
+      const dcValue = Number(check.dc);
+      if (Number.isFinite(dcValue)) {
+        parameters.push(`dc:${dcValue}`);
+      }
       const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
       if (typeof skillConfig === "string" && skillConfig.trim()) {
         return `@Check[${parameters.join(",")}]{${
