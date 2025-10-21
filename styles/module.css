@@ -360,6 +360,15 @@
   font-size: 0.85rem;
   line-height: 1.2;
 }
+.research-location__assignment-portrait {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+}
 .research-location__assignment.is-inactive {
   opacity: 0.75;
   font-style: italic;

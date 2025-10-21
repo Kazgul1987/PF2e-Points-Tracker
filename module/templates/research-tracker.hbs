@@ -171,6 +171,13 @@
                                       data-actor-uuid="{{assigned.uuid}}"
                                       data-actor-name="{{assigned.name}}"
                                     >
+                                      {{#if assigned.img}}
+                                        <img
+                                          class="research-location__assignment-portrait"
+                                          src="{{assigned.img}}"
+                                          alt="{{assigned.name}}"
+                                        />
+                                      {{/if}}
                                       <span class="research-location__assignment-name">{{assigned.name}}</span>
                                       {{#unless assigned.isActive}}
                                         <span class="research-location__assignment-note">{{localize "PF2E.PointsTracker.Research.LocationAssignmentMissing"}}</span>
