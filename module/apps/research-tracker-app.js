@@ -246,6 +246,7 @@ export class ResearchTrackerApp extends FormApplication {
         target: 10,
         skill: "society",
         difficulty: "standard",
+        thresholds: [],
       },
     });
 
@@ -275,6 +276,7 @@ export class ResearchTrackerApp extends FormApplication {
         summary: topic.summary,
         gatherInformation: topic.gatherInformation,
         researchChecks: topic.researchChecks,
+        thresholds: Array.isArray(topic.thresholds) ? topic.thresholds : [],
       },
       disableTarget: Array.isArray(topic.locations) && topic.locations.length > 0,
     });
@@ -318,6 +320,7 @@ export class ResearchTrackerApp extends FormApplication {
       summary: initial.summary ?? "",
       gatherInformation: initial.gatherInformation ?? "",
       researchChecks: initial.researchChecks ?? "",
+      thresholds: Array.isArray(initial.thresholds) ? initial.thresholds : [],
       locations: Array.isArray(initial.locations) ? initial.locations : [],
     };
 
@@ -357,6 +360,14 @@ export class ResearchTrackerApp extends FormApplication {
                 </div>
               `
         }
+        <fieldset class="form-group research-topic__thresholds-editor" data-thresholds>
+          <legend>${game.i18n.localize("PF2E.PointsTracker.Research.Thresholds")}</legend>
+          <div class="research-topic__thresholds-list" data-threshold-list></div>
+          <button type="button" class="dialog-button" data-add-threshold>
+            <i class="fas fa-plus"></i>
+            ${game.i18n.localize("PF2E.PointsTracker.Research.AddThreshold")}
+          </button>
+        </fieldset>
         ${
           includeLocations
             ? `
@@ -424,6 +435,46 @@ export class ResearchTrackerApp extends FormApplication {
         if (fd.has("target")) {
           payload.target = Number(fd.get("target")) || 0;
         }
+
+        const thresholdEntries = Array.from(
+          form.querySelectorAll("[data-threshold-entry]")
+        )
+          .map((element) => {
+            const pointsField = element.querySelector(
+              "[data-threshold-field='points']"
+            );
+            const pointsRaw = pointsField?.value;
+            const numericPoints = Number(pointsRaw);
+            const hasPoints = Number.isFinite(numericPoints);
+            const playerField = element.querySelector(
+              "[data-threshold-field='playerText']"
+            );
+            const gmField = element.querySelector("[data-threshold-field='gmText']");
+            const playerText = playerField?.value?.trim() ?? "";
+            const gmText = gmField?.value?.trim() ?? "";
+            const hasText = Boolean(playerText) || Boolean(gmText);
+            if (!hasPoints && !hasText) {
+              return null;
+            }
+            if (!hasPoints) {
+              return null;
+            }
+            const entry = {
+              points: numericPoints,
+              playerText,
+            };
+            const id = element.dataset.thresholdId;
+            if (id) {
+              entry.id = id;
+            }
+            if (gmField) {
+              entry.gmText = gmText;
+            }
+            return entry;
+          })
+          .filter((entry) => entry);
+
+        payload.thresholds = thresholdEntries;
 
         if (includeLocations) {
           const locationEntries = Array.from(
@@ -511,6 +562,104 @@ export class ResearchTrackerApp extends FormApplication {
         const targetInput = form.elements.namedItem("target");
         if (targetInput) {
           targetInput.disabled = Boolean(disableTarget);
+        }
+
+        const thresholdsFieldset = form.querySelector("[data-thresholds]");
+        if (thresholdsFieldset) {
+          const list = thresholdsFieldset.querySelector("[data-threshold-list]");
+          const addButton = thresholdsFieldset.querySelector("[data-add-threshold]");
+          if (list && addButton) {
+            list.innerHTML = "";
+            const pointsLabel = game.i18n.localize(
+              "PF2E.PointsTracker.Research.ThresholdPointsLabel"
+            );
+            const playerLabel = game.i18n.localize(
+              "PF2E.PointsTracker.Research.RevealText"
+            );
+            const gmLabel = game.i18n.localize("PF2E.PointsTracker.Research.GMText");
+            const removeLabel = game.i18n.localize(
+              "PF2E.PointsTracker.Research.RemoveThreshold"
+            );
+
+            const addRow = (rowValues = {}) => {
+              const row = document.createElement("div");
+              row.classList.add("research-threshold-editor__row");
+              row.dataset.thresholdEntry = "true";
+              if (rowValues?.id) {
+                row.dataset.thresholdId = String(rowValues.id);
+              }
+
+              const pointsGroup = document.createElement("div");
+              pointsGroup.classList.add("research-threshold-editor__points");
+              const pointsLabelEl = document.createElement("label");
+              pointsLabelEl.textContent = pointsLabel;
+              const pointsInput = document.createElement("input");
+              pointsInput.type = "number";
+              pointsInput.min = "0";
+              pointsInput.step = "1";
+              pointsInput.dataset.thresholdField = "points";
+              const pointsValue = rowValues?.points;
+              if (pointsValue !== undefined && pointsValue !== null) {
+                pointsInput.value = String(pointsValue);
+              }
+              pointsGroup.appendChild(pointsLabelEl);
+              pointsGroup.appendChild(pointsInput);
+
+              const playerGroup = document.createElement("div");
+              playerGroup.classList.add("research-threshold-editor__player");
+              const playerLabelEl = document.createElement("label");
+              playerLabelEl.textContent = playerLabel;
+              const playerTextarea = document.createElement("textarea");
+              playerTextarea.rows = 3;
+              playerTextarea.dataset.thresholdField = "playerText";
+              if (typeof rowValues?.playerText === "string") {
+                playerTextarea.value = rowValues.playerText;
+              }
+              playerGroup.appendChild(playerLabelEl);
+              playerGroup.appendChild(playerTextarea);
+
+              const gmGroup = document.createElement("div");
+              gmGroup.classList.add("research-threshold-editor__gm");
+              const gmLabelEl = document.createElement("label");
+              gmLabelEl.textContent = gmLabel;
+              const gmTextarea = document.createElement("textarea");
+              gmTextarea.rows = 3;
+              gmTextarea.dataset.thresholdField = "gmText";
+              if (typeof rowValues?.gmText === "string") {
+                gmTextarea.value = rowValues.gmText;
+              }
+              gmGroup.appendChild(gmLabelEl);
+              gmGroup.appendChild(gmTextarea);
+
+              const controls = document.createElement("div");
+              controls.classList.add("research-threshold-editor__controls");
+              const removeButton = document.createElement("button");
+              removeButton.type = "button";
+              removeButton.classList.add("icon");
+              removeButton.dataset.removeThreshold = "true";
+              removeButton.setAttribute("aria-label", removeLabel);
+              removeButton.innerHTML = '<i class="fas fa-trash"></i>';
+              removeButton.addEventListener("click", () => row.remove());
+              controls.appendChild(removeButton);
+
+              row.appendChild(pointsGroup);
+              row.appendChild(playerGroup);
+              row.appendChild(gmGroup);
+              row.appendChild(controls);
+              list.appendChild(row);
+            };
+
+            addButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              addRow();
+            });
+
+            if (values.thresholds.length) {
+              values.thresholds.forEach((threshold) => addRow(threshold));
+            } else {
+              addRow();
+            }
+          }
         }
 
         if (includeLocations) {
