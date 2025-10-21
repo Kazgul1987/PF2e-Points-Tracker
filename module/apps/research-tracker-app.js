@@ -347,10 +347,16 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.GatherInformation")}</label>
           <textarea name="gatherInformation" rows="3"></textarea>
         </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.ResearchChecks")}</label>
-          <textarea name="researchChecks" rows="3"></textarea>
-        </div>
+        ${
+          includeLocations
+            ? ""
+            : `
+                <div class="form-group">
+                  <label>${game.i18n.localize("PF2E.PointsTracker.Research.ResearchChecks")}</label>
+                  <textarea name="researchChecks" rows="3"></textarea>
+                </div>
+              `
+        }
         ${
           includeLocations
             ? `
@@ -708,36 +714,45 @@ export class ResearchTrackerApp extends FormApplication {
     const locationOptions = hasLocations
       ? topic.locations
           .map((location) => {
-            const selected = locationId === location.id ? "selected" : "";
+            const isSelected = String(locationId ?? "") === String(location.id);
             const totalLabel = game.i18n.format(
               "PF2E.PointsTracker.Research.LocationOptionLabel",
               {
                 name: location.name,
                 collected: location.collected,
-                max: location.maxPoints || game.i18n.localize(
-                  "PF2E.PointsTracker.Research.LocationUnlimited"
-                ),
+                max:
+                  location.maxPoints ||
+                  game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited"),
               }
             );
-            return `<option value="${location.id}" ${selected}>${totalLabel}</option>`;
+            const selectedAttribute = isSelected ? " selected" : "";
+            return `<option value="${escapeAttribute(location.id)}"${selectedAttribute}>${escapeHtml(totalLabel)}</option>`;
           })
           .join("")
       : "";
 
-    const template = `
-      <form class="flexcol">
-        ${
-          hasLocations
-            ? `
+    const locationPlaceholder = escapeHtml(
+      game.i18n.localize("PF2E.PointsTracker.Research.LocationSelectPlaceholder")
+    );
+
+    const locationSelect = hasLocations
+      ? `
                 <div class="form-group">
                   <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSelect")}</label>
                   <select name="locationId">
-                    ${locationOptions}
+                    ${
+                      locationId
+                        ? locationOptions
+                        : `<option value="" selected>${locationPlaceholder}</option>${locationOptions}`
+                    }
                   </select>
                 </div>
               `
-            : ""
-        }
+      : "";
+
+    const template = `
+      <form class="flexcol">
+        ${locationSelect}
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.PointChange")}</label>
           <input type="number" name="points" value="${defaultValue}" step="1" />
@@ -760,7 +775,7 @@ export class ResearchTrackerApp extends FormApplication {
         return {
           points: value,
           reason: fd.get("reason")?.toString().trim() || undefined,
-          locationId: fd.get("locationId")?.toString() || locationId || undefined,
+          locationId: fd.get("locationId")?.toString() || undefined,
         };
       },
       rejectClose: false,
@@ -768,10 +783,15 @@ export class ResearchTrackerApp extends FormApplication {
 
     if (!response) return;
 
+    if (hasLocations && !response.locationId) {
+      ui.notifications?.warn?.(
+        game.i18n.localize("PF2E.PointsTracker.Research.LocationSelectRequired")
+      );
+      return;
+    }
+
     if (hasLocations) {
-      const selectedLocation = response.locationId ?? locationId ?? topic.locations[0]?.id;
-      if (!selectedLocation) return;
-      await this.tracker.adjustLocationPoints(topicId, selectedLocation, response.points, {
+      await this.tracker.adjustLocationPoints(topicId, response.locationId, response.points, {
         reason: response.reason,
       });
     } else {

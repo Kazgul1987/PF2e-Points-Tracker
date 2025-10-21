@@ -67,6 +67,8 @@
   "PF2E.PointsTracker.Research.LocationSkill": "Location Skill",
   "PF2E.PointsTracker.Research.LocationSkillLabel": "Skill: {skill}",
   "PF2E.PointsTracker.Research.LocationSelect": "Apply to Location",
+  "PF2E.PointsTracker.Research.LocationSelectPlaceholder": "Select a location",
+  "PF2E.PointsTracker.Research.LocationSelectRequired": "Select a location to adjust research points.",
   "PF2E.PointsTracker.Research.LocationTotals": "Total: {collected} / {max}",
   "PF2E.PointsTracker.Research.LocationUnlimited": "∞",
   "PF2E.PointsTracker.Research.LocationsHeading": "Research Sites",
