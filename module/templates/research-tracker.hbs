@@ -134,21 +134,48 @@
                         {{#if location.description}}
                           <p class="research-location__description">{{location.description}}</p>
                         {{/if}}
-                        {{#if location.assignedActors.length}}
-                          <div class="research-location__assignments">
-                            <span class="research-location__assignment-label">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDisplay"}}</span>
-                            <ul class="research-location__assignment-list">
-                              {{#each location.assignedActors as |assigned|}}
-                                <li class="research-location__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}">
-                                  {{assigned.name}}
-                                  {{#unless assigned.isActive}}
-                                    <span class="research-location__assignment-note">{{localize "PF2E.PointsTracker.Research.LocationAssignmentMissing"}}</span>
-                                  {{/unless}}
-                                </li>
-                              {{/each}}
-                            </ul>
+                        <div
+                          class="research-location__assignments"
+                          data-topic-id="{{../id}}"
+                          data-location-id="{{location.id}}"
+                        >
+                          <span class="research-location__assignment-label">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDisplay"}}</span>
+                          <div
+                            class="research-location__dropzone{{#unless location.assignedActors.length}} is-empty{{/unless}}"
+                            data-dropzone="location"
+                            tabindex="0"
+                          >
+                            {{#if location.assignedActors.length}}
+                              <ul class="research-location__assignment-list">
+                                {{#each location.assignedActors as |assigned|}}
+                                  <li
+                                    class="research-location__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}"
+                                    data-actor-uuid="{{assigned.uuid}}"
+                                    data-actor-name="{{assigned.name}}"
+                                  >
+                                    <span class="research-location__assignment-name">{{assigned.name}}</span>
+                                    {{#unless assigned.isActive}}
+                                      <span class="research-location__assignment-note">{{localize "PF2E.PointsTracker.Research.LocationAssignmentMissing"}}</span>
+                                    {{/unless}}
+                                    <button
+                                      type="button"
+                                      class="research-location__assignment-remove"
+                                      data-action="remove-assigned-actor"
+                                      data-actor-uuid="{{assigned.uuid}}"
+                                      aria-label="{{localize 'PF2E.PointsTracker.Research.LocationAssignmentsRemove'}}"
+                                      title="{{localize 'PF2E.PointsTracker.Research.LocationAssignmentsRemove'}}"
+                                    >
+                                      <i class="fas fa-times"></i>
+                                    </button>
+                                  </li>
+                                {{/each}}
+                              </ul>
+                            {{else}}
+                              <p class="research-location__assignment-empty">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsEmpty"}}</p>
+                            {{/if}}
+                            <p class="research-location__dropzone-hint">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDropPrompt"}}</p>
                           </div>
-                        {{/if}}
+                        </div>
                       </th>
                       <td>
                         <div class="research-location__progress">
@@ -276,7 +303,13 @@
             {{#if topic.partyMembers.length}}
               <ul>
                 {{#each topic.partyMembers as |member|}}
-                  <li data-actor-uuid="{{member.uuid}}">
+                  <li
+                    class="research-participant"
+                    data-actor-uuid="{{member.uuid}}"
+                    data-actor-name="{{member.name}}"
+                    data-draggable="participant"
+                    draggable="true"
+                  >
                     <div class="participant__info">
                       <strong>{{member.name}}</strong>
                       {{#if member.skillLabel}}
