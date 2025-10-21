@@ -168,22 +168,6 @@ function sanitizeStatblock(rawStatblock, fallbackLocations) {
   return Object.keys(sanitized).length ? sanitized : undefined;
 }
 
-function sanitizeParticipant(participant) {
-  if (!participant || typeof participant !== "object") return null;
-  const id = participant.id ? String(participant.id) : createLocalId();
-  const name = participant.name ? String(participant.name) : undefined;
-  const actorUuid = participant.actorUuid ? String(participant.actorUuid) : "";
-  const skill = participant.skill ? String(participant.skill) : undefined;
-  const role = participant.role ? String(participant.role) : undefined;
-  return {
-    id,
-    ...(name ? { name } : {}),
-    actorUuid,
-    ...(skill ? { skill } : {}),
-    ...(role ? { role } : {}),
-  };
-}
-
 function sanitizeThreshold(threshold) {
   if (!threshold || typeof threshold !== "object") return null;
   const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
@@ -229,12 +213,6 @@ function sanitizeTopic(topic) {
 
   const revealed = Array.isArray(topic.revealedThresholdIds)
     ? topic.revealedThresholdIds.map((id) => String(id))
-    : [];
-
-  const participants = Array.isArray(topic.participants)
-    ? topic.participants
-        .map((entry) => sanitizeParticipant(entry))
-        .filter((entry) => entry)
     : [];
 
   const { entries: locations, totals: locationTotals } = sanitizeLocations(
@@ -304,7 +282,6 @@ function sanitizeTopic(topic) {
     ...(researchChecks !== undefined ? { researchChecks } : {}),
     thresholds,
     revealedThresholdIds: revealed,
-    participants,
     locations,
     ...(locationTotals ? { locationTotals } : {}),
     ...(statblock ? { statblock } : {}),
@@ -356,7 +333,6 @@ async function mergeTopic(tracker, topicData) {
     summary: topicData.summary,
     gatherInformation: topicData.gatherInformation,
     researchChecks: topicData.researchChecks,
-    participants: topicData.participants,
     thresholds: topicData.thresholds,
     locations: topicData.locations,
     revealedThresholdIds: topicData.revealedThresholdIds,
@@ -385,10 +361,6 @@ function buildExportPayload(tracker) {
     const summary = sanitizeString(rest.summary ?? "") ?? "";
     const gatherInformation = sanitizeString(rest.gatherInformation ?? "") ?? "";
     const researchChecks = sanitizeString(rest.researchChecks ?? "") ?? "";
-
-    const participants = (rest.participants ?? [])
-      .map((participant) => sanitizeParticipant(participant))
-      .filter((participant) => participant);
 
     const thresholds = (rest.thresholds ?? [])
       .map((threshold) => sanitizeThreshold(threshold))
@@ -463,7 +435,6 @@ function buildExportPayload(tracker) {
       summary,
       gatherInformation,
       researchChecks,
-      participants,
       thresholds,
       locations,
       ...(locationTotals ? { locationTotals } : {}),

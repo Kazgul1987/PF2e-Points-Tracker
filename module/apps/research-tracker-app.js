@@ -41,6 +41,7 @@ export class ResearchTrackerApp extends FormApplication {
     const isGM = game.user?.isGM ?? false;
 
     const enrichedTopics = [];
+    const partyActors = this._getPartyActors();
     for (const topic of topics) {
       const thresholds = (topic.thresholds ?? []).map((threshold) => ({
         ...threshold,
@@ -78,6 +79,16 @@ export class ResearchTrackerApp extends FormApplication {
         ? game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited")
         : totalMax;
 
+      const skillLabel = topic.skill
+        ? game.i18n.format("PF2E.PointsTracker.Research.SkillLabel", { skill: topic.skill })
+        : "";
+      const partyMembers = partyActors.map((actor) => ({
+        id: actor.id,
+        name: actor.name,
+        uuid: actor.uuid,
+        skillLabel,
+      }));
+
       enrichedTopics.push({
         ...topic,
         completed: topic.target > 0 && topic.progress >= topic.target,
@@ -89,6 +100,7 @@ export class ResearchTrackerApp extends FormApplication {
           displayMax: totalDisplayMax,
           hasUnlimited: hasUnlimitedLocation,
         },
+        partyMembers,
         gatherInformationHtml: await this._enrichText(topic.gatherInformation ?? ""),
         researchChecksHtml: await this._enrichText(topic.researchChecks ?? ""),
         summaryHtml: await this._enrichText(topic.summary ?? ""),
@@ -110,11 +122,10 @@ export class ResearchTrackerApp extends FormApplication {
     super.activateListeners(html);
 
     html.find("[data-action='create-topic']").on("click", (event) => this._onCreateTopic(event));
+    html.find("[data-action='edit-topic']").on("click", (event) => this._onEditTopic(event));
     html.find("[data-action='delete-topic']").on("click", (event) => this._onDeleteTopic(event));
     html.find("[data-action='add-points']").on("click", (event) => this._onAdjustPoints(event, 1));
     html.find("[data-action='spend-points']").on("click", (event) => this._onAdjustPoints(event, -1));
-    html.find("[data-action='add-participant']").on("click", (event) => this._onAddParticipant(event));
-    html.find("[data-action='remove-participant']").on("click", (event) => this._onRemoveParticipant(event));
     html.find("[data-action='perform-roll']").on("click", (event) => this._onPerformRoll(event));
     html.find("[data-action='send-reveal']").on("click", (event) => this._onSendReveal(event, false));
     html.find("[data-action='resend-reveal']").on("click", (event) => this._onSendReveal(event, true));
@@ -128,6 +139,88 @@ export class ResearchTrackerApp extends FormApplication {
   /** @private */
   async _onCreateTopic(event) {
     event.preventDefault();
+    const data = await this._promptTopicDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Research.CreateTopic"),
+      label: game.i18n.localize("PF2E.PointsTracker.Research.Create"),
+      includeLocations: true,
+      initial: {
+        target: 10,
+        skill: "society",
+        difficulty: "standard",
+      },
+    });
+
+    if (!data) return;
+
+    await this.tracker.createTopic(data);
+    this.render();
+  }
+
+  /** @private */
+  async _onEditTopic(event) {
+    event.preventDefault();
+    const topicId = event.currentTarget.closest("[data-topic-id]")?.dataset.topicId;
+    if (!topicId) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    if (!topic) return;
+
+    const updates = await this._promptTopicDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Research.EditTopic"),
+      label: game.i18n.localize("PF2E.PointsTracker.Research.Save"),
+      initial: {
+        name: topic.name,
+        target: topic.target,
+        skill: topic.skill,
+        difficulty: topic.difficulty,
+        summary: topic.summary,
+        gatherInformation: topic.gatherInformation,
+        researchChecks: topic.researchChecks,
+      },
+      disableTarget: Array.isArray(topic.locations) && topic.locations.length > 0,
+    });
+
+    if (!updates) return;
+
+    await this.tracker.updateTopic(topicId, updates);
+    this.render();
+  }
+
+  /**
+   * Display a dialog for creating or editing a topic.
+   * @param {object} options
+   * @param {string} options.title
+   * @param {string} options.label
+   * @param {object} [options.initial]
+   * @param {boolean} [options.includeLocations=false]
+   * @param {boolean} [options.disableTarget=false]
+   * @returns {Promise<object|undefined>}
+   */
+  async _promptTopicDialog({
+    title,
+    label,
+    initial = {},
+    includeLocations = false,
+    disableTarget = false,
+  }) {
+    const values = {
+      name: initial.name ?? "",
+      target: Number.isFinite(initial.target)
+        ? Number(initial.target)
+        : includeLocations
+        ? 10
+        : 0,
+      skill:
+        initial.skill ??
+        (includeLocations ? "society" : ""),
+      difficulty:
+        initial.difficulty ??
+        (includeLocations ? "standard" : ""),
+      summary: initial.summary ?? "",
+      gatherInformation: initial.gatherInformation ?? "",
+      researchChecks: initial.researchChecks ?? "",
+      locations: Array.isArray(initial.locations) ? initial.locations : [],
+    };
 
     const template = `
       <form class="flexcol">
@@ -137,15 +230,15 @@ export class ResearchTrackerApp extends FormApplication {
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Target")}</label>
-          <input type="number" name="target" value="10" min="1" step="1" />
+          <input type="number" name="target" value="" min="1" step="1" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Skill")}</label>
-          <input type="text" name="skill" value="society" />
+          <input type="text" name="skill" value="" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Difficulty")}</label>
-          <input type="text" name="difficulty" value="standard" />
+          <input type="text" name="difficulty" value="" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Summary")}</label>
@@ -159,132 +252,198 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.ResearchChecks")}</label>
           <textarea name="researchChecks" rows="3"></textarea>
         </div>
-        <fieldset class="form-group research-topic__locations">
-          <legend>${game.i18n.localize("PF2E.PointsTracker.Research.LocationList")}</legend>
-          <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Research.LocationListHint")}</p>
-          <div class="research-topic__location-editor" data-locations></div>
-          <button type="button" class="dialog-button" data-add-location>
-            <i class="fas fa-plus"></i>
-            ${game.i18n.localize("PF2E.PointsTracker.Research.AddLocation")}
-          </button>
-        </fieldset>
+        ${
+          includeLocations
+            ? `
+                <fieldset class="form-group research-topic__locations">
+                  <legend>${game.i18n.localize("PF2E.PointsTracker.Research.LocationList")}</legend>
+                  <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Research.LocationListHint")}</p>
+                  <div class="research-topic__location-editor" data-locations></div>
+                  <button type="button" class="dialog-button" data-add-location>
+                    <i class="fas fa-plus"></i>
+                    ${game.i18n.localize("PF2E.PointsTracker.Research.AddLocation")}
+                  </button>
+                </fieldset>
+              `
+            : ""
+        }
       </form>
     `;
 
-    const data = await Dialog.prompt({
-      title: game.i18n.localize("PF2E.PointsTracker.Research.CreateTopic"),
+    const result = await Dialog.prompt({
+      title,
       content: template,
-      label: game.i18n.localize("PF2E.PointsTracker.Research.Create"),
+      label,
       callback: (html) => {
         const form = html[0].querySelector("form");
+        if (!form) return undefined;
         const fd = new FormData(form);
-        const locationEntries = Array.from(
-          form.querySelectorAll("[data-location-entry]")
-        )
-          .map((element) => {
-            const name = element.querySelector("[data-field='name']")?.value?.trim();
-            const maxPointsValue = element
-              .querySelector("[data-field='maxPoints']")
-              ?.value;
-            const collectedValue = element
-              .querySelector("[data-field='collected']")
-              ?.value;
-            const maxPoints = Number(maxPointsValue);
-            const collected = Number(collectedValue);
-            return {
-              name: name || undefined,
-              maxPoints: Number.isFinite(maxPoints) ? maxPoints : 0,
-              collected: Number.isFinite(collected) ? collected : 0,
-            };
-          })
-          .filter((entry) => entry.name || entry.maxPoints || entry.collected);
-        return {
-          name: fd.get("name")?.toString().trim() || undefined,
-          target: Number(fd.get("target")) || 0,
-          skill: fd.get("skill")?.toString().trim() || undefined,
-          difficulty: fd.get("difficulty")?.toString().trim() || undefined,
-          summary: fd.get("summary")?.toString().trim() || undefined,
-          gatherInformation: fd.get("gatherInformation")?.toString().trim() || undefined,
-          researchChecks: fd.get("researchChecks")?.toString().trim() || undefined,
-          locations: locationEntries,
+
+        const trimmed = (key) => {
+          const raw = fd.get(key);
+          return raw !== null ? raw.toString().trim() : undefined;
         };
+
+        const payload = {};
+
+        const nameValue = trimmed("name");
+        if (nameValue) {
+          payload.name = nameValue;
+        }
+
+        const skillValue = trimmed("skill");
+        if (skillValue !== undefined) {
+          payload.skill = skillValue || undefined;
+        }
+
+        const difficultyValue = trimmed("difficulty");
+        if (difficultyValue !== undefined) {
+          payload.difficulty = difficultyValue || undefined;
+        }
+
+        const summaryValue = trimmed("summary");
+        if (summaryValue !== undefined) {
+          payload.summary = summaryValue ?? "";
+        }
+
+        const gatherValue = trimmed("gatherInformation");
+        if (gatherValue !== undefined) {
+          payload.gatherInformation = gatherValue ?? "";
+        }
+
+        const researchValue = trimmed("researchChecks");
+        if (researchValue !== undefined) {
+          payload.researchChecks = researchValue ?? "";
+        }
+
+        if (fd.has("target")) {
+          payload.target = Number(fd.get("target")) || 0;
+        }
+
+        if (includeLocations) {
+          const locationEntries = Array.from(
+            form.querySelectorAll("[data-location-entry]")
+          )
+            .map((element) => {
+              const name = element.querySelector("[data-field='name']")?.value?.trim();
+              const maxPointsValue = element.querySelector("[data-field='maxPoints']")?.value;
+              const collectedValue = element.querySelector("[data-field='collected']")?.value;
+              const maxPoints = Number(maxPointsValue);
+              const collected = Number(collectedValue);
+              return {
+                name: name || undefined,
+                maxPoints: Number.isFinite(maxPoints) ? maxPoints : 0,
+                collected: Number.isFinite(collected) ? collected : 0,
+              };
+            })
+            .filter((entry) => entry.name || entry.maxPoints || entry.collected);
+          payload.locations = locationEntries;
+        }
+
+        return payload;
       },
       render: (html) => {
         const root = html[0];
-        const container = root.querySelector("[data-locations]");
-        const addButton = root.querySelector("[data-add-location]");
-        if (!container || !addButton) return;
+        const form = root.querySelector("form");
+        if (!form) return;
 
-        const createInput = (type, datasetKey, value) => {
-          const input = document.createElement("input");
-          input.type = type;
-          input.dataset.field = datasetKey;
-          if (type === "number") {
-            input.min = "0";
-            input.step = "1";
-          }
-          if (value !== undefined && value !== null) {
-            input.value = String(value);
-          }
-          return input;
+        const setValue = (name, value) => {
+          const field = form.elements.namedItem(name);
+          if (!field) return;
+          field.value = value ?? "";
         };
 
-        const addRow = (values = {}) => {
-          const row = document.createElement("div");
-          row.classList.add("research-location-editor-row");
-          row.dataset.locationEntry = "true";
+        setValue("name", values.name ?? "");
+        setValue("target", values.target ?? 0);
+        setValue("skill", values.skill ?? "");
+        setValue("difficulty", values.difficulty ?? "");
 
-          const fields = document.createElement("div");
-          fields.classList.add("research-location-editor-row__fields");
+        const summaryField = form.querySelector("textarea[name='summary']");
+        if (summaryField) summaryField.value = values.summary ?? "";
+        const gatherField = form.querySelector("textarea[name='gatherInformation']");
+        if (gatherField) gatherField.value = values.gatherInformation ?? "";
+        const checksField = form.querySelector("textarea[name='researchChecks']");
+        if (checksField) checksField.value = values.researchChecks ?? "";
 
-          const nameInput = createInput("text", "name", values.name ?? "");
-          nameInput.placeholder = game.i18n.localize(
-            "PF2E.PointsTracker.Research.LocationName"
-          );
-          const maxInput = createInput(
-            "number",
-            "maxPoints",
-            values.maxPoints ?? 0
-          );
-          const collectedInput = createInput(
-            "number",
-            "collected",
-            values.collected ?? 0
-          );
+        const targetInput = form.elements.namedItem("target");
+        if (targetInput) {
+          targetInput.disabled = Boolean(disableTarget);
+        }
 
-          fields.appendChild(nameInput);
-          fields.appendChild(maxInput);
-          fields.appendChild(collectedInput);
+        if (includeLocations) {
+          const container = form.querySelector("[data-locations]");
+          const addButton = form.querySelector("[data-add-location]");
+          if (!container || !addButton) return;
 
-          const removeButton = document.createElement("button");
-          removeButton.type = "button";
-          removeButton.classList.add("icon");
-          removeButton.dataset.removeLocation = "true";
-          removeButton.setAttribute(
-            "aria-label",
-            game.i18n.localize("PF2E.PointsTracker.Research.RemoveLocation")
-          );
-          removeButton.innerHTML = '<i class="fas fa-trash"></i>';
-          removeButton.addEventListener("click", () => row.remove());
+          const createInput = (type, datasetKey, value) => {
+            const input = document.createElement("input");
+            input.type = type;
+            input.dataset.field = datasetKey;
+            if (type === "number") {
+              input.min = "0";
+              input.step = "1";
+            }
+            if (value !== undefined && value !== null) {
+              input.value = String(value);
+            }
+            return input;
+          };
 
-          row.appendChild(fields);
-          row.appendChild(removeButton);
-          container.appendChild(row);
-        };
+          const addRow = (rowValues = {}) => {
+            const row = document.createElement("div");
+            row.classList.add("research-location-editor-row");
+            row.dataset.locationEntry = "true";
 
-        addButton.addEventListener("click", (event) => {
-          event.preventDefault();
-          addRow();
-        });
+            const fields = document.createElement("div");
+            fields.classList.add("research-location-editor-row__fields");
 
-        addRow();
+            const nameInput = createInput("text", "name", rowValues.name ?? "");
+            nameInput.placeholder = game.i18n.localize(
+              "PF2E.PointsTracker.Research.LocationName"
+            );
+            const maxInput = createInput("number", "maxPoints", rowValues.maxPoints ?? 0);
+            const collectedInput = createInput(
+              "number",
+              "collected",
+              rowValues.collected ?? 0
+            );
+
+            fields.appendChild(nameInput);
+            fields.appendChild(maxInput);
+            fields.appendChild(collectedInput);
+
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.classList.add("icon");
+            removeButton.dataset.removeLocation = "true";
+            removeButton.setAttribute(
+              "aria-label",
+              game.i18n.localize("PF2E.PointsTracker.Research.RemoveLocation")
+            );
+            removeButton.innerHTML = '<i class="fas fa-trash"></i>';
+            removeButton.addEventListener("click", () => row.remove());
+
+            row.appendChild(fields);
+            row.appendChild(removeButton);
+            container.appendChild(row);
+          };
+
+          addButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            addRow();
+          });
+
+          if (values.locations.length) {
+            values.locations.forEach((location) => addRow(location));
+          } else {
+            addRow();
+          }
+        }
       },
       rejectClose: false,
     });
 
-    if (!data) return;
-    await this.tracker.createTopic(data);
-    this.render();
+    return result ?? undefined;
   }
 
   /** @private */
@@ -509,99 +668,40 @@ export class ResearchTrackerApp extends FormApplication {
   }
 
   /** @private */
-  async _onAddParticipant(event) {
-    event.preventDefault();
-    const topicId = event.currentTarget.closest("[data-topic-id]")?.dataset.topicId;
-    if (!topicId) return;
-
-    const actors = game.actors?.contents ?? [];
-    const actorOptions = actors
-      .map((actor) => `<option value="${actor.uuid}">${actor.name}</option>`)
-      .join("");
-
-    const template = `
-      <form class="flexcol">
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.ParticipantActor")}</label>
-          <select name="actorUuid">${actorOptions}</select>
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.ParticipantName")}</label>
-          <input type="text" name="name" value="" />
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.Skill")}</label>
-          <input type="text" name="skill" value="" />
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.Role")}</label>
-          <input type="text" name="role" value="" />
-        </div>
-      </form>
-    `;
-
-    const participant = await Dialog.prompt({
-      title: game.i18n.localize("PF2E.PointsTracker.Research.AddParticipant"),
-      content: template,
-      label: game.i18n.localize("PF2E.PointsTracker.Research.Add"),
-      callback: (html) => {
-        const form = html[0].querySelector("form");
-        const fd = new FormData(form);
-        const actorUuid = fd.get("actorUuid")?.toString() ?? "";
-        const actor = actors.find((candidate) => candidate.uuid === actorUuid);
-        const name = fd.get("name")?.toString().trim() || actor?.name || undefined;
-        return {
-          actorUuid,
-          name,
-          skill: fd.get("skill")?.toString().trim() || undefined,
-          role: fd.get("role")?.toString().trim() || undefined,
-        };
-      },
-      rejectClose: false,
-    });
-
-    if (!participant) return;
-    await this.tracker.addParticipant(topicId, participant);
-    this.render();
-  }
-
-  /** @private */
-  async _onRemoveParticipant(event) {
-    event.preventDefault();
-    const container = event.currentTarget.closest("[data-participant-id]");
-    if (!container) return;
-    const topicId = container.closest("[data-topic-id]")?.dataset.topicId;
-    const participantId = container.dataset.participantId;
-    if (!topicId || !participantId) return;
-
-    await this.tracker.removeParticipant(topicId, participantId);
-    this.render();
-  }
-
-  /** @private */
   async _onPerformRoll(event) {
     event.preventDefault();
-    const container = event.currentTarget.closest("[data-participant-id]");
-    if (!container) return;
-    const topicId = container.closest("[data-topic-id]")?.dataset.topicId;
-    const participantId = container.dataset.participantId;
-    if (!topicId || !participantId) return;
+    const button = event.currentTarget;
+    const topicId = button.closest("[data-topic-id]")?.dataset.topicId;
+    const actorUuid =
+      button.dataset.actorUuid ?? button.closest("[data-actor-uuid]")?.dataset.actorUuid;
+    if (!topicId || !actorUuid) return;
 
-    const participant = this.tracker.getParticipant(topicId, participantId);
     const topic = this.tracker.getTopic(topicId);
-    if (!participant?.actorUuid) {
+    if (!topic) return;
+
+    if (!topic.skill) {
+      ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.NoSkillConfigured"));
+      return;
+    }
+
+    let actor;
+    try {
+      actor = await fromUuid(actorUuid);
+    } catch (error) {
+      console.error(error);
+    }
+
+    if (!actor) {
       ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.NoActor"));
       return;
     }
 
-    const actor = await fromUuid(participant.actorUuid);
-    if (!(actor?.skills)) {
+    if (!(actor.skills)) {
       ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.ActorMissingSkills"));
       return;
     }
 
-    const skillKey = participant.skill || topic?.skill;
-    const skill = actor.skills[skillKey];
+    const skill = actor.skills[topic.skill];
     if (!skill?.roll) {
       ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.SkillUnavailable"));
       return;
@@ -624,15 +724,15 @@ export class ResearchTrackerApp extends FormApplication {
       const locationId = adjustment.locationId ?? topic.locations[0]?.id;
       if (!locationId) return;
       await this.tracker.adjustLocationPoints(topicId, locationId, adjustment.points, {
-        actorUuid: participant.actorUuid,
-        actorName: participant.name,
+        actorUuid: actor.uuid ?? actorUuid,
+        actorName: actor.name,
         reason: adjustment.reason,
         roll: roll.toJSON ? roll.toJSON() : roll,
       });
     } else {
       await this.tracker.adjustPoints(topicId, adjustment.points, {
-        actorUuid: participant.actorUuid,
-        actorName: participant.name,
+        actorUuid: actor.uuid ?? actorUuid,
+        actorName: actor.name,
         reason: adjustment.reason,
         roll: roll.toJSON ? roll.toJSON() : roll,
       });
@@ -663,6 +763,19 @@ export class ResearchTrackerApp extends FormApplication {
   async _onExportTopics(event) {
     event.preventDefault();
     await ResearchImportExport.exportTopics(this.tracker);
+  }
+
+  /**
+   * Retrieve the actors that should be considered part of the party.
+   * @returns {Actor[]}
+   */
+  _getPartyActors() {
+    const party = game?.actors?.party;
+    if (party?.members?.length) {
+      return party.members;
+    }
+    const actors = game?.actors?.contents ?? [];
+    return actors.filter((actor) => actor.type === "character" && actor.hasPlayerOwner);
   }
 
   /**

@@ -377,7 +377,6 @@
   align-items: center;
 }
 
-.participant__role,
 .participant__skill {
   font-size: 0.75rem;
   color: var(--color-text-light-5);
@@ -385,6 +384,11 @@
 
 .participant__controls button {
   margin-left: 0.35rem;
+}
+
+.participant__controls button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .research-tracker__log ul {
