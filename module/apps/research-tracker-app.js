@@ -1218,11 +1218,27 @@ export class ResearchTrackerApp extends FormApplication {
     }
 
     const parameters = [`type:skill`, `skill:${selectedCheck.skill}`, `dc:${selectedCheck.dc}`];
-    const locationName = location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
-    const inline = `@Check[${parameters.join(",")}]{${locationName}}`;
+    const locationName =
+      location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
+    const skillKey = typeof selectedCheck.skill === "string" ? selectedCheck.skill : "";
+    const skillConfig = skillKey && CONFIG?.PF2E?.skills ? CONFIG.PF2E.skills[skillKey] : null;
+    let inlineLabel = "";
+    if (typeof skillConfig === "string" && skillConfig.trim()) {
+      inlineLabel =
+        typeof game.i18n?.localize === "function"
+          ? game.i18n.localize(skillConfig)
+          : skillConfig;
+    } else if (skillConfig && typeof skillConfig?.label === "string" && skillConfig.label.trim()) {
+      inlineLabel = skillConfig.label.trim();
+    } else if (skillKey) {
+      inlineLabel = skillKey;
+    } else {
+      inlineLabel = locationName;
+    }
+    const inline = `@Check[${parameters.join(",")}]{${inlineLabel}}`;
     const description =
       typeof location.description === "string" ? location.description.trim() : "";
-    const contentParts = [`<p>${inline}</p>`];
+    const contentParts = [`<p>${escapeHtml(locationName)} ${inline}</p>`];
     if (description) {
       contentParts.push(`<p>${escapeHtml(description)}</p>`);
     }
