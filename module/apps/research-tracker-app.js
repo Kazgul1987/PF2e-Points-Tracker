@@ -1621,10 +1621,40 @@ export class ResearchTrackerApp extends FormApplication {
         emptyOption.value = "";
         emptyOption.textContent = skillLabel;
         skillInput.appendChild(emptyOption);
+        const getSkillLabel = (skillKey, skillData) => {
+          let label = "";
+          if (skillData && typeof skillData === "object") {
+            if (typeof skillData.label === "string" && skillData.label.trim()) {
+              label = skillData.label.trim();
+            } else if (typeof skillData.value === "string" && skillData.value.trim()) {
+              label = skillData.value.trim();
+            }
+          } else if (typeof skillData === "string" && skillData.trim()) {
+            label = skillData.trim();
+          }
+
+          if (!label) {
+            label = skillKey;
+          }
+
+          const i18n = game?.i18n;
+          if (i18n && typeof label === "string" && label.trim()) {
+            try {
+              if (typeof i18n.has === "function" && i18n.has(label)) {
+                return i18n.localize(label);
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          }
+
+          return label;
+        };
+
         for (const [skillKey, skillName] of Object.entries(pf2eSkills)) {
           const option = document.createElement("option");
           option.value = skillKey;
-          option.textContent = skillName;
+          option.textContent = getSkillLabel(skillKey, skillName);
           skillInput.appendChild(option);
         }
         const selectedValue = values?.skill ?? "";
