@@ -14,6 +14,30 @@ const OUTCOME_LABEL_KEYS = {
 
 const processedMessages = new Set();
 
+function extractLocationChecks(location, topic) {
+  const entries = Array.isArray(location?.checks) ? location.checks : [];
+  const normalized = entries
+    .map((check) => {
+      const skill = typeof check?.skill === "string" ? check.skill.trim() : "";
+      const dcNumber = Number(check?.dc);
+      const dc = Number.isFinite(dcNumber) && dcNumber > 0 ? Number(dcNumber) : null;
+      return { skill, dc };
+    })
+    .filter((entry) => entry.skill);
+
+  if (normalized.length) return normalized;
+
+  const fallbackSkill = typeof location?.skill === "string"
+    ? location.skill.trim()
+    : typeof topic?.skill === "string"
+    ? topic.skill.trim()
+    : "";
+  if (!fallbackSkill) return [];
+  const dcNumber = Number(location?.dc);
+  const dc = Number.isFinite(dcNumber) && dcNumber > 0 ? Number(dcNumber) : null;
+  return [{ skill: fallbackSkill, dc }];
+}
+
 /**
  * Register hooks to automatically apply research points for successful skill checks.
  * @param {import("./tracker.js").ResearchTracker} tracker
@@ -183,10 +207,14 @@ function findMatchingTargets(tracker, skillSlug, actorData, context) {
     const locations = Array.isArray(topic.locations) ? topic.locations : [];
     if (locations.length) {
       for (const location of locations) {
-        const locationSkill = (location.skill || topic.skill || "").toLowerCase();
-        if (!locationSkill || locationSkill !== normalizedSkill) continue;
+        const checks = extractLocationChecks(location, topic);
+        const matchingCheck = checks.find((check) => {
+          const skillValue = (check.skill || "").toLowerCase();
+          if (!skillValue || skillValue !== normalizedSkill) return false;
+          return matchesDc(check.dc, context);
+        });
 
-        if (!matchesDc(location, context)) continue;
+        if (!matchingCheck) continue;
 
         const assignments = Array.isArray(location.assignedActors)
           ? location.assignedActors
@@ -243,8 +271,8 @@ function findMatchingTargets(tracker, skillSlug, actorData, context) {
   return [];
 }
 
-function matchesDc(location, context) {
-  const dc = Number(location?.dc ?? NaN);
+function matchesDc(dcValue, context) {
+  const dc = Number(dcValue ?? NaN);
   if (!Number.isFinite(dc) || dc <= 0) return true;
   const contextDc = Number(context?.dc?.value ?? context?.dc ?? NaN);
   if (!Number.isFinite(contextDc)) return true;

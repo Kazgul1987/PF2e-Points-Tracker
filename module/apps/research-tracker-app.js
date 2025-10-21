@@ -97,19 +97,32 @@ export class ResearchTrackerApp extends FormApplication {
           maxPoints > 0
             ? maxPoints
             : game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited");
-        const skill = typeof location.skill === "string" ? location.skill.trim() : "";
-        const dcValue = Number(location.dc);
-        const hasDc = Number.isFinite(dcValue) && dcValue > 0;
-        const skillLabel = skill
-          ? game.i18n.format("PF2E.PointsTracker.Research.LocationSkillLabel", { skill })
-          : "";
-        const dcLabel = hasDc
-          ? game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", { dc: Number(dcValue) })
-          : "";
+        const normalizedChecks = this._normalizeLocationChecks(location);
+        const checkSummaries = normalizedChecks
+          .map((entry) => {
+            const skillLabel = entry.skill
+              ? game.i18n.format("PF2E.PointsTracker.Research.LocationSkillLabel", {
+                  skill: entry.skill,
+                })
+              : "";
+            const dcLabel = entry.dc !== null
+              ? game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", {
+                  dc: entry.dc,
+                })
+              : "";
+            const parts = [];
+            if (skillLabel) parts.push(skillLabel);
+            else if (entry.skill) parts.push(entry.skill);
+            if (dcLabel) parts.push(dcLabel);
+            return parts.join(" • ").trim();
+          })
+          .filter((summary) => summary);
+        const hasRollableCheck = normalizedChecks.some(
+          (entry) => entry.skill && entry.dc !== null
+        );
         const description = typeof location.description === "string"
           ? location.description.trim()
           : "";
-        const hasCheckData = Boolean(skill) && hasDc;
         const assignedActorsRaw = Array.isArray(location.assignedActors)
           ? location.assignedActors
           : [];
@@ -141,12 +154,9 @@ export class ResearchTrackerApp extends FormApplication {
           collected,
           percent: Math.round(percent * 100) / 100,
           displayMax,
-          skill,
-          dc: hasDc ? Number(dcValue) : null,
-          skillLabel,
-          dcLabel,
+          checkSummaries,
           description,
-          hasCheckData,
+          hasCheckData: hasRollableCheck,
           assignedActors,
           hasMissingAssignments: assignedActors.some((actor) => !actor.isActive),
         };
@@ -411,29 +421,50 @@ export class ResearchTrackerApp extends FormApplication {
               const name = element.querySelector("[data-field='name']")?.value?.trim();
               const maxPointsValue = element.querySelector("[data-field='maxPoints']")?.value;
               const collectedValue = element.querySelector("[data-field='collected']")?.value;
-              const skillValue = element.querySelector("[data-field='skill']")?.value?.trim();
-              const dcValueRaw = element.querySelector("[data-field='dc']")?.value;
               const descriptionValue = element
                 .querySelector("[data-field='description']")
                 ?.value?.trim();
               const maxPoints = Number(maxPointsValue);
               const collected = Number(collectedValue);
-              const dcNumber = Number(dcValueRaw);
+              const checks = Array.from(
+                element.querySelectorAll("[data-check-entry]")
+              )
+                .map((checkElement) => {
+                  const skill = checkElement
+                    .querySelector("[data-check-field='skill']")
+                    ?.value?.trim();
+                  const dcRaw = checkElement
+                    .querySelector("[data-check-field='dc']")
+                    ?.value;
+                  const dcNumeric = Number(dcRaw);
+                  const hasDc = Number.isFinite(dcNumeric) && dcNumeric > 0;
+                  const hasSkill = Boolean(skill);
+                  if (!hasSkill && !hasDc) return null;
+                  const entry = {};
+                  if (hasSkill) entry.skill = skill;
+                  entry.dc = hasDc ? Number(dcNumeric) : null;
+                  return entry;
+                })
+                .filter((entry) => entry);
               const entry = {
                 name: name || undefined,
                 maxPoints: Number.isFinite(maxPoints) ? maxPoints : 0,
                 collected: Number.isFinite(collected) ? collected : 0,
               };
-              if (skillValue) entry.skill = skillValue;
-              if (Number.isFinite(dcNumber) && dcNumber > 0) entry.dc = dcNumber;
+              if (checks.length) {
+                entry.checks = checks;
+                const primary = checks[0];
+                if (primary?.skill) entry.skill = primary.skill;
+                if (primary && primary.dc !== undefined && primary.dc !== null)
+                  entry.dc = primary.dc;
+              }
               if (descriptionValue) entry.description = descriptionValue;
               const hasData =
                 Boolean(entry.name) ||
                 (Number.isFinite(entry.maxPoints) && entry.maxPoints > 0) ||
                 (Number.isFinite(entry.collected) && entry.collected > 0) ||
-                Boolean(entry.skill) ||
-                Number.isFinite(entry.dc) ||
-                Boolean(entry.description);
+                Boolean(entry.description) ||
+                checks.length > 0;
               return hasData ? entry : null;
             })
             .filter((entry) => entry);
@@ -501,11 +532,12 @@ export class ResearchTrackerApp extends FormApplication {
             nameInput.placeholder = game.i18n.localize(
               "PF2E.PointsTracker.Research.LocationName"
             );
-            const skillInput = createInput("text", "skill", rowValues.skill ?? "");
-            skillInput.placeholder = game.i18n.localize(
+            const skillLabelText = game.i18n.localize(
               "PF2E.PointsTracker.Research.LocationSkill"
             );
-            const dcInput = createInput("number", "dc", rowValues.dc ?? "");
+            const dcLabelText = game.i18n.localize(
+              "PF2E.PointsTracker.Research.LocationDC"
+            );
             const maxInput = createInput("number", "maxPoints", rowValues.maxPoints ?? 0);
             const collectedInput = createInput(
               "number",
@@ -521,11 +553,87 @@ export class ResearchTrackerApp extends FormApplication {
               "PF2E.PointsTracker.Research.LocationDescription"
             );
 
+            const checksWrapper = document.createElement("div");
+            checksWrapper.classList.add("research-location-editor-row__checks");
+
+            const checksLabel = document.createElement("span");
+            checksLabel.classList.add("research-location-editor-row__checks-label");
+            checksLabel.textContent = `${skillLabelText} / ${dcLabelText}`;
+            checksWrapper.appendChild(checksLabel);
+
+            const checksList = document.createElement("div");
+            checksList.classList.add("research-location-editor-row__check-list");
+            checksWrapper.appendChild(checksList);
+
+            const addCheckButton = document.createElement("button");
+            addCheckButton.type = "button";
+            addCheckButton.classList.add("dialog-button");
+            addCheckButton.dataset.addCheck = "true";
+            addCheckButton.innerHTML = `<i class="fas fa-plus"></i> ${game.i18n.localize(
+              "PF2E.PointsTracker.Research.AddCheck"
+            )}`;
+            checksWrapper.appendChild(addCheckButton);
+
+            const addCheckRow = (values = {}) => {
+              const checkRow = document.createElement("div");
+              checkRow.classList.add("research-location-editor-check-row");
+              checkRow.dataset.checkEntry = "true";
+
+              const checkSkillInput = createInput(
+                "text",
+                "check-skill",
+                values?.skill ?? ""
+              );
+              checkSkillInput.dataset.checkField = "skill";
+              checkSkillInput.placeholder = skillLabelText;
+
+              const checkDcValue = values?.dc ?? "";
+              const checkDcInput = createInput("number", "check-dc", checkDcValue ?? "");
+              checkDcInput.dataset.checkField = "dc";
+
+              const removeCheckButton = document.createElement("button");
+              removeCheckButton.type = "button";
+              removeCheckButton.classList.add("icon");
+              removeCheckButton.dataset.removeCheck = "true";
+              removeCheckButton.setAttribute(
+                "aria-label",
+                game.i18n.localize("PF2E.PointsTracker.Research.RemoveCheck")
+              );
+              removeCheckButton.innerHTML = '<i class="fas fa-times"></i>';
+              removeCheckButton.addEventListener("click", () => checkRow.remove());
+
+              checkRow.appendChild(checkSkillInput);
+              checkRow.appendChild(checkDcInput);
+              checkRow.appendChild(removeCheckButton);
+              checksList.appendChild(checkRow);
+            };
+
+            addCheckButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              addCheckRow();
+            });
+
+            const initialChecks = Array.isArray(rowValues.checks) && rowValues.checks.length
+              ? rowValues.checks
+              : (() => {
+                  const fallbackSkill = rowValues.skill ?? "";
+                  const fallbackDc = rowValues.dc ?? null;
+                  if (fallbackSkill || fallbackDc) {
+                    return [
+                      {
+                        skill: fallbackSkill,
+                        dc: fallbackDc,
+                      },
+                    ];
+                  }
+                  return [{}];
+                })();
+            initialChecks.forEach((check) => addCheckRow(check));
+
             fields.appendChild(nameInput);
-            fields.appendChild(skillInput);
-            fields.appendChild(dcInput);
             fields.appendChild(maxInput);
             fields.appendChild(collectedInput);
+            fields.appendChild(checksWrapper);
             fields.appendChild(descriptionInput);
 
             const removeButton = document.createElement("button");
@@ -707,12 +815,12 @@ export class ResearchTrackerApp extends FormApplication {
           <input type="text" name="name" value="" />
         </div>
         <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")}</label>
-          <input type="text" name="skill" value="" />
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
-          <input type="number" name="dc" value="" min="0" step="1" />
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")} / ${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
+          <div class="research-location__check-editor" data-checks></div>
+          <button type="button" class="dialog-button" data-add-check>
+            <i class="fas fa-plus"></i>
+            ${game.i18n.localize("PF2E.PointsTracker.Research.AddCheck")}
+          </button>
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationMaxPoints")}</label>
@@ -745,20 +853,40 @@ export class ResearchTrackerApp extends FormApplication {
             name: input.dataset.actorName ?? "",
           }))
           .filter((entry) => entry.uuid);
+        const checks = Array.from(form.querySelectorAll("[data-check-entry]"))
+          .map((row) => {
+            const skill = row.querySelector("[data-check-field='skill']")?.value?.trim();
+            const dcRaw = row.querySelector("[data-check-field='dc']")?.value;
+            const dcNumeric = Number(dcRaw);
+            const hasDc = Number.isFinite(dcNumeric) && dcNumeric > 0;
+            const hasSkill = Boolean(skill);
+            if (!hasSkill && !hasDc) return null;
+            const entry = {};
+            if (hasSkill) entry.skill = skill;
+            entry.dc = hasDc ? Number(dcNumeric) : null;
+            return entry;
+          })
+          .filter((entry) => entry);
+        const primaryCheck = checks[0];
         return {
           name: fd.get("name")?.toString().trim() || undefined,
-          skill: fd.get("skill")?.toString().trim() || undefined,
-          dc: (() => {
-            const value = Number(fd.get("dc"));
-            return Number.isFinite(value) && value > 0 ? value : null;
-          })(),
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
           description: fd.get("description")?.toString().trim() || undefined,
           assignedActors: selectedAssignments,
+          checks,
+          skill: primaryCheck?.skill,
+          dc: primaryCheck?.dc ?? null,
         };
       },
       rejectClose: false,
+      render: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return;
+        const container = form.querySelector("[data-checks]");
+        const addButton = form.querySelector("[data-add-check]");
+        this._setupCheckEditor(container, addButton, []);
+      },
     });
 
     if (!response) return;
@@ -868,12 +996,12 @@ export class ResearchTrackerApp extends FormApplication {
           <input type="text" name="name" value="${location.name}" />
         </div>
         <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")}</label>
-          <input type="text" name="skill" value="${location.skill ?? ""}" />
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
-          <input type="number" name="dc" value="${location.dc ?? ""}" min="0" step="1" />
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")} / ${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
+          <div class="research-location__check-editor" data-checks></div>
+          <button type="button" class="dialog-button" data-add-check>
+            <i class="fas fa-plus"></i>
+            ${game.i18n.localize("PF2E.PointsTracker.Research.AddCheck")}
+          </button>
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationMaxPoints")}</label>
@@ -898,8 +1026,6 @@ export class ResearchTrackerApp extends FormApplication {
       callback: (html) => {
         const form = html[0].querySelector("form");
         const fd = new FormData(form);
-        const skillRaw = fd.get("skill");
-        const skillValue = skillRaw !== null ? skillRaw.toString().trim() : undefined;
         const descriptionRaw = fd.get("description");
         const descriptionValue =
           descriptionRaw !== null ? descriptionRaw.toString().trim() : undefined;
@@ -911,20 +1037,55 @@ export class ResearchTrackerApp extends FormApplication {
             name: input.dataset.actorName ?? "",
           }))
           .filter((entry) => entry.uuid);
+        const checks = Array.from(form.querySelectorAll("[data-check-entry]"))
+          .map((row) => {
+            const skill = row.querySelector("[data-check-field='skill']")?.value?.trim();
+            const dcRaw = row.querySelector("[data-check-field='dc']")?.value;
+            const dcNumeric = Number(dcRaw);
+            const hasDc = Number.isFinite(dcNumeric) && dcNumeric > 0;
+            const hasSkill = Boolean(skill);
+            if (!hasSkill && !hasDc) return null;
+            const entry = {};
+            if (hasSkill) entry.skill = skill;
+            entry.dc = hasDc ? Number(dcNumeric) : null;
+            return entry;
+          })
+          .filter((entry) => entry);
+        const primaryCheck = checks[0];
         return {
           name: fd.get("name")?.toString().trim() || undefined,
-          ...(skillValue !== undefined ? { skill: skillValue } : {}),
-          dc: (() => {
-            const value = Number(fd.get("dc"));
-            return Number.isFinite(value) && value > 0 ? value : null;
-          })(),
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
           ...(descriptionValue !== undefined ? { description: descriptionValue } : {}),
           assignedActors: selectedAssignments,
+          checks,
+          ...(primaryCheck?.skill ? { skill: primaryCheck.skill } : {}),
+          dc: primaryCheck?.dc ?? null,
         };
       },
       rejectClose: false,
+      render: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return;
+        const container = form.querySelector("[data-checks]");
+        const addButton = form.querySelector("[data-add-check]");
+        const initialChecks = Array.isArray(location.checks) && location.checks.length
+          ? location.checks
+          : (() => {
+              const fallbackSkill = location.skill ?? "";
+              const fallbackDc = location.dc ?? null;
+              if (fallbackSkill || fallbackDc) {
+                return [
+                  {
+                    skill: fallbackSkill,
+                    dc: fallbackDc,
+                  },
+                ];
+              }
+              return [];
+            })();
+        this._setupCheckEditor(container, addButton, initialChecks);
+      },
     });
 
     if (!response) return;
@@ -965,25 +1126,78 @@ export class ResearchTrackerApp extends FormApplication {
     const location = topic?.locations?.find((entry) => entry.id === locationId);
     if (!topic || !location) return;
 
-    const skill = typeof location.skill === "string" ? location.skill.trim() : "";
-    const dcValue = Number(location.dc);
-    const hasDc = Number.isFinite(dcValue) && dcValue > 0;
-
-    if (!skill) {
+    const normalizedChecks = this._normalizeLocationChecks(location);
+    const hasSkill = normalizedChecks.some((entry) => entry.skill);
+    if (!hasSkill) {
       ui.notifications?.warn?.(
         game.i18n.localize("PF2E.PointsTracker.Research.LocationMissingSkill")
       );
       return;
     }
 
-    if (!hasDc) {
+    const rollableChecks = normalizedChecks.filter(
+      (entry) => entry.skill && entry.dc !== null
+    );
+    if (!rollableChecks.length) {
       ui.notifications?.warn?.(
         game.i18n.localize("PF2E.PointsTracker.Research.LocationMissingDC")
       );
       return;
     }
 
-    const parameters = [`type:skill`, `skill:${skill}`, `dc:${Number(dcValue)}`];
+    let selectedCheck = rollableChecks[0];
+
+    if (rollableChecks.length > 1) {
+      const options = rollableChecks
+        .map((check, index) => {
+          const labelParts = [];
+          if (check.skill) {
+            labelParts.push(
+              game.i18n.format("PF2E.PointsTracker.Research.LocationSkillLabel", {
+                skill: check.skill,
+              })
+            );
+          }
+          if (check.dc !== null) {
+            labelParts.push(
+              game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", {
+                dc: check.dc,
+              })
+            );
+          }
+          const label = labelParts.join(" • ") || check.skill;
+          return `<option value="${index}">${escapeHtml(label)}</option>`;
+        })
+        .join("");
+
+      const response = await Dialog.prompt({
+        title: game.i18n.localize(
+          "PF2E.PointsTracker.Research.LocationSelectCheck"
+        ),
+        content: `
+          <form class="flexcol">
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSelectCheck")}</label>
+              <select name="checkIndex">${options}</select>
+            </div>
+          </form>
+        `,
+        label: game.i18n.localize("PF2E.PointsTracker.Research.Apply"),
+        callback: (html) => {
+          const select = html[0].querySelector("select[name='checkIndex']");
+          const value = select ? Number(select.value) : 0;
+          return Number.isFinite(value) ? value : 0;
+        },
+        rejectClose: false,
+      });
+
+      if (response === undefined) return;
+      const chosen = rollableChecks[Number(response)];
+      if (!chosen) return;
+      selectedCheck = chosen;
+    }
+
+    const parameters = [`type:skill`, `skill:${selectedCheck.skill}`, `dc:${selectedCheck.dc}`];
     const locationName = location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
     const inline = `@Check[${parameters.join(",")}]{${locationName}}`;
     const description =
@@ -1116,6 +1330,86 @@ export class ResearchTrackerApp extends FormApplication {
     }
     const actors = game?.actors?.contents ?? [];
     return actors.filter((actor) => actor.type === "character" && actor.hasPlayerOwner);
+  }
+
+  _normalizeLocationChecks(location) {
+    const entries = Array.isArray(location?.checks) ? location.checks : [];
+    return entries
+      .map((check, index) => {
+        const skill = typeof check?.skill === "string" ? check.skill.trim() : "";
+        const dcValue = Number(check?.dc);
+        const dc = Number.isFinite(dcValue) && dcValue > 0 ? Number(dcValue) : null;
+        return {
+          index,
+          skill,
+          dc,
+        };
+      })
+      .filter((entry) => entry.skill || entry.dc !== null);
+  }
+
+  _setupCheckEditor(container, addButton, initialChecks = []) {
+    if (!container) return;
+    const skillLabel = game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill");
+    const dcLabel = game.i18n.localize("PF2E.PointsTracker.Research.LocationDC");
+
+    container.innerHTML = "";
+
+    const createInput = (type, value) => {
+      const input = document.createElement("input");
+      input.type = type;
+      if (type === "number") {
+        input.min = "0";
+        input.step = "1";
+      }
+      if (value !== undefined && value !== null && value !== "") {
+        input.value = String(value);
+      }
+      return input;
+    };
+
+    const addRow = (values = {}) => {
+      const row = document.createElement("div");
+      row.classList.add("research-location-check-editor__row");
+      row.dataset.checkEntry = "true";
+
+      const skillInput = createInput("text", values?.skill ?? "");
+      skillInput.dataset.checkField = "skill";
+      skillInput.placeholder = skillLabel;
+
+      const dcValue = values?.dc ?? "";
+      const dcInput = createInput("number", dcValue ?? "");
+      dcInput.dataset.checkField = "dc";
+      dcInput.placeholder = dcLabel;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.classList.add("icon");
+      removeButton.dataset.removeCheck = "true";
+      removeButton.setAttribute(
+        "aria-label",
+        game.i18n.localize("PF2E.PointsTracker.Research.RemoveCheck")
+      );
+      removeButton.innerHTML = '<i class="fas fa-times"></i>';
+      removeButton.addEventListener("click", () => row.remove());
+
+      row.appendChild(skillInput);
+      row.appendChild(dcInput);
+      row.appendChild(removeButton);
+      container.appendChild(row);
+    };
+
+    if (addButton) {
+      addButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        addRow();
+      });
+    }
+
+    const seeds = Array.isArray(initialChecks) && initialChecks.length
+      ? initialChecks
+      : [{}];
+    seeds.forEach((entry) => addRow(entry));
   }
 
   /**

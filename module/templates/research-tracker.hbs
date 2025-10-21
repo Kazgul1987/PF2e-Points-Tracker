@@ -124,19 +124,12 @@
                     <tr class="research-location" data-location-id="{{location.id}}">
                       <th scope="row">
                         <span class="research-location__name">{{location.name}}</span>
-                        {{#if location.skillLabel}}
+                        {{#if location.checkSummaries.length}}
                           <div class="research-location__details">
-                            <span class="research-location__detail">{{location.skillLabel}}</span>
-                            {{#if location.dcLabel}}
-                              <span class="research-location__detail">{{location.dcLabel}}</span>
-                            {{/if}}
+                            {{#each location.checkSummaries as |summary|}}
+                              <div class="research-location__detail">{{summary}}</div>
+                            {{/each}}
                           </div>
-                        {{else}}
-                          {{#if location.dcLabel}}
-                            <div class="research-location__details">
-                              <span class="research-location__detail">{{location.dcLabel}}</span>
-                            </div>
-                          {{/if}}
                         {{/if}}
                         {{#if location.description}}
                           <p class="research-location__description">{{location.description}}</p>
