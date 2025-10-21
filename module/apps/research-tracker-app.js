@@ -1551,10 +1551,31 @@ export class ResearchTrackerApp extends FormApplication {
       data?.actorUuid !== undefined;
     if (!isActorDrag) return;
 
-    const actorUuid = data?.actorUuid ?? data?.uuid ?? data?.id;
+    let actorUuid =
+      typeof data?.actorUuid === "string"
+        ? data.actorUuid.trim()
+        : typeof data?.uuid === "string"
+        ? data.uuid.trim()
+        : typeof data?.id === "string"
+        ? data.id.trim()
+        : typeof data?.actorId === "string"
+        ? data.actorId.trim()
+        : typeof data?.documentId === "string"
+        ? data.documentId.trim()
+        : typeof data?._id === "string"
+        ? data._id.trim()
+        : "";
     if (!actorUuid) return;
 
-    const actorName =
+    const hasDocumentPrefix =
+      actorUuid.startsWith("Actor.") ||
+      actorUuid.startsWith("Compendium.") ||
+      actorUuid.includes(".");
+    if (!hasDocumentPrefix) {
+      actorUuid = `Actor.${actorUuid}`;
+    }
+
+    let actorName =
       (typeof data?.actorName === "string" && data.actorName.trim())
         ? data.actorName.trim()
         : typeof data?.name === "string"
@@ -1562,6 +1583,17 @@ export class ResearchTrackerApp extends FormApplication {
         : typeof data?.data?.name === "string"
         ? data.data.name
         : "";
+
+    if (!actorName && actorUuid && typeof fromUuid === "function") {
+      try {
+        const actor = await fromUuid(actorUuid);
+        if (actor?.name) {
+          actorName = actor.name;
+        }
+      } catch (error) {
+        console.warn(error);
+      }
+    }
 
     const topic = this.tracker.getTopic(topicId);
     const location = topic?.locations?.find((entry) => entry.id === locationId);
