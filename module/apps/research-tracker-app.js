@@ -273,6 +273,10 @@ export class ResearchTrackerApp extends FormApplication {
       .off("click")
       .on("click", (event) => this._onEditTopic(event));
     html
+      .find("[data-action='manage-locations']")
+      .off("click")
+      .on("click", (event) => this._onManageLocations(event));
+    html
       .find("[data-action='delete-topic']")
       .off("click")
       .on("click", (event) => this._onDeleteTopic(event));
@@ -406,6 +410,156 @@ export class ResearchTrackerApp extends FormApplication {
 
     await this.tracker.updateTopic(topicId, updates);
     this.render();
+  }
+
+  /** @private */
+  async _onManageLocations(event) {
+    event.preventDefault();
+    const topicId = event.currentTarget.closest("[data-topic-id]")?.dataset.topicId;
+    if (!topicId) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    if (!topic) return;
+
+    const locations = Array.isArray(topic.locations) ? topic.locations : [];
+    if (!locations.length) {
+      await this._openLocationDialog(topicId);
+      return;
+    }
+
+    const createLabel = game.i18n.localize(
+      "PF2E.PointsTracker.Research.ManageLocationsCreate"
+    );
+    const unlimitedLabel = game.i18n.localize(
+      "PF2E.PointsTracker.Research.LocationUnlimited"
+    );
+
+    const optionMarkup = locations
+      .map((location) => {
+        const idRaw = location?.id;
+        const id =
+          idRaw !== undefined && idRaw !== null ? String(idRaw).trim() : "";
+        if (!id) return "";
+
+        const nameRaw =
+          typeof location?.name === "string" ? location.name.trim() : "";
+        const name =
+          nameRaw ||
+          game.i18n.localize("PF2E.PointsTracker.Research.LocationDefaultName");
+        const collectedValue = Number(location?.collected);
+        const collected = Number.isFinite(collectedValue)
+          ? collectedValue
+          : 0;
+        const maxValue = Number(location?.maxPoints);
+        const displayMax = Number.isFinite(maxValue) && maxValue > 0
+          ? maxValue
+          : unlimitedLabel;
+        const label = game.i18n.format(
+          "PF2E.PointsTracker.Research.LocationOptionLabel",
+          {
+            name,
+            collected,
+            max: displayMax,
+          }
+        );
+        return `<option value="${escapeAttribute(id)}">${escapeHtml(label)}</option>`;
+      })
+      .filter((entry) => entry)
+      .join("");
+
+    if (!optionMarkup) {
+      await this._openLocationDialog(topicId);
+      return;
+    }
+
+    const options = [
+      optionMarkup,
+      `<option value="__create__">${escapeHtml(createLabel)}</option>`,
+    ].join("");
+
+    const template = `
+      <form class="flexcol">
+        <div class="form-group">
+          <label>${game.i18n.localize(
+            "PF2E.PointsTracker.Research.ManageLocationsSelect"
+          )}</label>
+          <select name="selection">${options}</select>
+        </div>
+        <p class="notes">${game.i18n.localize(
+          "PF2E.PointsTracker.Research.ManageLocationsHint"
+        )}</p>
+      </form>
+    `;
+
+    const selection = await Dialog.prompt({
+      title: game.i18n.localize("PF2E.PointsTracker.Research.ManageLocations"),
+      content: template,
+      label: game.i18n.localize(
+        "PF2E.PointsTracker.Research.ManageLocationsOpen"
+      ),
+      callback: (html) => {
+        const form = html?.[0]?.querySelector("form");
+        if (!form) return "";
+        const select = form.querySelector("select[name='selection']");
+        if (!select) return "";
+        const rawValue = select.value;
+        if (rawValue === undefined || rawValue === null) return "";
+        if (typeof rawValue === "string") return rawValue.trim();
+        return String(rawValue);
+      },
+      rejectClose: false,
+    });
+
+    if (selection === undefined) return;
+    if (!selection) return;
+
+    if (selection === "__create__") {
+      await this._openLocationDialog(topicId);
+      return;
+    }
+
+    const hasLocation = locations.some((location) => {
+      const id =
+        location?.id !== undefined && location?.id !== null
+          ? String(location.id).trim()
+          : "";
+      return id === selection;
+    });
+    if (!hasLocation) {
+      ui.notifications?.warn?.(
+        game.i18n.localize(
+          "PF2E.PointsTracker.Research.ManageLocationsMissing"
+        )
+      );
+      return;
+    }
+
+    await this._openLocationDialog(topicId, selection);
+  }
+
+  /** @private */
+  async _openLocationDialog(topicId, locationId) {
+    const topicWrapper = document.createElement("div");
+    topicWrapper.dataset.topicId = topicId;
+    const button = document.createElement("button");
+
+    if (locationId) {
+      const locationWrapper = document.createElement("div");
+      locationWrapper.dataset.locationId = locationId;
+      locationWrapper.appendChild(button);
+      topicWrapper.appendChild(locationWrapper);
+      await this._onEditLocation({
+        preventDefault() {},
+        currentTarget: button,
+      });
+      return;
+    }
+
+    topicWrapper.appendChild(button);
+    await this._onCreateLocation({
+      preventDefault() {},
+      currentTarget: button,
+    });
   }
 
   /**
