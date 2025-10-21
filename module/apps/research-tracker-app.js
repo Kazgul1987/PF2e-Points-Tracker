@@ -139,24 +139,61 @@ export class ResearchTrackerApp extends FormApplication {
           : [];
         const assignedActors = assignedActorsRaw
           .map((assigned) => {
+            const toTrimmedString = (value) =>
+              typeof value === "string" ? value.trim() : "";
+
             const uuid =
               typeof assigned?.uuid === "string"
-                ? assigned.uuid
+                ? toTrimmedString(assigned.uuid)
                 : typeof assigned?.id === "string"
-                ? assigned.id
+                ? toTrimmedString(assigned.id)
                 : "";
             if (!uuid) return null;
-            const fallbackName =
-              typeof assigned?.name === "string" && assigned.name.trim()
-                ? assigned.name.trim()
-                : "";
+
+            const fallbackName = toTrimmedString(assigned?.name);
             const match = partyActorLookup.get(uuid) ?? partyActorLookup.get(String(uuid));
             const name = match?.name ?? fallbackName ?? uuid;
-            return {
+
+            const storedTokenUuid =
+              toTrimmedString(assigned?.tokenUuid ?? assigned?.tokenUUID ?? assigned?.tokenId);
+            const storedTokenImg = toTrimmedString(
+              assigned?.tokenImg ?? assigned?.tokenImage ?? assigned?.imgToken
+            );
+            const storedActorImg = toTrimmedString(
+              assigned?.actorImg ??
+                assigned?.actorImage ??
+                assigned?.imgActor ??
+                assigned?.actorTokenImg
+            );
+            const storedFinalImg = toTrimmedString(assigned?.img ?? assigned?.image);
+
+            const matchTokenImg = (() => {
+              if (!match) return "";
+              const texture = match.prototypeToken?.texture;
+              const textureSrc =
+                typeof texture?.src === "string"
+                  ? texture.src.trim()
+                  : typeof texture === "string"
+                  ? texture.trim()
+                  : "";
+              const actorImg = toTrimmedString(match.img ?? match.data?.img);
+              return textureSrc || actorImg;
+            })();
+
+            const finalImg = storedFinalImg || storedTokenImg || storedActorImg || matchTokenImg;
+
+            const result = {
               uuid,
               name,
               isActive: Boolean(match),
             };
+
+            if (storedTokenUuid) result.tokenUuid = storedTokenUuid;
+            if (storedTokenImg) result.tokenImg = storedTokenImg;
+            if (storedActorImg) result.actorImg = storedActorImg;
+            if (finalImg) result.img = finalImg;
+
+            return result;
           })
           .filter((actor) => actor && actor.uuid);
         return {
@@ -1550,11 +1587,39 @@ export class ResearchTrackerApp extends FormApplication {
             ? entry.id
             : "";
         if (!uuid) return null;
+        const trimmedUuid = uuid.trim();
+        if (!trimmedUuid) return null;
+
+        const normalized = {};
+        const skipKeys = new Set(["uuid", "id", "_id", "isActive"]);
+        if (entry && typeof entry === "object") {
+          for (const [key, value] of Object.entries(entry)) {
+            if (skipKeys.has(key)) continue;
+            if (value === undefined || value === null) continue;
+            if (typeof value === "string") {
+              const trimmedValue = value.trim();
+              if (!trimmedValue) continue;
+              normalized[key] = trimmedValue;
+            } else {
+              normalized[key] = value;
+            }
+          }
+        }
+
         const name =
           typeof entry?.name === "string" && entry.name.trim()
             ? entry.name.trim()
+            : typeof normalized?.name === "string" && normalized.name.trim()
+            ? normalized.name.trim()
             : undefined;
-        return name ? { uuid, name } : { uuid };
+
+        if (name) {
+          normalized.name = name;
+        } else {
+          delete normalized.name;
+        }
+
+        return { uuid: trimmedUuid, ...normalized };
       })
       .filter((entry) => entry && entry.uuid);
   }
@@ -1624,6 +1689,12 @@ export class ResearchTrackerApp extends FormApplication {
     if (!isActorDrag) return;
 
     const trimString = (value) => (typeof value === "string" ? value.trim() : "");
+    const getTextureSrc = (texture) => {
+      if (!texture) return "";
+      if (typeof texture === "string") return trimString(texture);
+      if (typeof texture?.src === "string") return trimString(texture.src);
+      return "";
+    };
 
     const rawActorUuid = trimString(data?.actorUuid);
     const rawActorId = trimString(data?.actorId);
@@ -1635,6 +1706,7 @@ export class ResearchTrackerApp extends FormApplication {
 
     let actorUuid = "";
     let tokenUuid = rawTokenUuid;
+    let tokenDocument = null;
 
     if (rawActorUuid) actorUuid = rawActorUuid;
     else if (rawActorId) actorUuid = rawActorId;
@@ -1679,7 +1751,7 @@ export class ResearchTrackerApp extends FormApplication {
 
     if ((!actorDocument || !actorUuid) && tokenUuid && typeof fromUuid === "function") {
       try {
-        const tokenDocument = await fromUuid(tokenUuid);
+        tokenDocument = await fromUuid(tokenUuid);
         const tokenActor = tokenDocument?.actor;
         if (tokenActor) {
           actorDocument = tokenActor;
@@ -1688,6 +1760,10 @@ export class ResearchTrackerApp extends FormApplication {
       } catch (error) {
         console.warn(error);
       }
+    }
+
+    if (!tokenUuid) {
+      tokenUuid = trimString(tokenDocument?.uuid ?? "");
     }
 
     if (!actorUuid) {
@@ -1726,6 +1802,14 @@ export class ResearchTrackerApp extends FormApplication {
       }
     }
 
+    const tokenImg =
+      getTextureSrc(tokenDocument?.texture) ||
+      trimString(tokenDocument?.img ?? tokenDocument?.data?.img);
+    const actorPrototypeImg = getTextureSrc(actorDocument?.prototypeToken?.texture);
+    const actorPortraitImg =
+      trimString(actorDocument?.img ?? actorDocument?.data?.img) || actorPrototypeImg;
+    const finalImg = tokenImg || actorPrototypeImg || actorPortraitImg;
+
     const topic = this.tracker.getTopic(topicId);
     const location = topic?.locations?.find((entry) => entry.id === locationId);
     if (!location) return;
@@ -1735,10 +1819,15 @@ export class ResearchTrackerApp extends FormApplication {
       return;
     }
 
-    const newAssignments = [
-      ...normalized,
-      actorName ? { uuid: actorUuid, name: actorName } : { uuid: actorUuid },
-    ];
+    const newAssignment = { uuid: actorUuid };
+    if (actorName) newAssignment.name = actorName;
+    if (tokenUuid) newAssignment.tokenUuid = tokenUuid;
+    if (tokenImg) newAssignment.tokenImg = tokenImg;
+    if (actorPrototypeImg) newAssignment.actorTokenImg = actorPrototypeImg;
+    if (actorPortraitImg) newAssignment.actorImg = actorPortraitImg;
+    if (finalImg) newAssignment.img = finalImg;
+
+    const newAssignments = [...normalized, newAssignment];
 
     await this.tracker.updateLocation(topicId, locationId, {
       assignedActors: newAssignments,
