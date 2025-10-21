@@ -212,26 +212,67 @@ export class ResearchTrackerApp extends FormApplication {
   activateListeners(html) {
     super.activateListeners(html);
 
-    html.find("[data-action='create-topic']").on("click", (event) => this._onCreateTopic(event));
-    html.find("[data-action='edit-topic']").on("click", (event) => this._onEditTopic(event));
-    html.find("[data-action='delete-topic']").on("click", (event) => this._onDeleteTopic(event));
-    html.find("[data-action='add-points']").on("click", (event) => this._onAdjustPoints(event, 1));
-    html.find("[data-action='spend-points']").on("click", (event) => this._onAdjustPoints(event, -1));
-    html.find("[data-action='perform-roll']").on("click", (event) => this._onPerformRoll(event));
-    html.find("[data-action='send-reveal']").on("click", (event) => this._onSendReveal(event, false));
-    html.find("[data-action='resend-reveal']").on("click", (event) => this._onSendReveal(event, true));
-    html.find("[data-action='import-topics']").on("click", (event) => this._onImportTopics(event));
-    html.find("[data-action='export-topics']").on("click", (event) => this._onExportTopics(event));
-    html.find("[data-action='create-location']").on("click", (event) => this._onCreateLocation(event));
-    html.find("[data-action='edit-location']").on("click", (event) => this._onEditLocation(event));
-    html.find("[data-action='delete-location']").on("click", (event) => this._onDeleteLocation(event));
-    html.find("[data-action='post-location-check']").on("click", (event) =>
-      this._onPostLocationCheck(event)
-    );
+    html
+      .find("[data-action='create-topic']")
+      .off("click")
+      .on("click", (event) => this._onCreateTopic(event));
+    html
+      .find("[data-action='edit-topic']")
+      .off("click")
+      .on("click", (event) => this._onEditTopic(event));
+    html
+      .find("[data-action='delete-topic']")
+      .off("click")
+      .on("click", (event) => this._onDeleteTopic(event));
+    html
+      .find("[data-action='add-points']")
+      .off("click")
+      .on("click", (event) => this._onAdjustPoints(event, 1));
+    html
+      .find("[data-action='spend-points']")
+      .off("click")
+      .on("click", (event) => this._onAdjustPoints(event, -1));
+    html
+      .find("[data-action='perform-roll']")
+      .off("click")
+      .on("click", (event) => this._onPerformRoll(event));
+    html
+      .find("[data-action='send-reveal']")
+      .off("click")
+      .on("click", (event) => this._onSendReveal(event, false));
+    html
+      .find("[data-action='resend-reveal']")
+      .off("click")
+      .on("click", (event) => this._onSendReveal(event, true));
+    html
+      .find("[data-action='import-topics']")
+      .off("click")
+      .on("click", (event) => this._onImportTopics(event));
+    html
+      .find("[data-action='export-topics']")
+      .off("click")
+      .on("click", (event) => this._onExportTopics(event));
+    html
+      .find("[data-action='create-location']")
+      .off("click")
+      .on("click", (event) => this._onCreateLocation(event));
+    html
+      .find("[data-action='edit-location']")
+      .off("click")
+      .on("click", (event) => this._onEditLocation(event));
+    html
+      .find("[data-action='delete-location']")
+      .off("click")
+      .on("click", (event) => this._onDeleteLocation(event));
+    html
+      .find("[data-action='post-location-check']")
+      .off("click")
+      .on("click", (event) => this._onPostLocationCheck(event));
 
     this._setupLocationDragAndDrop(html);
     html
       .find("[data-action='remove-assigned-actor']")
+      .off("click")
       .on("click", (event) => this._onRemoveAssignedActor(event));
   }
 
