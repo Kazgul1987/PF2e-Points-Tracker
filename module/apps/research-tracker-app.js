@@ -34,6 +34,7 @@ export class ResearchTrackerApp extends FormApplication {
   constructor(tracker, options = {}) {
     super(tracker, options);
     this.tracker = tracker;
+    this._dragDropHandlers = [];
   }
 
   static get defaultOptions() {
@@ -227,6 +228,11 @@ export class ResearchTrackerApp extends FormApplication {
     html.find("[data-action='post-location-check']").on("click", (event) =>
       this._onPostLocationCheck(event)
     );
+
+    this._setupLocationDragAndDrop(html);
+    html
+      .find("[data-action='remove-assigned-actor']")
+      .on("click", (event) => this._onRemoveAssignedActor(event));
   }
 
   /** @private */
@@ -1219,6 +1225,185 @@ export class ResearchTrackerApp extends FormApplication {
     }
 
     await ChatMessage.create(payload);
+  }
+
+  _setupLocationDragAndDrop(html) {
+    const root = html?.[0];
+    if (!root || typeof DragDrop === "undefined") return;
+
+    if (Array.isArray(this._dragDropHandlers)) {
+      for (const handler of this._dragDropHandlers) {
+        if (handler?.unbind) {
+          handler.unbind();
+        }
+      }
+    }
+    this._dragDropHandlers = [];
+
+    const participants = root.querySelectorAll("[data-draggable='participant']");
+    participants.forEach((element) => {
+      element.addEventListener("dragend", () => {
+        element.classList.remove("is-dragging");
+      });
+    });
+
+    const topics = root.querySelectorAll(".research-topic");
+    topics.forEach((topicElement) => {
+      const dropZones = topicElement.querySelectorAll("[data-dropzone='location']");
+      if (!dropZones.length) return;
+
+      dropZones.forEach((zone) => {
+        zone.setAttribute("aria-dropeffect", "move");
+        zone.addEventListener("dragenter", (event) => {
+          event.preventDefault();
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "move";
+          }
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragleave", (event) => {
+          const related = event.relatedTarget;
+          if (!zone.contains(related)) {
+            this._setDropzoneState(zone, false);
+          }
+        });
+        zone.addEventListener("drop", () => this._setDropzoneState(zone, false));
+      });
+
+      const dragDrop = new DragDrop({
+        dragSelector: "[data-draggable='participant']",
+        dropSelector: "[data-dropzone='location']",
+        permissions: { dragstart: () => true, drop: () => true },
+        callbacks: {
+          dragstart: (event) => this._onDragParticipant(event),
+          drop: (event, data) => this._onDropParticipant(event, data),
+        },
+      });
+      dragDrop.bind(topicElement);
+      this._dragDropHandlers.push(dragDrop);
+    });
+  }
+
+  _setDropzoneState(zone, isActive) {
+    if (!zone) return;
+    zone.classList.toggle("is-dragover", Boolean(isActive));
+  }
+
+  _normalizeAssignedActors(assignments = []) {
+    return assignments
+      .map((entry) => {
+        const uuid =
+          typeof entry?.uuid === "string"
+            ? entry.uuid
+            : typeof entry?.id === "string"
+            ? entry.id
+            : "";
+        if (!uuid) return null;
+        const name =
+          typeof entry?.name === "string" && entry.name.trim()
+            ? entry.name.trim()
+            : undefined;
+        return name ? { uuid, name } : { uuid };
+      })
+      .filter((entry) => entry && entry.uuid);
+  }
+
+  _onDragParticipant(event) {
+    const element = event?.currentTarget;
+    if (!element) return null;
+    element.classList.add("is-dragging");
+
+    if (event?.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+    }
+
+    const actorUuid = element.dataset.actorUuid;
+    if (!actorUuid) {
+      element.classList.remove("is-dragging");
+      return null;
+    }
+
+    const actorName = element.dataset.actorName?.trim() ?? "";
+    const topicId = element.closest("[data-topic-id]")?.dataset.topicId;
+    return {
+      type: "pf2e-research-participant",
+      actorUuid,
+      actorName,
+      topicId,
+    };
+  }
+
+  async _onDropParticipant(event, data) {
+    event.preventDefault();
+    const dropZone = event?.currentTarget;
+    if (!dropZone) return;
+
+    const topicId = dropZone.closest("[data-topic-id]")?.dataset.topicId;
+    const locationId = dropZone.closest("[data-location-id]")?.dataset.locationId;
+    if (!topicId || !locationId) return;
+
+    const isActorDrag =
+      data?.type === "pf2e-research-participant" ||
+      data?.type === "Actor" ||
+      data?.actorUuid !== undefined;
+    if (!isActorDrag) return;
+
+    const actorUuid = data?.actorUuid ?? data?.uuid ?? data?.id;
+    if (!actorUuid) return;
+
+    const actorName =
+      (typeof data?.actorName === "string" && data.actorName.trim())
+        ? data.actorName.trim()
+        : typeof data?.name === "string"
+        ? data.name
+        : typeof data?.data?.name === "string"
+        ? data.data.name
+        : "";
+
+    const topic = this.tracker.getTopic(topicId);
+    const location = topic?.locations?.find((entry) => entry.id === locationId);
+    if (!location) return;
+
+    const normalized = this._normalizeAssignedActors(location.assignedActors);
+    if (normalized.some((entry) => entry.uuid === actorUuid)) {
+      return;
+    }
+
+    const newAssignments = [
+      ...normalized,
+      actorName ? { uuid: actorUuid, name: actorName } : { uuid: actorUuid },
+    ];
+
+    await this.tracker.updateLocation(topicId, locationId, {
+      assignedActors: newAssignments,
+    });
+    this.render();
+  }
+
+  async _onRemoveAssignedActor(event) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const actorUuid = button?.dataset.actorUuid;
+    const topicId = button?.closest("[data-topic-id]")?.dataset.topicId;
+    const locationId = button?.closest("[data-location-id]")?.dataset.locationId;
+    if (!topicId || !locationId || !actorUuid) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    const location = topic?.locations?.find((entry) => entry.id === locationId);
+    if (!location) return;
+
+    const normalized = this._normalizeAssignedActors(location.assignedActors);
+    const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
+    if (filtered.length === normalized.length) return;
+
+    await this.tracker.updateLocation(topicId, locationId, {
+      assignedActors: filtered,
+    });
+    this.render();
   }
 
   /** @private */
