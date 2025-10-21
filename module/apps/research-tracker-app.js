@@ -1586,6 +1586,28 @@ export class ResearchTrackerApp extends FormApplication {
 
   async _onDropParticipant(event, data) {
     event.preventDefault();
+
+    if (!data) {
+      const dataTransfer = event?.originalEvent?.dataTransfer ?? event?.dataTransfer;
+      const getData = dataTransfer?.getData?.bind(dataTransfer);
+      if (getData) {
+        const rawPayload = getData("text/plain");
+        if (rawPayload) {
+          try {
+            const parsed = JSON.parse(rawPayload);
+            const type = typeof parsed?.type === "string" ? parsed.type : "";
+            const uuid = typeof parsed?.uuid === "string" ? parsed.uuid.trim() : "";
+            const isSupportedType = type === "Actor" || type === "Token";
+            if (isSupportedType && uuid) {
+              data = parsed;
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+    }
+
     const dropZone = event?.currentTarget;
     if (!dropZone) return;
 
