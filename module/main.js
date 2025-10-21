@@ -1,6 +1,7 @@
 import { createResearchTracker } from "./research/tracker.js";
 import { ResearchTrackerApp } from "./apps/research-tracker-app.js";
 import { ResearchImportExport } from "./research/importer.js";
+import { registerResearchAutoUpdates } from "./research/auto-update.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const SETTING_KEY = "research-tracker-state";
@@ -34,6 +35,8 @@ Hooks.once("ready", async () => {
   }
 
   console.log(`${MODULE_ID} | PF2e Points Tracker initialized successfully.`);
+
+  registerResearchAutoUpdates(tracker);
 
   game.pf2ePointsTracker = {
     tracker,
