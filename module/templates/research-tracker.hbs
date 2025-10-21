@@ -50,7 +50,7 @@
                 </div>
               </div>
             </div>
-            {{#if @root.isGM}}
+            {{#if ../isGM}}
               <div class="research-topic__controls">
                 <button type="button" data-action="add-points">
                   <i class="fas fa-plus"></i>
@@ -118,7 +118,7 @@
                   <span class="research-topic__locations-total">
                     {{localize "PF2E.PointsTracker.Research.LocationTotals" collected=topic.locationTotals.collected max=topic.locationTotals.displayMax}}
                   </span>
-                  {{#if @root.isGM}}
+                  {{#if ../isGM}}
                     <button type="button" data-action="create-location">
                       <i class="fas fa-map-marker-alt"></i>
                       {{localize "PF2E.PointsTracker.Research.AddLocation"}}
@@ -132,7 +132,7 @@
                     <tr>
                       <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationNameHeader"}}</th>
                       <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationProgressHeader"}}</th>
-                      {{#if @root.isGM}}
+                      {{#if ../isGM}}
                         <th scope="col" class="research-topic__location-actions-header">{{localize "PF2E.PointsTracker.Research.Actions"}}</th>
                       {{/if}}
                     </tr>
@@ -223,7 +223,7 @@
                             </button>
                           </div>
                         </td>
-                        {{#if @root.isGM}}
+                        {{#if ../../isGM}}
                           <td class="research-location__actions">
                             <button type="button" data-action="add-points" data-location-id="{{location.id}}">
                               <i class="fas fa-plus"></i>
@@ -270,7 +270,7 @@
                           {{/if}}
                         </span>
                       </div>
-                      {{#if @root.isGM}}
+                      {{#if ../../isGM}}
                         {{#if threshold.playerText}}
                           <div class="research-threshold__player-preview">
                             <strong>{{localize "PF2E.PointsTracker.Research.PlayerText"}}</strong>
