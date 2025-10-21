@@ -2,6 +2,30 @@ import { ResearchImportExport } from "../research/importer.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 
+const HTML_ESCAPE_LOOKUP = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value) {
+  if (!value) return "";
+  if (foundry?.utils?.escapeHTML) {
+    try {
+      return foundry.utils.escapeHTML(value);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPE_LOOKUP[char] ?? char);
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
 export class ResearchTrackerApp extends FormApplication {
   /**
    * @param {ResearchTracker} tracker
@@ -42,6 +66,16 @@ export class ResearchTrackerApp extends FormApplication {
 
     const enrichedTopics = [];
     const partyActors = this._getPartyActors();
+    const partyActorLookup = new Map();
+    for (const actor of partyActors) {
+      const uuid = actor?.uuid ?? actor?.id;
+      if (uuid) {
+        partyActorLookup.set(uuid, actor);
+      }
+      if (actor?.id && !partyActorLookup.has(actor.id)) {
+        partyActorLookup.set(actor.id, actor);
+      }
+    }
     for (const topic of topics) {
       const thresholds = (topic.thresholds ?? []).map((threshold) => ({
         ...threshold,
@@ -76,6 +110,31 @@ export class ResearchTrackerApp extends FormApplication {
           ? location.description.trim()
           : "";
         const hasCheckData = Boolean(skill) && hasDc;
+        const assignedActorsRaw = Array.isArray(location.assignedActors)
+          ? location.assignedActors
+          : [];
+        const assignedActors = assignedActorsRaw
+          .map((assigned) => {
+            const uuid =
+              typeof assigned?.uuid === "string"
+                ? assigned.uuid
+                : typeof assigned?.id === "string"
+                ? assigned.id
+                : "";
+            if (!uuid) return null;
+            const fallbackName =
+              typeof assigned?.name === "string" && assigned.name.trim()
+                ? assigned.name.trim()
+                : "";
+            const match = partyActorLookup.get(uuid) ?? partyActorLookup.get(String(uuid));
+            const name = match?.name ?? fallbackName ?? uuid;
+            return {
+              uuid,
+              name,
+              isActive: Boolean(match),
+            };
+          })
+          .filter((actor) => actor && actor.uuid);
         return {
           ...location,
           maxPoints,
@@ -88,6 +147,8 @@ export class ResearchTrackerApp extends FormApplication {
           dcLabel,
           description,
           hasCheckData,
+          assignedActors,
+          hasMissingAssignments: assignedActors.some((actor) => !actor.isActive),
         };
       });
 
@@ -104,7 +165,7 @@ export class ResearchTrackerApp extends FormApplication {
       const partyMembers = partyActors.map((actor) => ({
         id: actor.id,
         name: actor.name,
-        uuid: actor.uuid,
+        uuid: actor.uuid ?? actor.id,
         skillLabel,
       }));
 
@@ -613,6 +674,32 @@ export class ResearchTrackerApp extends FormApplication {
     const topicId = event.currentTarget.closest("[data-topic-id]")?.dataset.topicId;
     if (!topicId) return;
 
+    const partyActors = this._getPartyActors();
+    const assignmentOptions = partyActors
+      .map((actor) => {
+        const uuid = actor?.uuid ?? actor?.id;
+        if (!uuid) return "";
+        const name = actor?.name ?? uuid;
+        return `<label class="research-location__assignment-option"><input type="checkbox" name="assignedActors" value="${escapeAttribute(
+          uuid
+        )}" data-actor-name="${escapeAttribute(name)}" /> ${escapeHtml(name)}</label>`;
+      })
+      .filter((markup) => markup)
+      .join("");
+    const assignmentsSection = assignmentOptions
+      ? `
+        <fieldset class="form-group research-location__assignment-fieldset">
+          <legend>${game.i18n.localize("PF2E.PointsTracker.Research.LocationAssignments")}</legend>
+          <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Research.LocationAssignmentsHint")}</p>
+          <div class="research-location__assignment-options">${assignmentOptions}</div>
+        </fieldset>
+      `
+      : `
+        <p class="notes research-location__assignment-empty">${game.i18n.localize(
+          "PF2E.PointsTracker.Research.LocationAssignmentsUnavailable"
+        )}</p>
+      `;
+
     const template = `
       <form class="flexcol">
         <div class="form-group">
@@ -639,6 +726,7 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDescription")}</label>
           <textarea name="description" rows="3"></textarea>
         </div>
+        ${assignmentsSection}
       </form>
     `;
 
@@ -649,6 +737,14 @@ export class ResearchTrackerApp extends FormApplication {
       callback: (html) => {
         const form = html[0].querySelector("form");
         const fd = new FormData(form);
+        const selectedAssignments = Array.from(
+          form.querySelectorAll("input[name='assignedActors']:checked")
+        )
+          .map((input) => ({
+            uuid: input.value?.toString() ?? "",
+            name: input.dataset.actorName ?? "",
+          }))
+          .filter((entry) => entry.uuid);
         return {
           name: fd.get("name")?.toString().trim() || undefined,
           skill: fd.get("skill")?.toString().trim() || undefined,
@@ -659,6 +755,7 @@ export class ResearchTrackerApp extends FormApplication {
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
           description: fd.get("description")?.toString().trim() || undefined,
+          assignedActors: selectedAssignments,
         };
       },
       rejectClose: false,
@@ -681,6 +778,88 @@ export class ResearchTrackerApp extends FormApplication {
     const topic = this.tracker.getTopic(topicId);
     const location = topic?.locations?.find((entry) => entry.id === locationId);
     if (!topic || !location) return;
+
+    const partyActors = this._getPartyActors();
+    const currentAssignments = Array.isArray(location.assignedActors)
+      ? location.assignedActors
+      : [];
+    const assignedMap = new Map();
+    for (const assigned of currentAssignments) {
+      const uuid =
+        typeof assigned?.uuid === "string"
+          ? assigned.uuid
+          : typeof assigned?.id === "string"
+          ? assigned.id
+          : "";
+      if (!uuid) continue;
+      const name =
+        typeof assigned?.name === "string" && assigned.name.trim()
+          ? assigned.name.trim()
+          : uuid;
+      assignedMap.set(uuid, name);
+    }
+    const partyAssignmentOptions = partyActors
+      .map((actor) => {
+        const uuid = actor?.uuid ?? actor?.id;
+        if (!uuid) return "";
+        const name = actor?.name ?? uuid;
+        const checked = assignedMap.has(uuid) ? "checked" : "";
+        return `<label class="research-location__assignment-option"><input type="checkbox" name="assignedActors" value="${escapeAttribute(
+          uuid
+        )}" data-actor-name="${escapeAttribute(name)}" ${checked} /> ${escapeHtml(name)}</label>`;
+      })
+      .filter((markup) => markup)
+      .join("");
+    const missingAssignments = currentAssignments.filter((assigned) => {
+      const uuid =
+        typeof assigned?.uuid === "string"
+          ? assigned.uuid
+          : typeof assigned?.id === "string"
+          ? assigned.id
+          : "";
+      if (!uuid) return false;
+      const hasParty = partyActors.some((actor) => (actor?.uuid ?? actor?.id) === uuid);
+      return !hasParty;
+    });
+    const missingOptions = missingAssignments
+      .map((assigned) => {
+        const uuid =
+          typeof assigned?.uuid === "string"
+            ? assigned.uuid
+            : typeof assigned?.id === "string"
+            ? assigned.id
+            : "";
+        if (!uuid) return "";
+        const storedName =
+          typeof assigned?.name === "string" && assigned.name.trim()
+            ? assigned.name.trim()
+            : uuid;
+        const label = game.i18n.format(
+          "PF2E.PointsTracker.Research.LocationAssignmentsMissing",
+          { name: storedName }
+        );
+        return `<label class="research-location__assignment-option"><input type="checkbox" name="assignedActors" value="${escapeAttribute(
+          uuid
+        )}" data-actor-name="${escapeAttribute(storedName)}" checked /> ${escapeHtml(label)}</label>`;
+      })
+      .filter((markup) => markup)
+      .join("");
+    const assignmentOptions = [partyAssignmentOptions, missingOptions]
+      .filter((section) => section)
+      .join("");
+    const assignmentsSection = assignmentOptions
+      ? `
+        <fieldset class="form-group research-location__assignment-fieldset">
+          <legend>${game.i18n.localize("PF2E.PointsTracker.Research.LocationAssignments")}</legend>
+          <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Research.LocationAssignmentsHint")}</p>
+          <div class="research-location__assignment-options">${assignmentOptions}</div>
+        </fieldset>
+      `
+      : `
+        <p class="notes research-location__assignment-empty">${game.i18n.localize(
+          "PF2E.PointsTracker.Research.LocationAssignmentsUnavailable"
+        )}</p>
+      `;
 
     const template = `
       <form class="flexcol">
@@ -708,6 +887,7 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDescription")}</label>
           <textarea name="description" rows="3">${location.description ?? ""}</textarea>
         </div>
+        ${assignmentsSection}
       </form>
     `;
 
@@ -723,6 +903,14 @@ export class ResearchTrackerApp extends FormApplication {
         const descriptionRaw = fd.get("description");
         const descriptionValue =
           descriptionRaw !== null ? descriptionRaw.toString().trim() : undefined;
+        const selectedAssignments = Array.from(
+          form.querySelectorAll("input[name='assignedActors']:checked")
+        )
+          .map((input) => ({
+            uuid: input.value?.toString() ?? "",
+            name: input.dataset.actorName ?? "",
+          }))
+          .filter((entry) => entry.uuid);
         return {
           name: fd.get("name")?.toString().trim() || undefined,
           ...(skillValue !== undefined ? { skill: skillValue } : {}),
@@ -733,6 +921,7 @@ export class ResearchTrackerApp extends FormApplication {
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
           ...(descriptionValue !== undefined ? { description: descriptionValue } : {}),
+          assignedActors: selectedAssignments,
         };
       },
       rejectClose: false,
@@ -799,20 +988,6 @@ export class ResearchTrackerApp extends FormApplication {
     const inline = `@Check[${parameters.join(",")}]{${locationName}}`;
     const description =
       typeof location.description === "string" ? location.description.trim() : "";
-    const escapeHtml = (value) => {
-      if (!value) return "";
-      if (foundry?.utils?.escapeHTML) {
-        return foundry.utils.escapeHTML(value);
-      }
-      const replacements = {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      };
-      return value.replace(/[&<>"']/g, (char) => replacements[char] ?? char);
-    };
     const contentParts = [`<p>${inline}</p>`];
     if (description) {
       contentParts.push(`<p>${escapeHtml(description)}</p>`);

@@ -141,6 +141,21 @@
                         {{#if location.description}}
                           <p class="research-location__description">{{location.description}}</p>
                         {{/if}}
+                        {{#if location.assignedActors.length}}
+                          <div class="research-location__assignments">
+                            <span class="research-location__assignment-label">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDisplay"}}</span>
+                            <ul class="research-location__assignment-list">
+                              {{#each location.assignedActors as |assigned|}}
+                                <li class="research-location__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}">
+                                  {{assigned.name}}
+                                  {{#unless assigned.isActive}}
+                                    <span class="research-location__assignment-note">{{localize "PF2E.PointsTracker.Research.LocationAssignmentMissing"}}</span>
+                                  {{/unless}}
+                                </li>
+                              {{/each}}
+                            </ul>
+                          </div>
+                        {{/if}}
                       </th>
                       <td>
                         <div class="research-location__progress">
