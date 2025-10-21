@@ -564,6 +564,48 @@
   cursor: not-allowed;
 }
 
+.research-tracker__log summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  transition: background-color 0.2s ease;
+}
+
+.research-tracker__log summary::-webkit-details-marker {
+  display: none;
+}
+
+.research-tracker__log-summary h3 {
+  margin: 0;
+}
+
+.research-tracker__log-icon {
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 0.15rem solid transparent;
+  border-right-color: var(--color-text-light-highlight);
+  border-bottom-color: var(--color-text-light-highlight);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.research-tracker__log-content {
+  padding: 0.75rem 0.25rem 0;
+}
+
+.research-tracker__log[open] .research-tracker__log-summary {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.research-tracker__log[open] .research-tracker__log-icon {
+  transform: rotate(45deg);
+}
+
 .research-tracker__log ul {
   list-style: none;
   padding: 0;
