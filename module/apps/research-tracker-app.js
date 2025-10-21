@@ -63,12 +63,31 @@ export class ResearchTrackerApp extends FormApplication {
           maxPoints > 0
             ? maxPoints
             : game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited");
+        const skill = typeof location.skill === "string" ? location.skill.trim() : "";
+        const dcValue = Number(location.dc);
+        const hasDc = Number.isFinite(dcValue) && dcValue > 0;
+        const skillLabel = skill
+          ? game.i18n.format("PF2E.PointsTracker.Research.LocationSkillLabel", { skill })
+          : "";
+        const dcLabel = hasDc
+          ? game.i18n.format("PF2E.PointsTracker.Research.LocationDCLabel", { dc: Number(dcValue) })
+          : "";
+        const description = typeof location.description === "string"
+          ? location.description.trim()
+          : "";
+        const hasCheckData = Boolean(skill) && hasDc;
         return {
           ...location,
           maxPoints,
           collected,
           percent: Math.round(percent * 100) / 100,
           displayMax,
+          skill,
+          dc: hasDc ? Number(dcValue) : null,
+          skillLabel,
+          dcLabel,
+          description,
+          hasCheckData,
         };
       });
 
@@ -134,6 +153,9 @@ export class ResearchTrackerApp extends FormApplication {
     html.find("[data-action='create-location']").on("click", (event) => this._onCreateLocation(event));
     html.find("[data-action='edit-location']").on("click", (event) => this._onEditLocation(event));
     html.find("[data-action='delete-location']").on("click", (event) => this._onDeleteLocation(event));
+    html.find("[data-action='post-location-check']").on("click", (event) =>
+      this._onPostLocationCheck(event)
+    );
   }
 
   /** @private */
@@ -328,15 +350,32 @@ export class ResearchTrackerApp extends FormApplication {
               const name = element.querySelector("[data-field='name']")?.value?.trim();
               const maxPointsValue = element.querySelector("[data-field='maxPoints']")?.value;
               const collectedValue = element.querySelector("[data-field='collected']")?.value;
+              const skillValue = element.querySelector("[data-field='skill']")?.value?.trim();
+              const dcValueRaw = element.querySelector("[data-field='dc']")?.value;
+              const descriptionValue = element
+                .querySelector("[data-field='description']")
+                ?.value?.trim();
               const maxPoints = Number(maxPointsValue);
               const collected = Number(collectedValue);
-              return {
+              const dcNumber = Number(dcValueRaw);
+              const entry = {
                 name: name || undefined,
                 maxPoints: Number.isFinite(maxPoints) ? maxPoints : 0,
                 collected: Number.isFinite(collected) ? collected : 0,
               };
+              if (skillValue) entry.skill = skillValue;
+              if (Number.isFinite(dcNumber) && dcNumber > 0) entry.dc = dcNumber;
+              if (descriptionValue) entry.description = descriptionValue;
+              const hasData =
+                Boolean(entry.name) ||
+                (Number.isFinite(entry.maxPoints) && entry.maxPoints > 0) ||
+                (Number.isFinite(entry.collected) && entry.collected > 0) ||
+                Boolean(entry.skill) ||
+                Number.isFinite(entry.dc) ||
+                Boolean(entry.description);
+              return hasData ? entry : null;
             })
-            .filter((entry) => entry.name || entry.maxPoints || entry.collected);
+            .filter((entry) => entry);
           payload.locations = locationEntries;
         }
 
@@ -401,16 +440,32 @@ export class ResearchTrackerApp extends FormApplication {
             nameInput.placeholder = game.i18n.localize(
               "PF2E.PointsTracker.Research.LocationName"
             );
+            const skillInput = createInput("text", "skill", rowValues.skill ?? "");
+            skillInput.placeholder = game.i18n.localize(
+              "PF2E.PointsTracker.Research.LocationSkill"
+            );
+            const dcInput = createInput("number", "dc", rowValues.dc ?? "");
             const maxInput = createInput("number", "maxPoints", rowValues.maxPoints ?? 0);
             const collectedInput = createInput(
               "number",
               "collected",
               rowValues.collected ?? 0
             );
+            const descriptionInput = createInput(
+              "text",
+              "description",
+              rowValues.description ?? ""
+            );
+            descriptionInput.placeholder = game.i18n.localize(
+              "PF2E.PointsTracker.Research.LocationDescription"
+            );
 
             fields.appendChild(nameInput);
+            fields.appendChild(skillInput);
+            fields.appendChild(dcInput);
             fields.appendChild(maxInput);
             fields.appendChild(collectedInput);
+            fields.appendChild(descriptionInput);
 
             const removeButton = document.createElement("button");
             removeButton.type = "button";
@@ -565,12 +620,24 @@ export class ResearchTrackerApp extends FormApplication {
           <input type="text" name="name" value="" />
         </div>
         <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")}</label>
+          <input type="text" name="skill" value="" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
+          <input type="number" name="dc" value="" min="0" step="1" />
+        </div>
+        <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationMaxPoints")}</label>
           <input type="number" name="maxPoints" value="10" min="0" step="1" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationCollected")}</label>
           <input type="number" name="collected" value="0" min="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDescription")}</label>
+          <textarea name="description" rows="3"></textarea>
         </div>
       </form>
     `;
@@ -584,8 +651,14 @@ export class ResearchTrackerApp extends FormApplication {
         const fd = new FormData(form);
         return {
           name: fd.get("name")?.toString().trim() || undefined,
+          skill: fd.get("skill")?.toString().trim() || undefined,
+          dc: (() => {
+            const value = Number(fd.get("dc"));
+            return Number.isFinite(value) && value > 0 ? value : null;
+          })(),
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
+          description: fd.get("description")?.toString().trim() || undefined,
         };
       },
       rejectClose: false,
@@ -616,12 +689,24 @@ export class ResearchTrackerApp extends FormApplication {
           <input type="text" name="name" value="${location.name}" />
         </div>
         <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationSkill")}</label>
+          <input type="text" name="skill" value="${location.skill ?? ""}" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDC")}</label>
+          <input type="number" name="dc" value="${location.dc ?? ""}" min="0" step="1" />
+        </div>
+        <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationMaxPoints")}</label>
           <input type="number" name="maxPoints" value="${location.maxPoints}" min="0" step="1" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationCollected")}</label>
           <input type="number" name="collected" value="${location.collected}" min="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDescription")}</label>
+          <textarea name="description" rows="3">${location.description ?? ""}</textarea>
         </div>
       </form>
     `;
@@ -633,10 +718,21 @@ export class ResearchTrackerApp extends FormApplication {
       callback: (html) => {
         const form = html[0].querySelector("form");
         const fd = new FormData(form);
+        const skillRaw = fd.get("skill");
+        const skillValue = skillRaw !== null ? skillRaw.toString().trim() : undefined;
+        const descriptionRaw = fd.get("description");
+        const descriptionValue =
+          descriptionRaw !== null ? descriptionRaw.toString().trim() : undefined;
         return {
           name: fd.get("name")?.toString().trim() || undefined,
+          ...(skillValue !== undefined ? { skill: skillValue } : {}),
+          dc: (() => {
+            const value = Number(fd.get("dc"));
+            return Number.isFinite(value) && value > 0 ? value : null;
+          })(),
           maxPoints: Number(fd.get("maxPoints")) || 0,
           collected: Number(fd.get("collected")) || 0,
+          ...(descriptionValue !== undefined ? { description: descriptionValue } : {}),
         };
       },
       rejectClose: false,
@@ -665,6 +761,75 @@ export class ResearchTrackerApp extends FormApplication {
 
     await this.tracker.deleteLocation(topicId, locationId);
     this.render();
+  }
+
+  /** @private */
+  async _onPostLocationCheck(event) {
+    event.preventDefault();
+    const container = event.currentTarget.closest("[data-location-id]");
+    if (!container) return;
+    const topicId = container.closest("[data-topic-id]")?.dataset.topicId;
+    const locationId = container.dataset.locationId;
+    if (!topicId || !locationId) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    const location = topic?.locations?.find((entry) => entry.id === locationId);
+    if (!topic || !location) return;
+
+    const skill = typeof location.skill === "string" ? location.skill.trim() : "";
+    const dcValue = Number(location.dc);
+    const hasDc = Number.isFinite(dcValue) && dcValue > 0;
+
+    if (!skill) {
+      ui.notifications?.warn?.(
+        game.i18n.localize("PF2E.PointsTracker.Research.LocationMissingSkill")
+      );
+      return;
+    }
+
+    if (!hasDc) {
+      ui.notifications?.warn?.(
+        game.i18n.localize("PF2E.PointsTracker.Research.LocationMissingDC")
+      );
+      return;
+    }
+
+    const parameters = [`type:skill`, `skill:${skill}`, `dc:${Number(dcValue)}`];
+    const locationName = location.name ?? game.i18n.localize("PF2E.PointsTracker.Research.LocationName");
+    const inline = `@Check[${parameters.join(",")}]{${locationName}}`;
+    const description =
+      typeof location.description === "string" ? location.description.trim() : "";
+    const escapeHtml = (value) => {
+      if (!value) return "";
+      if (foundry?.utils?.escapeHTML) {
+        return foundry.utils.escapeHTML(value);
+      }
+      const replacements = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return value.replace(/[&<>"']/g, (char) => replacements[char] ?? char);
+    };
+    const contentParts = [`<p>${inline}</p>`];
+    if (description) {
+      contentParts.push(`<p>${escapeHtml(description)}</p>`);
+    }
+
+    const speaker = ChatMessage.getSpeaker();
+    const payload = {
+      content: contentParts.join(""),
+      speaker,
+    };
+    const messageType =
+      typeof CONST !== "undefined" ? CONST?.CHAT_MESSAGE_TYPES?.OTHER : undefined;
+    if (messageType !== undefined) {
+      payload.type = messageType;
+    }
+
+    await ChatMessage.create(payload);
   }
 
   /** @private */

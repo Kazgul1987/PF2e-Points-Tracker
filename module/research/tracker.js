@@ -45,6 +45,9 @@ function createId() {
  * @property {string} name
  * @property {number} maxPoints
  * @property {number} collected
+ * @property {string} [skill]
+ * @property {number|null} [dc]
+ * @property {string} [description]
  */
 
 /**
@@ -150,6 +153,12 @@ export class ResearchTracker {
         collected: Number.isFinite(location.collected)
           ? Number(location.collected)
           : 0,
+        skill: typeof location.skill === "string" ? location.skill : "",
+        dc: Number.isFinite(location.dc)
+          ? Number(location.dc)
+          : null,
+        description:
+          typeof location.description === "string" ? location.description : "",
       })),
     };
   }),
@@ -294,6 +303,17 @@ export class ResearchTracker {
           "Location",
       maxPoints: Number.isFinite(data.maxPoints) ? Number(data.maxPoints) : 0,
       collected: Number.isFinite(data.collected) ? Number(data.collected) : 0,
+      skill:
+        typeof data.skill === "string"
+          ? data.skill.trim()
+          : typeof topic.skill === "string"
+          ? topic.skill
+          : "",
+      dc: Number.isFinite(data.dc) ? Number(data.dc) : null,
+      description:
+        typeof data.description === "string"
+          ? data.description.trim()
+          : "",
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -750,11 +770,20 @@ export class ResearchTracker {
         ? Number(location.collected)
         : 0;
       const collected = Math.max(0, Math.min(maxPoints || Number.POSITIVE_INFINITY, collectedRaw));
+      const skill = location?.skill ? String(location.skill).trim() : "";
+      const dcRaw = Number(location?.dc);
+      const dc = Number.isFinite(dcRaw) && dcRaw > 0 ? Number(dcRaw) : null;
+      const description = location?.description
+        ? String(location.description).trim()
+        : "";
       return {
         id,
         name,
         maxPoints,
         collected,
+        skill,
+        dc,
+        description,
         order: index,
       };
     });
