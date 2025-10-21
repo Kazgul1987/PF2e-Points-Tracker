@@ -45,6 +45,9 @@
                 <button type="button" data-action="spend-points">
                   <i class="fas fa-minus"></i>
                 </button>
+                <button type="button" data-action="edit-topic">
+                  <i class="fas fa-edit"></i>
+                </button>
                 <button type="button" data-action="delete-topic">
                   <i class="fas fa-trash"></i>
                 </button>
@@ -229,41 +232,36 @@
 
           <section class="research-topic__participants">
             <header>
-              <h4>{{localize "PF2E.PointsTracker.Research.Participants"}}</h4>
-              {{#if ../isGM}}
-                <button type="button" data-action="add-participant">
-                  <i class="fas fa-user-plus"></i>
-                </button>
-              {{/if}}
+              <h4>{{localize "PF2E.PointsTracker.Research.PartyActors"}}</h4>
             </header>
-            {{#if topic.participants.length}}
+            {{#unless topic.skill}}
+              <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoSkillConfigured"}}</p>
+            {{/unless}}
+            {{#if topic.partyMembers.length}}
               <ul>
-                {{#each topic.participants as |participant|}}
-                  <li data-participant-id="{{participant.id}}">
+                {{#each topic.partyMembers as |member|}}
+                  <li data-actor-uuid="{{member.uuid}}">
                     <div class="participant__info">
-                      <strong>{{participant.name}}</strong>
-                      {{#if participant.role}}
-                        <span class="participant__role">{{participant.role}}</span>
-                      {{/if}}
-                      {{#if participant.skill}}
-                        <span class="participant__skill">{{participant.skill}}</span>
+                      <strong>{{member.name}}</strong>
+                      {{#if member.skillLabel}}
+                        <span class="participant__skill">{{member.skillLabel}}</span>
                       {{/if}}
                     </div>
                     <div class="participant__controls">
-                      <button type="button" data-action="perform-roll">
+                      <button
+                        type="button"
+                        data-action="perform-roll"
+                        data-actor-uuid="{{member.uuid}}"
+                        {{#unless ../skill}}disabled{{/unless}}
+                      >
                         <i class="fas fa-dice-d20"></i>
                       </button>
-                      {{#if ../isGM}}
-                        <button type="button" data-action="remove-participant">
-                          <i class="fas fa-user-minus"></i>
-                        </button>
-                      {{/if}}
                     </div>
                   </li>
                 {{/each}}
               </ul>
             {{else}}
-              <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoParticipants"}}</p>
+              <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoPartyMembers"}}</p>
             {{/if}}
           </section>
         </article>

@@ -31,15 +31,6 @@ function createId() {
 }
 
 /**
- * @typedef {object} ResearchParticipant
- * @property {string} id
- * @property {string} name
- * @property {string} actorUuid
- * @property {string} [skill]
- * @property {string} [role]
- */
-
-/**
  * @typedef {object} ResearchRevealThreshold
  * @property {string} id
  * @property {number} points
@@ -64,7 +55,6 @@ function createId() {
  * @property {number} target
  * @property {string} [difficulty]
  * @property {string} [skill]
- * @property {ResearchParticipant[]} participants
  * @property {string} [summary]
  * @property {string} [gatherInformation]
  * @property {string} [researchChecks]
@@ -151,19 +141,18 @@ export class ResearchTracker {
               ? Number(threshold.revealedAt)
               : threshold.revealedAt ?? null,
           })),
-          locations: (locations ?? []).map((location) => ({
-            id: location.id,
-            name: location.name,
-            maxPoints: Number.isFinite(location.maxPoints)
-              ? Number(location.maxPoints)
-              : 0,
-            collected: Number.isFinite(location.collected)
-              ? Number(location.collected)
-              : 0,
-          })),
-          participants: topic.participants.map((p) => ({ ...p })),
-        };
-      }),
+      locations: (locations ?? []).map((location) => ({
+        id: location.id,
+        name: location.name,
+        maxPoints: Number.isFinite(location.maxPoints)
+          ? Number(location.maxPoints)
+          : 0,
+        collected: Number.isFinite(location.collected)
+          ? Number(location.collected)
+          : 0,
+      })),
+    };
+  }),
       log: this.getLog().map((entry) => ({ ...entry })),
     };
     await game.settings.set(this.moduleId, this.settingKey, payload);
@@ -204,7 +193,6 @@ export class ResearchTracker {
       summary: data.summary ?? "",
       gatherInformation: data.gatherInformation ?? "",
       researchChecks: data.researchChecks ?? "",
-      participants: Array.isArray(data.participants) ? data.participants : [],
       thresholds: Array.isArray(data.thresholds) ? data.thresholds : [],
       locations: Array.isArray(data.locations) ? data.locations : [],
       revealedThresholdIds: Array.isArray(data.revealedThresholdIds)
@@ -239,47 +227,6 @@ export class ResearchTracker {
     if (!this.topics.has(topicId)) return;
     this.topics.delete(topicId);
     this.log = this.log.filter((entry) => entry.topicId !== topicId);
-    await this._saveState();
-  }
-
-  /**
-   * Add a participant to a topic.
-   * @param {string} topicId
-   * @param {Partial<ResearchParticipant>} participant
-   */
-  async addParticipant(topicId, participant) {
-    const topic = this.topics.get(topicId);
-    if (!topic) return;
-    const participants = Array.isArray(topic.participants)
-      ? topic.participants.slice()
-      : [];
-    const id = participant.id ?? createId();
-    const entry = {
-      id,
-      name: participant.name ?? game?.i18n?.localize?.("PF2E.PointsTracker.Research.Participant") ?? "Participant",
-      actorUuid: participant.actorUuid ?? "",
-      skill: participant.skill ?? topic.skill ?? "",
-      role: participant.role ?? "",
-    };
-    const existingIndex = participants.findIndex((p) => p.id === id);
-    if (existingIndex >= 0) participants.splice(existingIndex, 1, entry);
-    else participants.push(entry);
-    topic.participants = participants;
-    this.topics.set(topicId, this._normalizeTopic(topic));
-    await this._saveState();
-    return entry;
-  }
-
-  /**
-   * Remove a participant from a topic.
-   * @param {string} topicId
-   * @param {string} participantId
-   */
-  async removeParticipant(topicId, participantId) {
-    const topic = this.topics.get(topicId);
-    if (!topic) return;
-    topic.participants = (topic.participants ?? []).filter((p) => p.id !== participantId);
-    this.topics.set(topicId, this._normalizeTopic(topic));
     await this._saveState();
   }
 
@@ -512,18 +459,6 @@ export class ResearchTracker {
   }
 
   /**
-   * Retrieve a participant from a topic.
-   * @param {string} topicId
-   * @param {string} participantId
-   * @returns {ResearchParticipant | undefined}
-   */
-  getParticipant(topicId, participantId) {
-    const topic = this.topics.get(topicId);
-    if (!topic) return undefined;
-    return (topic.participants ?? []).find((p) => p.id === participantId);
-  }
-
-  /**
    * Manually send or resend a reveal for a threshold.
    * @param {string} topicId
    * @param {string} thresholdId
@@ -704,7 +639,6 @@ export class ResearchTracker {
     const progress = hasLocations
       ? Math.min(totalCollected, target || totalCollected)
       : Math.max(rawProgress, 0);
-    const participants = Array.isArray(topic.participants) ? topic.participants : [];
     const { thresholds, revealedThresholdIds } = this._normalizeThresholds(
       topic,
       progress
@@ -721,7 +655,6 @@ export class ResearchTracker {
       gatherInformation: topic.gatherInformation ?? "",
       researchChecks: topic.researchChecks ?? "",
       locations,
-      participants,
       thresholds,
       revealedThresholdIds,
       progressPercent: Math.round(percent * 100) / 100,
