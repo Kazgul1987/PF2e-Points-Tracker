@@ -351,46 +351,6 @@
               </section>
             {{/if}}
 
-            <section class="research-topic__participants">
-              <header>
-                <h4>{{localize "PF2E.PointsTracker.Research.PartyActors"}}</h4>
-              </header>
-              {{#unless topic.skill}}
-                <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoSkillConfigured"}}</p>
-              {{/unless}}
-              {{#if topic.partyMembers.length}}
-                <ul>
-                  {{#each topic.partyMembers as |member|}}
-                    <li
-                      class="research-participant"
-                      data-actor-uuid="{{member.uuid}}"
-                      data-actor-name="{{member.name}}"
-                      data-draggable="participant"
-                      draggable="true"
-                    >
-                      <div class="participant__info">
-                        <strong>{{member.name}}</strong>
-                        {{#if member.skillLabel}}
-                          <span class="participant__skill">{{member.skillLabel}}</span>
-                        {{/if}}
-                      </div>
-                      <div class="participant__controls">
-                        <button
-                          type="button"
-                          data-action="perform-roll"
-                          data-actor-uuid="{{member.uuid}}"
-                          {{#unless ../skill}}disabled{{/unless}}
-                        >
-                          <i class="fas fa-dice-d20"></i>
-                        </button>
-                      </div>
-                    </li>
-                  {{/each}}
-                </ul>
-              {{else}}
-                <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoPartyMembers"}}</p>
-              {{/if}}
-            </section>
           </div>
         </article>
       {{/each}}
