@@ -493,18 +493,20 @@
 }
 
 .research-topic__location-actions-header {
-  width: 1%;
+  min-width: 8rem;
   white-space: nowrap;
   text-align: right;
 }
 
 .research-location__actions {
   text-align: right;
-  white-space: nowrap;
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;
+  row-gap: 0.25rem;
+  min-width: fit-content;
 }
 
 .research-location__adjust {
