@@ -1,0 +1,35 @@
+<section class="points-tracker" data-points-tracker>
+  <nav class="points-tracker__tabs" data-points-tracker-tabs>
+    <button
+      type="button"
+      class="points-tracker__tab{{#if isResearchActive}} is-active{{/if}}"
+      data-tab="research"
+    >
+      <i class="fas fa-flask" aria-hidden="true"></i>
+      {{localize "PF2E.PointsTracker.Research.Title"}}
+    </button>
+    <button
+      type="button"
+      class="points-tracker__tab{{#if isReputationActive}} is-active{{/if}}"
+      data-tab="reputation"
+    >
+      <i class="fas fa-users" aria-hidden="true"></i>
+      {{localize "PF2E.PointsTracker.Reputation.Title"}}
+    </button>
+  </nav>
+
+  <div class="points-tracker__panels">
+    <section
+      class="points-tracker__panel{{#if isResearchActive}} is-active{{/if}}"
+      data-tab-panel="research"
+    >
+      {{> "modules/pf2e-points-tracker/module/templates/partials/research-tab.hbs" research}}
+    </section>
+    <section
+      class="points-tracker__panel{{#if isReputationActive}} is-active{{/if}}"
+      data-tab-panel="reputation"
+    >
+      {{> "modules/pf2e-points-tracker/module/templates/partials/reputation-tab.hbs" reputation}}
+    </section>
+  </div>
+</section>

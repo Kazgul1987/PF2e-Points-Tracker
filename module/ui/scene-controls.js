@@ -1,11 +1,13 @@
-import { ResearchTrackerApp } from "../apps/research-tracker-app.js";
+import { PointsTrackerApp } from "../apps/points-tracker-app.js";
 
 /**
  * Register the research tracker control on the notes scene controls.
  *
- * @param {import("../research/tracker.js").ResearchTracker} tracker
+ * @param {object} trackers
+ * @param {import("../research/tracker.js").ResearchTracker} trackers.researchTracker
+ * @param {import("../reputation/reputation-tracker.js").ReputationTracker} trackers.reputationTracker
  */
-export function registerResearchTrackerControl(tracker) {
+export function registerResearchTrackerControl({ researchTracker, reputationTracker }) {
   Hooks.on("getSceneControlButtons", (controls) => {
     const notesControl = controls.find((control) => control.name === "notes");
     if (!notesControl) return;
@@ -16,7 +18,7 @@ export function registerResearchTrackerControl(tracker) {
     if (hasResearchTool) return;
 
     const localizedTitle = game.i18n.localize("PF2E.PointsTracker.Research.Title");
-    const openTracker = () => ResearchTrackerApp.open(tracker);
+    const openTracker = () => PointsTrackerApp.open({ researchTracker, reputationTracker });
 
     notesControl.tools.push({
       name: "research-tracker",
