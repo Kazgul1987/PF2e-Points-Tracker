@@ -501,10 +501,25 @@
 .research-location__actions {
   text-align: right;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
-.research-location__actions button {
-  margin-left: 0.35rem;
+.research-location__adjust {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.research-location__adjust button {
+  margin: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .research-topic__thresholds {

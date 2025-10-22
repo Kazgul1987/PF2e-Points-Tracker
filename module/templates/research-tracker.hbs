@@ -234,12 +234,24 @@
                         </td>
                         {{#if ../../isGM}}
                           <td class="research-location__actions">
-                            <button type="button" data-action="add-points" data-location-id="{{location.id}}">
-                              <i class="fas fa-plus"></i>
-                            </button>
-                            <button type="button" data-action="spend-points" data-location-id="{{location.id}}">
-                              <i class="fas fa-minus"></i>
-                            </button>
+                            <div class="research-location__adjust">
+                              <button
+                                type="button"
+                                data-action="nudge-location"
+                                data-location-id="{{location.id}}"
+                                data-delta="+1"
+                              >
+                                <i class="fas fa-arrow-up"></i>
+                              </button>
+                              <button
+                                type="button"
+                                data-action="nudge-location"
+                                data-location-id="{{location.id}}"
+                                data-delta="-1"
+                              >
+                                <i class="fas fa-arrow-down"></i>
+                              </button>
+                            </div>
                             <button type="button" data-action="edit-location">
                               <i class="fas fa-edit"></i>
                             </button>
