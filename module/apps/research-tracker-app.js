@@ -267,8 +267,6 @@ export class ResearchTrackerApp extends FormApplication {
           displayMax: isGM ? totalDisplayMax : null,
           hasUnlimited: hasUnlimitedLocation,
         },
-        gatherInformationHtml: await this._enrichText(topic.gatherInformation ?? ""),
-        researchChecksHtml: await this._enrichText(topic.researchChecks ?? ""),
         summaryHtml: await this._enrichText(topic.summary ?? ""),
       });
     }
@@ -435,8 +433,6 @@ export class ResearchTrackerApp extends FormApplication {
         target: topic.target,
         level: topic.level,
         summary: topic.summary,
-        gatherInformation: topic.gatherInformation,
-        researchChecks: topic.researchChecks,
         thresholds: Array.isArray(topic.thresholds) ? topic.thresholds : [],
       },
       disableTarget: Array.isArray(topic.locations) && topic.locations.length > 0,
@@ -628,8 +624,6 @@ export class ResearchTrackerApp extends FormApplication {
         : 0,
       level: hasInitialLevel ? Number(initial.level) : "",
       summary: initial.summary ?? "",
-      gatherInformation: initial.gatherInformation ?? "",
-      researchChecks: initial.researchChecks ?? "",
       thresholds: Array.isArray(initial.thresholds) ? initial.thresholds : [],
       locations: Array.isArray(initial.locations) ? initial.locations : [],
     };
@@ -652,20 +646,6 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Summary")}</label>
           <textarea name="summary" rows="3"></textarea>
         </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.GatherInformation")}</label>
-          <textarea name="gatherInformation" rows="3"></textarea>
-        </div>
-        ${
-          includeLocations
-            ? ""
-            : `
-                <div class="form-group">
-                  <label>${game.i18n.localize("PF2E.PointsTracker.Research.ResearchChecks")}</label>
-                  <textarea name="researchChecks" rows="3"></textarea>
-                </div>
-              `
-        }
         <fieldset class="form-group research-topic__thresholds-editor" data-thresholds>
           <legend>${game.i18n.localize("PF2E.PointsTracker.Research.Thresholds")}</legend>
           <div class="research-topic__thresholds-list" data-threshold-list></div>
@@ -728,16 +708,6 @@ export class ResearchTrackerApp extends FormApplication {
         const summaryValue = trimmed("summary");
         if (summaryValue !== undefined) {
           payload.summary = summaryValue ?? "";
-        }
-
-        const gatherValue = trimmed("gatherInformation");
-        if (gatherValue !== undefined) {
-          payload.gatherInformation = gatherValue ?? "";
-        }
-
-        const researchValue = trimmed("researchChecks");
-        if (researchValue !== undefined) {
-          payload.researchChecks = researchValue ?? "";
         }
 
         if (fd.has("target")) {
@@ -861,10 +831,6 @@ export class ResearchTrackerApp extends FormApplication {
 
         const summaryField = form.querySelector("textarea[name='summary']");
         if (summaryField) summaryField.value = values.summary ?? "";
-        const gatherField = form.querySelector("textarea[name='gatherInformation']");
-        if (gatherField) gatherField.value = values.gatherInformation ?? "";
-        const checksField = form.querySelector("textarea[name='researchChecks']");
-        if (checksField) checksField.value = values.researchChecks ?? "";
 
         const targetInput = form.elements.namedItem("target");
         if (targetInput) {

@@ -333,17 +333,6 @@ function sanitizeTopic(topic) {
     : undefined;
 
   const summary = sanitizeString(topic.summary ?? statblockSource?.summary);
-  const gatherInformation = sanitizeString(
-    topic.gatherInformation ?? statblockSource?.gatherInformation
-  );
-  const researchChecks = sanitizeString(
-    topic.researchChecks ??
-      statblockSource?.researchChecks ??
-      (statblockSource?.research &&
-        typeof statblockSource.research === "object"
-        ? statblockSource.research.text
-        : undefined)
-  );
   const rawLevelSource = (() => {
     if (topic.level !== undefined && topic.level !== null) {
       const stringValue = `${topic.level}`.trim();
@@ -384,7 +373,6 @@ function sanitizeTopic(topic) {
 
   if (statblock) {
     if (summary !== undefined) statblock.summary = summary;
-    if (gatherInformation !== undefined) statblock.gatherInformation = gatherInformation;
 
     const locationsPayload = buildLocationObject({
       entries: locations,
@@ -418,7 +406,6 @@ function sanitizeTopic(topic) {
     } else if (Array.isArray(statblock.research?.checks)) {
       researchSection.checks = statblock.research.checks;
     }
-    if (researchChecks !== undefined) researchSection.text = researchChecks;
     if (Object.keys(researchSection).length) {
       statblock.research = researchSection;
     } else {
@@ -434,8 +421,6 @@ function sanitizeTopic(topic) {
     target: Number.isFinite(topic.target) ? Number(topic.target) : 0,
     ...(level !== undefined ? { level } : {}),
     ...(summary !== undefined ? { summary } : {}),
-    ...(gatherInformation !== undefined ? { gatherInformation } : {}),
-    ...(researchChecks !== undefined ? { researchChecks } : {}),
     thresholds,
     revealedThresholdIds: revealed,
     locations,
@@ -486,8 +471,6 @@ async function mergeTopic(tracker, topicData) {
     target: topicData.target,
     level: topicData.level,
     summary: topicData.summary,
-    gatherInformation: topicData.gatherInformation,
-    researchChecks: topicData.researchChecks,
     thresholds: topicData.thresholds,
     locations: topicData.locations,
     revealedThresholdIds: topicData.revealedThresholdIds,
@@ -514,8 +497,6 @@ function buildExportPayload(tracker) {
     const { progressPercent, ...rest } = topic;
 
     const summary = sanitizeString(rest.summary ?? "") ?? "";
-    const gatherInformation = sanitizeString(rest.gatherInformation ?? "") ?? "";
-    const researchChecks = sanitizeString(rest.researchChecks ?? "") ?? "";
 
     const thresholds = (rest.thresholds ?? [])
       .map((threshold) => sanitizeThreshold(threshold))
@@ -555,19 +536,6 @@ function buildExportPayload(tracker) {
     delete baseStatblock.researchChecks;
 
     if (summary !== undefined) baseStatblock.summary = summary;
-    if (gatherInformation !== undefined)
-      baseStatblock.gatherInformation = gatherInformation;
-    if (researchChecks !== undefined) {
-      const existingResearch =
-        baseStatblock.research &&
-        typeof baseStatblock.research === "object" &&
-        !Array.isArray(baseStatblock.research)
-          ? baseStatblock.research
-          : undefined;
-      const researchSection = existingResearch ? { ...existingResearch } : {};
-      researchSection.text = researchChecks;
-      baseStatblock.research = researchSection;
-    }
     const locationPayload = buildLocationObject({ entries: locations, totals: locationTotals });
     if (locationPayload) baseStatblock.locations = locationPayload;
     else delete baseStatblock.locations;
@@ -588,8 +556,6 @@ function buildExportPayload(tracker) {
     return {
       ...rest,
       summary,
-      gatherInformation,
-      researchChecks,
       thresholds,
       locations,
       ...(locationTotals ? { locationTotals } : {}),

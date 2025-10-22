@@ -101,22 +101,6 @@
               {{#if topic.summaryHtml}}
                 <div class="research-topic__summary">{{{topic.summaryHtml}}}</div>
               {{/if}}
-              <div class="research-topic__statblock-section">
-                <h4>{{localize "PF2E.PointsTracker.Research.GatherInformation"}}</h4>
-                {{#if topic.gatherInformationHtml}}
-                  <div class="research-topic__statblock-content">{{{topic.gatherInformationHtml}}}</div>
-                {{else}}
-                  <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoGatherInformation"}}</p>
-                {{/if}}
-              </div>
-              <div class="research-topic__statblock-section">
-                <h4>{{localize "PF2E.PointsTracker.Research.ResearchChecks"}}</h4>
-                {{#if topic.researchChecksHtml}}
-                  <div class="research-topic__statblock-content">{{{topic.researchChecksHtml}}}</div>
-                {{else}}
-                  <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoResearchChecks"}}</p>
-                {{/if}}
-              </div>
             </section>
 
             <section class="research-topic__locations">
