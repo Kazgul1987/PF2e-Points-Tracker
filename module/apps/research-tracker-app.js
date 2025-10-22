@@ -1415,6 +1415,8 @@ export class ResearchTrackerApp extends FormApplication {
     if (!topic || !location) return;
 
     const partyActors = this._getPartyActors();
+    const wasRevealed = Boolean(location.isRevealed);
+    const isRevealed = wasRevealed;
     const currentAssignments = Array.isArray(location.assignedActors)
       ? location.assignedActors
       : [];
@@ -1522,6 +1524,13 @@ export class ResearchTrackerApp extends FormApplication {
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.LocationDescription")}</label>
           <textarea name="description" rows="3">${location.description ?? ""}</textarea>
         </div>
+        <div class="form-group">
+          <label class="checkbox">
+            <input type="checkbox" name="isRevealed" ${isRevealed ? "checked" : ""} />
+            ${game.i18n.localize("PF2E.PointsTracker.Research.LocationRevealVisible")}
+          </label>
+          <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Research.LocationRevealVisibleHint")}</p>
+        </div>
         ${assignmentsSection}
       </form>
     `;
@@ -1536,6 +1545,7 @@ export class ResearchTrackerApp extends FormApplication {
         const descriptionRaw = fd.get("description");
         const descriptionValue =
           descriptionRaw !== null ? descriptionRaw.toString().trim() : undefined;
+        const revealCheckbox = form.querySelector("input[name='isRevealed']");
         const selectedAssignments = Array.from(
           form.querySelectorAll("input[name='assignedActors']:checked")
         )
@@ -1575,6 +1585,7 @@ export class ResearchTrackerApp extends FormApplication {
           checks,
           ...(primaryCheck?.skill ? { skill: primaryCheck.skill } : {}),
           dc: primaryCheck?.dc ?? null,
+          isRevealed: Boolean(revealCheckbox?.checked),
         };
       },
       rejectClose: false,
@@ -1605,6 +1616,9 @@ export class ResearchTrackerApp extends FormApplication {
     if (!response) return;
 
     await this.tracker.updateLocation(topicId, locationId, response);
+    if (!wasRevealed && Boolean(response.isRevealed)) {
+      await this.tracker.sendLocationReveal(topicId, locationId);
+    }
     this.render();
   }
 

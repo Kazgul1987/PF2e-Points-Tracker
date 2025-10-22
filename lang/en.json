@@ -85,6 +85,8 @@
   "PF2E.PointsTracker.Research.LocationRevealLog": "Revealed {location} for {topic}.",
   "PF2E.PointsTracker.Research.LocationResendLog": "Resent reveal for {location} in {topic}.",
   "PF2E.PointsTracker.Research.LocationRevealChecks": "Checks",
+  "PF2E.PointsTracker.Research.LocationRevealVisible": "Visible to players",
+  "PF2E.PointsTracker.Research.LocationRevealVisibleHint": "Display this location to players in the research tracker.",
   "PF2E.PointsTracker.Research.LocationRevealAssignments": "Assigned Party Members",
   "PF2E.PointsTracker.Research.ManageLocations": "Manage Locations",
   "PF2E.PointsTracker.Research.ManageLocationsCreate": "Create New Location",
