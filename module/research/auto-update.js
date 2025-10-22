@@ -111,6 +111,14 @@ function extractOutcome(context) {
 }
 
 function extractSkillSlug(context) {
+  if (Array.isArray(context?.domains)) {
+    for (const domain of context.domains) {
+      if (typeof domain !== "string") continue;
+      const normalized = domain.trim();
+      if (normalized) return normalized.toLowerCase();
+    }
+  }
+
   const slug =
     context?.skillCheck?.slug ??
     context?.skillCheck ??
