@@ -68,6 +68,7 @@
   "PF2E.PointsTracker.Research.LocationSelectCheck": "Select Check",
   "PF2E.PointsTracker.Research.LocationProgress": "{collected} / {max}",
   "PF2E.PointsTracker.Research.LocationProgressHidden": "— / —",
+  "PF2E.PointsTracker.Research.LocationCompleteTooltip": "Location complete",
   "PF2E.PointsTracker.Research.LocationProgressHeader": "Progress",
   "PF2E.PointsTracker.Research.LocationSkill": "Location Skill",
   "PF2E.PointsTracker.Research.LocationSkillLabel": "Skill: {skill}",
