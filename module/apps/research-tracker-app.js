@@ -239,16 +239,6 @@ export class ResearchTrackerApp extends FormApplication {
         ? game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited")
         : totalMax;
 
-      const skillLabel = topic.skill
-        ? game.i18n.format("PF2E.PointsTracker.Research.SkillLabel", { skill: topic.skill })
-        : "";
-      const partyMembers = partyActors.map((actor) => ({
-        id: actor.id,
-        name: actor.name,
-        uuid: actor.uuid ?? actor.id,
-        skillLabel,
-      }));
-
       enrichedTopics.push({
         ...topic,
         completed: topic.target > 0 && topic.progress >= topic.target,
@@ -262,7 +252,6 @@ export class ResearchTrackerApp extends FormApplication {
           displayMax: totalDisplayMax,
           hasUnlimited: hasUnlimitedLocation,
         },
-        partyMembers,
         gatherInformationHtml: await this._enrichText(topic.gatherInformation ?? ""),
         researchChecksHtml: await this._enrichText(topic.researchChecks ?? ""),
         summaryHtml: await this._enrichText(topic.summary ?? ""),
