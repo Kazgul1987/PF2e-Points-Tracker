@@ -307,6 +307,10 @@ export class ResearchTrackerApp extends FormApplication {
       .off("click")
       .on("click", (event) => this._onAdjustPoints(event, -1));
     html
+      .find("[data-action='nudge-location']")
+      .off("click")
+      .on("click", (event) => this._onNudgeLocation(event));
+    html
       .find("[data-action='perform-roll']")
       .off("click")
       .on("click", (event) => this._onPerformRoll(event));
@@ -1242,6 +1246,24 @@ export class ResearchTrackerApp extends FormApplication {
         reason: response.reason,
       });
     }
+    this.render();
+  }
+
+  /** @private */
+  async _onNudgeLocation(event) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const topicId = button.closest("[data-topic-id]")?.dataset.topicId ?? button.dataset.topicId;
+    const locationId = button.dataset.locationId ?? button.closest("[data-location-id]")?.dataset.locationId;
+    if (!topicId || !locationId) return;
+
+    const delta = Number(button.dataset.delta);
+    if (!Number.isFinite(delta) || Math.abs(delta) !== 1) return;
+
+    const reason = typeof button.dataset.reason === "string" ? button.dataset.reason.trim() : "";
+    const metadata = reason ? { reason } : undefined;
+
+    await this.tracker.adjustLocationPoints(topicId, locationId, delta, metadata);
     this.render();
   }
 
