@@ -173,6 +173,8 @@ function sanitizeCheckArray(raw, { fallbackSkill, fallbackDc, allowFallback = tr
  * @property {{ skill?: string; dc: number|null }[]} [checks]
  * @property {string} [description]
  * @property {{uuid: string, name?: string}[]} [assignedActors]
+ * @property {boolean} [isRevealed]
+ * @property {number|null} [revealedAt]
  */
 
 /**
@@ -271,53 +273,67 @@ export class ResearchTracker {
               ? Number(threshold.revealedAt)
               : threshold.revealedAt ?? null,
           })),
-      locations: (locations ?? []).map((location) => ({
-        id: location.id,
-        name: location.name,
-        maxPoints: Number.isFinite(location.maxPoints)
-          ? Number(location.maxPoints)
-          : 0,
-        collected: Number.isFinite(location.collected)
-          ? Number(location.collected)
-          : 0,
-        ...(() => {
-          const checks = sanitizeCheckArray(
-            location.checks ??
-              ((location.skill || location.dc !== undefined)
-                ? [{ skill: location.skill, dc: location.dc }]
-                : []),
-            {
-              fallbackSkill: location.skill,
-              fallbackDc: location.dc,
-            }
-          );
-          const primary = checks[0] ?? {};
-          return {
-            skill: typeof location.skill === "string" ? location.skill : primary.skill ?? "",
+      locations: (locations ?? []).map((location) => {
+        const checks = sanitizeCheckArray(
+          location.checks ??
+            ((location.skill || location.dc !== undefined)
+              ? [{ skill: location.skill, dc: location.dc }]
+              : []),
+          {
+            fallbackSkill: location.skill,
+            fallbackDc: location.dc,
+          }
+        );
+        const primary = checks[0] ?? {};
+        const revealedAt =
+          Number.isFinite(location.revealedAt) && location.revealedAt !== null
+            ? Number(location.revealedAt)
+            : null;
+        const hasRevealProps =
+          Object.prototype.hasOwnProperty.call(location ?? {}, "isRevealed") ||
+          Object.prototype.hasOwnProperty.call(location ?? {}, "revealedAt");
+        const isRevealed =
+          typeof location.isRevealed === "boolean"
+            ? location.isRevealed
+            : revealedAt !== null
+            ? true
+            : hasRevealProps
+            ? false
+            : true;
+        return {
+          id: location.id,
+          name: location.name,
+          maxPoints: Number.isFinite(location.maxPoints)
+            ? Number(location.maxPoints)
+            : 0,
+          collected: Number.isFinite(location.collected)
+            ? Number(location.collected)
+            : 0,
+          skill:
+            typeof location.skill === "string" ? location.skill : primary.skill ?? "",
+          dc:
+            Number.isFinite(location.dc)
+              ? Number(location.dc)
+              : typeof primary.dc === "number"
+              ? primary.dc
+              : null,
+          checks: checks.map((entry) => ({
+            ...(entry.skill ? { skill: entry.skill } : {}),
             dc:
-              Number.isFinite(location.dc)
-                ? Number(location.dc)
-                : typeof primary.dc === "number"
-                ? primary.dc
-                : null,
-            checks: checks.map((entry) => ({
-              ...(entry.skill ? { skill: entry.skill } : {}),
-              dc:
-                Number.isFinite(entry.dc) && entry.dc > 0
-                  ? Number(entry.dc)
-                  : null,
-            })),
-          };
-        })(),
-        description:
-          typeof location.description === "string" ? location.description : "",
-        assignedActors: normalizeAssignedActors(location.assignedActors ?? []).map(
-          (actor) => ({
-            uuid: actor.uuid,
-            ...(actor.name ? { name: actor.name } : {}),
-          })
-        ),
-      })),
+              Number.isFinite(entry.dc) && entry.dc > 0 ? Number(entry.dc) : null,
+          })),
+          description:
+            typeof location.description === "string" ? location.description : "",
+          assignedActors: normalizeAssignedActors(location.assignedActors ?? []).map(
+            (actor) => ({
+              uuid: actor.uuid,
+              ...(actor.name ? { name: actor.name } : {}),
+            })
+          ),
+          isRevealed,
+          revealedAt,
+        };
+      }),
     };
   }),
       log: this.getLog().map((entry) => ({ ...entry })),
@@ -328,7 +344,7 @@ export class ResearchTracker {
   async _runMigrations(storedState) {
     if (!this._initialized) return;
     const storedTopics = Array.isArray(storedState?.topics) ? storedState.topics : [];
-    const needsMigration = storedTopics.some((topic) => {
+    const needsCheckMigration = storedTopics.some((topic) => {
       if (!topic || typeof topic !== "object") return false;
       const locations = Array.isArray(topic.locations) ? topic.locations : [];
       return locations.some((location) => {
@@ -342,7 +358,24 @@ export class ResearchTracker {
       });
     });
 
-    if (!needsMigration) return;
+    const needsRevealMigration = storedTopics.some((topic) => {
+      if (!topic || typeof topic !== "object") return false;
+      const locations = Array.isArray(topic.locations) ? topic.locations : [];
+      return locations.some((location) => {
+        if (!location || typeof location !== "object") return false;
+        const hasIsRevealed = Object.prototype.hasOwnProperty.call(
+          location,
+          "isRevealed"
+        );
+        const hasRevealedAt = Object.prototype.hasOwnProperty.call(
+          location,
+          "revealedAt"
+        );
+        return !hasIsRevealed && !hasRevealedAt;
+      });
+    });
+
+    if (!needsCheckMigration && !needsRevealMigration) return;
 
     try {
       await this._saveState();
@@ -495,6 +528,21 @@ export class ResearchTracker {
       }
     );
     const primaryCheck = checks[0] ?? {};
+    const providedRevealedAt =
+      Number.isFinite(data.revealedAt) && data.revealedAt !== null
+        ? Number(data.revealedAt)
+        : null;
+    const hasRevealProps =
+      Object.prototype.hasOwnProperty.call(data, "isRevealed") ||
+      Object.prototype.hasOwnProperty.call(data, "revealedAt");
+    const isRevealed =
+      typeof data.isRevealed === "boolean"
+        ? data.isRevealed
+        : providedRevealedAt !== null
+        ? true
+        : hasRevealProps
+        ? false
+        : false;
     const locations = Array.isArray(topic.locations)
       ? topic.locations.slice()
       : [];
@@ -525,6 +573,8 @@ export class ResearchTracker {
           ? data.description.trim()
           : "",
       assignedActors,
+      isRevealed,
+      revealedAt: isRevealed ? providedRevealedAt ?? Date.now() : null,
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -567,6 +617,8 @@ export class ResearchTracker {
       assignedActorIds,
       assignedActorUuids,
       checks: rawChecks,
+      revealedAt: rawRevealedAt,
+      isRevealed: rawIsRevealed,
       ...rest
     } = updates;
     const skillProvided = Object.prototype.hasOwnProperty.call(rest, "skill");
@@ -602,6 +654,19 @@ export class ResearchTracker {
     }
 
     const primaryCheck = updatedChecks[0] ?? {};
+    const revealProvided =
+      Object.prototype.hasOwnProperty.call(updates, "isRevealed") ||
+      Object.prototype.hasOwnProperty.call(updates, "revealedAt");
+    const updatedRevealedAt =
+      Number.isFinite(rawRevealedAt) && rawRevealedAt !== null
+        ? Number(rawRevealedAt)
+        : null;
+    const updatedRevealState =
+      typeof rawIsRevealed === "boolean"
+        ? rawIsRevealed
+        : updatedRevealedAt !== null
+        ? true
+        : undefined;
 
     locations.splice(index, 1, {
       ...existing,
@@ -629,6 +694,18 @@ export class ResearchTracker {
                 ? Number(existing.dc)
                 : existing.dc ?? null,
           }),
+      ...(revealProvided
+        ? {
+            isRevealed:
+              updatedRevealState !== undefined
+                ? updatedRevealState
+                : existing.isRevealed ?? false,
+            revealedAt:
+              updatedRevealState === false
+                ? null
+                : updatedRevealedAt ?? existing.revealedAt ?? Date.now(),
+          }
+        : {}),
     });
 
     const normalized = this._normalizeTopic({ ...topic, locations });
@@ -705,6 +782,54 @@ export class ResearchTracker {
     }
 
     await this._autoRevealThresholds(topicId);
+  }
+
+  /**
+   * Reveal a location to players, optionally resending the reveal message.
+   * @param {string} topicId
+   * @param {string} locationId
+   * @param {object} [options]
+   * @param {boolean} [options.resend=false]
+   */
+  async sendLocationReveal(topicId, locationId, { resend = false } = {}) {
+    const topic = this.topics.get(topicId);
+    if (!topic) return;
+
+    const locations = Array.isArray(topic.locations) ? topic.locations : [];
+    const location = locations.find((entry) => entry.id === locationId);
+    if (!location) return;
+
+    const alreadyRevealed = Boolean(location.isRevealed);
+    if (!alreadyRevealed) {
+      location.isRevealed = true;
+      location.revealedAt = Date.now();
+      this.topics.set(topicId, this._normalizeTopic(topic));
+      await this._saveState();
+    } else if (!resend) {
+      // If already revealed and not resending, still refresh location reference.
+      this.topics.set(topicId, this._normalizeTopic(topic));
+    }
+
+    const normalizedTopic = this.getTopic(topicId);
+    const normalizedLocation = normalizedTopic?.locations?.find(
+      (entry) => entry.id === locationId
+    );
+
+    await this._notifyLocationReveal(normalizedTopic, normalizedLocation ?? location, {
+      resend: resend && alreadyRevealed,
+    });
+
+    const logKey = resend
+      ? "PF2E.PointsTracker.Research.LocationResendLog"
+      : "PF2E.PointsTracker.Research.LocationRevealLog";
+    await this.recordLog({
+      topicId,
+      message:
+        game?.i18n?.format?.(logKey, {
+          topic: normalizedTopic?.name ?? "",
+          location: normalizedLocation?.name ?? location.name ?? "",
+        }) ?? `${resend ? "Resent" : "Sent"} reveal for ${normalizedLocation?.name ?? location.name ?? ""}.`,
+    });
   }
 
   /**
@@ -1097,6 +1222,21 @@ export class ResearchTracker {
         assignedSource.push(...location.assignedActorUuids);
       }
       const assignedActors = normalizeAssignedActors(assignedSource);
+      const rawRevealedAt =
+        Number.isFinite(location?.revealedAt) && location?.revealedAt !== null
+          ? Number(location.revealedAt)
+          : null;
+      const hasRevealProps =
+        Object.prototype.hasOwnProperty.call(location ?? {}, "isRevealed") ||
+        Object.prototype.hasOwnProperty.call(location ?? {}, "revealedAt");
+      const isRevealed =
+        typeof location?.isRevealed === "boolean"
+          ? location.isRevealed
+          : rawRevealedAt !== null
+          ? true
+          : hasRevealProps
+          ? false
+          : true;
       return {
         id,
         name,
@@ -1107,6 +1247,8 @@ export class ResearchTracker {
         checks,
         description,
         assignedActors,
+        isRevealed,
+        revealedAt: isRevealed ? rawRevealedAt : null,
         order: index,
       };
     });
@@ -1127,6 +1269,155 @@ export class ResearchTracker {
       totalCollected,
       totalMax,
     };
+  }
+
+  /**
+   * Notify the table that a location has been revealed.
+   * @param {ResearchTopic} topic
+   * @param {ResearchLocation} location
+   * @param {object} [options]
+   * @param {boolean} [options.resend]
+   */
+  async _notifyLocationReveal(topic, location, { resend = false } = {}) {
+    if (!topic || !location) return;
+    if (!game?.users) return;
+
+    const headerText =
+      game?.i18n?.format?.("PF2E.PointsTracker.Research.LocationRevealMessageHeader", {
+        topic: topic.name ?? "",
+        location: location.name ?? "",
+      }) ?? `${topic.name ?? ""} - ${location.name ?? ""}`;
+
+    const description =
+      typeof location.description === "string" ? location.description.trim() : "";
+    const enrichedDescription = description
+      ? await this._enrichText(description)
+      : "";
+
+    const playerRecipients = game.users
+      .filter((user) => !user.isGM)
+      .map((user) => user.id);
+    const gmRecipients = ChatMessage?.getWhisperRecipients
+      ? ChatMessage.getWhisperRecipients("GM").map((user) => user.id)
+      : [];
+
+    const playerContentParts = [`<p><strong>${headerText}</strong></p>`];
+    if (enrichedDescription) {
+      playerContentParts.push(`<div>${enrichedDescription}</div>`);
+    }
+    const playerMessage = `<div class="pf2e-research-reveal pf2e-research-reveal--player">${playerContentParts.join(
+      ""
+    )}</div>`;
+
+    if (playerRecipients.length) {
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: topic.name },
+        content: playerMessage,
+        whisper: playerRecipients,
+      });
+    } else {
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: topic.name },
+        content: playerMessage,
+      });
+    }
+
+    const gmParts = [`<p><strong>${headerText}</strong></p>`];
+    if (enrichedDescription) {
+      gmParts.push(`<div>${enrichedDescription}</div>`);
+    }
+
+    const escapeHtml = (value) => {
+      if (typeof value !== "string") return "";
+      if (foundry?.utils?.escapeHTML) {
+        try {
+          return foundry.utils.escapeHTML(value);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      const lookup = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return value.replace(/[&<>"']/g, (char) => lookup[char] ?? char);
+    };
+
+    const checkSummaries = Array.isArray(location.checks)
+      ? location.checks
+          .map((entry) => {
+            const skill =
+              typeof entry?.skill === "string" ? entry.skill.trim() : "";
+            const dcValue = Number(entry?.dc);
+            const dc = Number.isFinite(dcValue) && dcValue > 0 ? Number(dcValue) : null;
+            const parts = [];
+            if (skill) {
+              const skillLabel =
+                game?.i18n?.format?.("PF2E.PointsTracker.Research.LocationSkillLabel", {
+                  skill,
+                }) ?? `Skill: ${skill}`;
+              parts.push(skillLabel);
+            }
+            if (dc !== null) {
+              const dcLabel =
+                game?.i18n?.format?.("PF2E.PointsTracker.Research.LocationDCLabel", {
+                  dc,
+                }) ?? `DC: ${dc}`;
+              parts.push(dcLabel);
+            }
+            if (!parts.length) return null;
+            return `<li>${escapeHtml(parts.join(" • "))}</li>`;
+          })
+          .filter((entry) => entry)
+      : [];
+
+    if (checkSummaries.length) {
+      gmParts.push(
+        `<p><strong>${
+          game?.i18n?.localize?.("PF2E.PointsTracker.Research.LocationRevealChecks") ?? "Checks"
+        }</strong></p><ul>${checkSummaries.join("")}</ul>`
+      );
+    }
+
+    const assignedNames = Array.isArray(location.assignedActors)
+      ? location.assignedActors
+          .map((actor) => {
+            const name =
+              typeof actor?.name === "string"
+                ? actor.name.trim()
+                : typeof actor?.uuid === "string"
+                ? actor.uuid.trim()
+                : "";
+            return name ? `<li>${escapeHtml(name)}</li>` : null;
+          })
+          .filter((entry) => entry)
+      : [];
+
+    if (assignedNames.length) {
+      gmParts.push(
+        `<p><strong>${
+          game?.i18n?.localize?.(
+            "PF2E.PointsTracker.Research.LocationRevealAssignments"
+          ) ?? "Assignments"
+        }</strong></p><ul>${assignedNames.join("")}</ul>`
+      );
+    }
+
+    if (gmRecipients.length) {
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: topic.name },
+        content: `<div class="pf2e-research-reveal pf2e-research-reveal--gm">${gmParts.join(
+          ""
+        )}</div>`,
+        whisper: gmRecipients,
+      });
+    }
   }
 }
 

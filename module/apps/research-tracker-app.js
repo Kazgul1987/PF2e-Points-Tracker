@@ -96,7 +96,15 @@ export class ResearchTrackerApp extends FormApplication {
           : Boolean(threshold.revealedAt),
       }));
 
-      const locations = (topic.locations ?? []).map((location) => {
+      const normalizedLocations = (topic.locations ?? []).map((location) => {
+        const revealedAt =
+          Number.isFinite(location.revealedAt) && location.revealedAt !== null
+            ? Number(location.revealedAt)
+            : null;
+        const isRevealed =
+          typeof location.isRevealed === "boolean"
+            ? location.isRevealed
+            : revealedAt !== null;
         const maxPoints = Number.isFinite(location.maxPoints)
           ? Number(location.maxPoints)
           : 0;
@@ -198,6 +206,8 @@ export class ResearchTrackerApp extends FormApplication {
           .filter((actor) => actor && actor.uuid);
         return {
           ...location,
+          isRevealed,
+          revealedAt,
           maxPoints,
           collected,
           percent: Math.round(percent * 100) / 100,
@@ -210,9 +220,21 @@ export class ResearchTrackerApp extends FormApplication {
         };
       });
 
-      const totalCollected = locations.reduce((sum, location) => sum + location.collected, 0);
-      const totalMax = locations.reduce((sum, location) => sum + location.maxPoints, 0);
-      const hasUnlimitedLocation = locations.some((location) => location.maxPoints === 0);
+      const visibleLocations = isGM
+        ? normalizedLocations
+        : normalizedLocations.filter((location) => location.isRevealed);
+
+      const totalCollected = visibleLocations.reduce(
+        (sum, location) => sum + location.collected,
+        0
+      );
+      const totalMax = visibleLocations.reduce(
+        (sum, location) => sum + location.maxPoints,
+        0
+      );
+      const hasUnlimitedLocation = visibleLocations.some(
+        (location) => location.maxPoints === 0
+      );
       const totalDisplayMax = hasUnlimitedLocation
         ? game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited")
         : totalMax;
@@ -231,7 +253,8 @@ export class ResearchTrackerApp extends FormApplication {
         ...topic,
         completed: topic.target > 0 && topic.progress >= topic.target,
         thresholds,
-        locations,
+        locations: visibleLocations,
+        hasHiddenLocations: normalizedLocations.some((location) => !location.isRevealed),
         isCollapsed: !this._expandedTopics.has(topic.id),
         locationTotals: {
           collected: totalCollected,
@@ -324,6 +347,14 @@ export class ResearchTrackerApp extends FormApplication {
       .find("[data-action='post-location-check']")
       .off("click")
       .on("click", (event) => this._onPostLocationCheck(event));
+    html
+      .find("[data-action='reveal-location']")
+      .off("click")
+      .on("click", (event) => this._onRevealLocation(event, false));
+    html
+      .find("[data-action='resend-location']")
+      .off("click")
+      .on("click", (event) => this._onRevealLocation(event, true));
 
     this._setupLocationDragAndDrop(html);
     html
@@ -2093,6 +2124,19 @@ export class ResearchTrackerApp extends FormApplication {
     if (!topicId || !thresholdId) return;
 
     await this.tracker.sendThresholdReveal(topicId, thresholdId, { resend });
+    this.render();
+  }
+
+  /** @private */
+  async _onRevealLocation(event, resend) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const row = button.closest("[data-location-id]");
+    const topicId = button.closest("[data-topic-id]")?.dataset.topicId;
+    const locationId = row?.dataset.locationId ?? button.dataset.locationId;
+    if (!topicId || !locationId) return;
+
+    await this.tracker.sendLocationReveal(topicId, locationId, { resend });
     this.render();
   }
 

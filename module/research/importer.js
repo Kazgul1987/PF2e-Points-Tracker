@@ -178,6 +178,19 @@ function sanitizeLocationEntry(entry) {
     fallbackDc: dc,
     enforceFallback: entry.checks === undefined && entry.skills === undefined,
   });
+  const revealPropsProvided =
+    Object.prototype.hasOwnProperty.call(entry, "isRevealed") ||
+    Object.prototype.hasOwnProperty.call(entry, "revealedAt");
+  const rawRevealedAt = Number(entry.revealedAt);
+  const revealedAt = Number.isFinite(rawRevealedAt) ? Number(rawRevealedAt) : null;
+  const isRevealed =
+    typeof entry.isRevealed === "boolean"
+      ? entry.isRevealed
+      : revealedAt !== null
+      ? true
+      : revealPropsProvided
+      ? false
+      : undefined;
   const payload = {
     id,
     maxPoints,
@@ -189,6 +202,8 @@ function sanitizeLocationEntry(entry) {
   if (description) payload.description = description;
   if (assignedActors) payload.assignedActors = assignedActors;
   if (checks.length) payload.checks = checks;
+  if (isRevealed !== undefined) payload.isRevealed = isRevealed;
+  if (isRevealed && revealedAt !== null) payload.revealedAt = revealedAt;
   return payload;
 }
 
