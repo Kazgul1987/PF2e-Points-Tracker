@@ -2,6 +2,7 @@ import { createResearchTracker } from "./research/tracker.js";
 import { ResearchTrackerApp } from "./apps/research-tracker-app.js";
 import { ResearchImportExport } from "./research/importer.js";
 import { registerResearchAutoUpdates } from "./research/auto-update.js";
+import { registerResearchTrackerControl } from "./ui/scene-controls.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const SETTING_KEY = "research-tracker-state";
@@ -11,6 +12,8 @@ const tracker = createResearchTracker({ moduleId: MODULE_ID, settingKey: SETTING
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing PF2e Points Tracker module.`);
   tracker.registerSettings();
+
+  registerResearchTrackerControl(tracker);
 
   const moduleData = game.modules.get(MODULE_ID);
   if (moduleData) {
@@ -48,43 +51,6 @@ Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | PF2e Points Tracker global API registered.`);
 });
 
-Hooks.on("getSceneControlButtons", (controls) => {
-  const localizedTitle = game.i18n.localize("PF2E.PointsTracker.Research.Title");
-
-  const tokenControls = controls.find((control) => control.name === "token");
-  if (tokenControls && !tokenControls.tools.some((tool) => tool.name === "research-tracker")) {
-    tokenControls.tools.push({
-      name: "research-tracker",
-      title: localizedTitle,
-      icon: "fas fa-flask",
-      onClick: () => ResearchTrackerApp.open(tracker),
-      button: true,
-    });
-  }
-
-  const existingControl = controls.find((control) => control.name === "pf2e-points-tracker");
-  if (existingControl) {
-    existingControl.tools = existingControl.tools ?? [];
-    if (!existingControl.tools.some((tool) => tool.name === "research-tracker")) {
-      existingControl.tools.push({
-        name: "research-tracker",
-        title: localizedTitle,
-        icon: "fas fa-flask",
-        onClick: () => ResearchTrackerApp.open(tracker),
-        button: true,
-      });
-    }
-    return;
-  }
-
-  controls.push({
-    name: "pf2e-points-tracker",
-    title: localizedTitle,
-    icon: "fas fa-flask",
-    button: true,
-    onClick: () => ResearchTrackerApp.open(tracker),
-  });
-});
 
 Hooks.on("renderTokenHUD", (_app, html) => {
   html.find(".research-tracker-hud").remove();
