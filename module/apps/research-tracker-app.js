@@ -239,8 +239,14 @@ export class ResearchTrackerApp extends FormApplication {
         ? game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited")
         : totalMax;
 
+      const levelNumber = Number(topic.level);
+      const hasLevel =
+        topic.level !== null && topic.level !== undefined && Number.isFinite(levelNumber);
+
       enrichedTopics.push({
         ...topic,
+        level: hasLevel ? Number(levelNumber) : null,
+        hasLevel,
         completed: topic.target > 0 && topic.progress >= topic.target,
         thresholds,
         locations: visibleLocations,
@@ -389,8 +395,6 @@ export class ResearchTrackerApp extends FormApplication {
       includeLocations: true,
       initial: {
         target: 10,
-        skill: "society",
-        difficulty: "standard",
         thresholds: [],
       },
     });
@@ -416,8 +420,7 @@ export class ResearchTrackerApp extends FormApplication {
       initial: {
         name: topic.name,
         target: topic.target,
-        skill: topic.skill,
-        difficulty: topic.difficulty,
+        level: topic.level,
         summary: topic.summary,
         gatherInformation: topic.gatherInformation,
         researchChecks: topic.researchChecks,
@@ -599,6 +602,10 @@ export class ResearchTrackerApp extends FormApplication {
     includeLocations = false,
     disableTarget = false,
   }) {
+    const hasInitialLevel =
+      initial.level !== undefined &&
+      initial.level !== null &&
+      Number.isFinite(Number(initial.level));
     const values = {
       name: initial.name ?? "",
       target: Number.isFinite(initial.target)
@@ -606,12 +613,7 @@ export class ResearchTrackerApp extends FormApplication {
         : includeLocations
         ? 10
         : 0,
-      skill:
-        initial.skill ??
-        (includeLocations ? "society" : ""),
-      difficulty:
-        initial.difficulty ??
-        (includeLocations ? "standard" : ""),
+      level: hasInitialLevel ? Number(initial.level) : "",
       summary: initial.summary ?? "",
       gatherInformation: initial.gatherInformation ?? "",
       researchChecks: initial.researchChecks ?? "",
@@ -630,12 +632,8 @@ export class ResearchTrackerApp extends FormApplication {
           <input type="number" name="target" value="" min="1" step="1" />
         </div>
         <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.Skill")}</label>
-          <input type="text" name="skill" value="" />
-        </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Research.Difficulty")}</label>
-          <input type="text" name="difficulty" value="" />
+          <label>${game.i18n.localize("PF2E.PointsTracker.Research.Level")}</label>
+          <input type="number" name="level" value="" min="0" step="1" />
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Research.Summary")}</label>
@@ -702,14 +700,16 @@ export class ResearchTrackerApp extends FormApplication {
           payload.name = nameValue;
         }
 
-        const skillValue = trimmed("skill");
-        if (skillValue !== undefined) {
-          payload.skill = skillValue || undefined;
-        }
-
-        const difficultyValue = trimmed("difficulty");
-        if (difficultyValue !== undefined) {
-          payload.difficulty = difficultyValue || undefined;
+        const levelRaw = trimmed("level");
+        if (levelRaw !== undefined) {
+          if (!levelRaw) {
+            payload.level = undefined;
+          } else {
+            const numericLevel = Number(levelRaw);
+            if (Number.isFinite(numericLevel)) {
+              payload.level = Number(numericLevel);
+            }
+          }
         }
 
         const summaryValue = trimmed("summary");
@@ -844,8 +844,7 @@ export class ResearchTrackerApp extends FormApplication {
 
         setValue("name", values.name ?? "");
         setValue("target", values.target ?? 0);
-        setValue("skill", values.skill ?? "");
-        setValue("difficulty", values.difficulty ?? "");
+        setValue("level", values.level ?? "");
 
         const summaryField = form.querySelector("textarea[name='summary']");
         if (summaryField) summaryField.value = values.summary ?? "";
@@ -2043,8 +2042,31 @@ export class ResearchTrackerApp extends FormApplication {
     const topic = this.tracker.getTopic(topicId);
     if (!topic) return;
 
-    if (!topic.skill) {
-      ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.NoSkillConfigured"));
+    const candidateLocations = Array.isArray(topic.locations) ? topic.locations : [];
+    const candidateSkills = [];
+    for (const location of candidateLocations) {
+      const checks = Array.isArray(location?.checks) ? location.checks : [];
+      for (const check of checks) {
+        if (typeof check?.skill === "string" && check.skill.trim()) {
+          candidateSkills.push(check.skill.trim());
+        }
+      }
+      if (!checks.length && typeof location?.skill === "string" && location.skill.trim()) {
+        candidateSkills.push(location.skill.trim());
+      }
+    }
+
+    const legacyTopicSkill =
+      typeof topic?.skill === "string" && topic.skill.trim() ? topic.skill.trim() : "";
+    if (legacyTopicSkill) {
+      candidateSkills.unshift(legacyTopicSkill);
+    }
+
+    const topicSkill = candidateSkills.find((skill) => skill);
+    if (!topicSkill) {
+      ui.notifications.warn(
+        game.i18n.localize("PF2E.PointsTracker.Research.NoSkillConfigured")
+      );
       return;
     }
 
@@ -2065,7 +2087,9 @@ export class ResearchTrackerApp extends FormApplication {
       return;
     }
 
-    const skill = actor.skills[topic.skill];
+    const normalizedSkill =
+      typeof topicSkill === "string" ? topicSkill.trim().toLowerCase() : "";
+    const skill = actor.skills[normalizedSkill] ?? actor.skills[topicSkill];
     if (!skill?.roll) {
       ui.notifications.warn(game.i18n.localize("PF2E.PointsTracker.Research.SkillUnavailable"));
       return;

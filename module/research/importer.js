@@ -344,6 +344,23 @@ function sanitizeTopic(topic) {
         ? statblockSource.research.text
         : undefined)
   );
+  const rawLevelSource = (() => {
+    if (topic.level !== undefined && topic.level !== null) {
+      const stringValue = `${topic.level}`.trim();
+      if (stringValue) return topic.level;
+    }
+    if (statblockSource?.level !== undefined && statblockSource?.level !== null) {
+      if (typeof statblockSource.level === "object" && !Array.isArray(statblockSource.level)) {
+        const value = statblockSource.level.value;
+        if (value !== undefined && value !== null && `${value}`.trim()) return value;
+      } else if (`${statblockSource.level}`.trim()) {
+        return statblockSource.level;
+      }
+    }
+    return undefined;
+  })();
+  const levelValue = Number(rawLevelSource);
+  const level = Number.isFinite(levelValue) ? Number(levelValue) : undefined;
 
   const thresholds = Array.isArray(topic.thresholds)
     ? topic.thresholds
@@ -415,9 +432,7 @@ function sanitizeTopic(topic) {
     name,
     progress: Number.isFinite(topic.progress) ? Number(topic.progress) : 0,
     target: Number.isFinite(topic.target) ? Number(topic.target) : 0,
-    difficulty:
-      typeof topic.difficulty === "string" ? topic.difficulty.trim() : undefined,
-    skill: typeof topic.skill === "string" ? topic.skill.trim() : undefined,
+    ...(level !== undefined ? { level } : {}),
     ...(summary !== undefined ? { summary } : {}),
     ...(gatherInformation !== undefined ? { gatherInformation } : {}),
     ...(researchChecks !== undefined ? { researchChecks } : {}),
@@ -469,8 +484,7 @@ async function mergeTopic(tracker, topicData) {
     name: topicData.name,
     progress: topicData.progress,
     target: topicData.target,
-    difficulty: topicData.difficulty,
-    skill: topicData.skill,
+    level: topicData.level,
     summary: topicData.summary,
     gatherInformation: topicData.gatherInformation,
     researchChecks: topicData.researchChecks,

@@ -41,11 +41,8 @@
               <div class="research-topic__title">
                 <h3 class="research-topic__name">{{topic.name}}</h3>
                 <div class="research-topic__meta">
-                  {{#if topic.skill}}
-                    <span>{{localize "PF2E.PointsTracker.Research.SkillLabel" skill=topic.skill}}</span>
-                  {{/if}}
-                  {{#if topic.difficulty}}
-                    <span>{{localize "PF2E.PointsTracker.Research.DifficultyLabel" difficulty=topic.difficulty}}</span>
+                  {{#if topic.hasLevel}}
+                    <span>{{localize "PF2E.PointsTracker.Research.LevelLabel" level=topic.level}}</span>
                   {{/if}}
                 </div>
               </div>

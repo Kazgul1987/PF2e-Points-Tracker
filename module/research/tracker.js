@@ -183,8 +183,7 @@ function sanitizeCheckArray(raw, { fallbackSkill, fallbackDc, allowFallback = tr
  * @property {string} name
  * @property {number} progress
  * @property {number} target
- * @property {string} [difficulty]
- * @property {string} [skill]
+ * @property {number|null} [level]
  * @property {string} [summary]
  * @property {string} [gatherInformation]
  * @property {string} [researchChecks]
@@ -405,7 +404,7 @@ export class ResearchTracker {
    * Create a new research topic.
    * @param {Partial<ResearchTopic>} data
    * @returns {Promise<ResearchTopic>}
-   */
+  */
   async createTopic(data = {}) {
     const id = data.id ?? createId();
     const topic = this._normalizeTopic({
@@ -414,8 +413,7 @@ export class ResearchTracker {
         data.name ?? game.i18n.localize("PF2E.PointsTracker.Research.DefaultName"),
       progress: Number.isFinite(data.progress) ? Number(data.progress) : 0,
       target: Number.isFinite(data.target) ? Number(data.target) : 10,
-      difficulty: data.difficulty ?? "standard",
-      skill: data.skill ?? "society",
+      level: data.level,
       summary: data.summary ?? "",
       gatherInformation: data.gatherInformation ?? "",
       researchChecks: data.researchChecks ?? "",
@@ -1075,13 +1073,14 @@ export class ResearchTracker {
       progress
     );
     const percent = target > 0 ? Math.min((progress / target) * 100, 100) : 0;
+    const numericLevel = Number(topic.level);
+    const level = Number.isFinite(numericLevel) ? Number(numericLevel) : null;
     return {
       id: String(topic.id ?? createId()),
       name: topic.name ?? "Research Topic",
       progress,
       target,
-      difficulty: topic.difficulty ?? "standard",
-      skill: topic.skill ?? "",
+      level,
       summary: topic.summary ?? "",
       gatherInformation: topic.gatherInformation ?? "",
       researchChecks: topic.researchChecks ?? "",
