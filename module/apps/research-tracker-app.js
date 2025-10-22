@@ -1640,6 +1640,7 @@ export class ResearchTrackerApp extends FormApplication {
     const location = topic?.locations?.find((entry) => entry.id === locationId);
     if (!topic || !location) return;
 
+    const normalizedAssignments = this._normalizeAssignedActors(location.assignedActors);
     const normalizedChecks = this._normalizeLocationChecks(location);
     const hasSkill = normalizedChecks.some((entry) => entry.skill);
     if (!hasSkill) {
@@ -1710,6 +1711,11 @@ export class ResearchTrackerApp extends FormApplication {
       typeof CONST !== "undefined" ? CONST?.CHAT_MESSAGE_TYPES?.OTHER : undefined;
     if (messageType !== undefined) {
       payload.type = messageType;
+    }
+
+    const recipients = await this._getAssignedPlayerRecipients(normalizedAssignments);
+    if (recipients.length) {
+      payload.whisper = recipients;
     }
 
     await ChatMessage.create(payload);
@@ -1826,6 +1832,135 @@ export class ResearchTrackerApp extends FormApplication {
         return { uuid: trimmedUuid, ...normalized };
       })
       .filter((entry) => entry && entry.uuid);
+  }
+
+  async _getAssignedPlayerRecipients(assignments = []) {
+    const sourceAssignments = Array.isArray(assignments) ? assignments : [];
+    const normalized = sourceAssignments.every(
+      (entry) => entry && typeof entry.uuid === "string" && entry.uuid
+    )
+      ? sourceAssignments.filter((entry) => entry && entry.uuid)
+      : this._normalizeAssignedActors(sourceAssignments);
+    if (!normalized.length) return [];
+
+    const users = Array.isArray(game.users) ? game.users : [];
+    if (!users.length) return [];
+
+    const constSource = typeof CONST !== "undefined" ? CONST : foundry?.CONST ?? {};
+    const permissionLevels =
+      constSource?.DOCUMENT_PERMISSION_LEVELS ?? constSource?.DOCUMENT_OWNERSHIP_LEVELS ?? {};
+    const ownerLevel =
+      (typeof permissionLevels?.OWNER === "number"
+        ? permissionLevels.OWNER
+        : typeof permissionLevels?.OWNER === "string"
+        ? Number.parseInt(permissionLevels.OWNER, 10)
+        : null) ?? 3;
+
+    const parseOwnershipValue = (value) => {
+      if (typeof value === "number") return value;
+      if (typeof value === "string") {
+        const upper = value.toUpperCase();
+        if (upper === "OWNER") return ownerLevel;
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return null;
+    };
+
+    const recipients = new Set();
+    const actorCache = new Map();
+
+    const addRecipientsFromActor = (actor) => {
+      if (!actor) return;
+      for (const user of users) {
+        if (!user || user.isGM) continue;
+
+        let hasOwnership = false;
+        if (typeof actor.testUserPermission === "function") {
+          try {
+            hasOwnership = actor.testUserPermission(user, ownerLevel);
+          } catch (error) {
+            console.warn(error);
+          }
+        }
+
+        if (!hasOwnership) {
+          const ownership = actor.ownership ?? actor.data?.ownership ?? {};
+          const direct = parseOwnershipValue(ownership[user.id]);
+          const fallbackDefault = parseOwnershipValue(ownership.default ?? ownership?.DEFAULT);
+          const effectiveLevel = direct ?? fallbackDefault;
+          if (effectiveLevel !== null && effectiveLevel >= ownerLevel) {
+            hasOwnership = true;
+          }
+        }
+
+        if (hasOwnership) {
+          recipients.add(user.id);
+        }
+      }
+    };
+
+    const fetchActor = async (identifier) => {
+      const trimmed = typeof identifier === "string" ? identifier.trim() : "";
+      if (!trimmed) return null;
+      if (actorCache.has(trimmed)) return actorCache.get(trimmed);
+
+      let actorDocument = null;
+
+      const tryStore = (actor) => {
+        const value = actor ?? null;
+        actorCache.set(trimmed, value);
+        if (actor) {
+          if (actor.uuid) actorCache.set(actor.uuid, actor);
+          if (actor.id) actorCache.set(actor.id, actor);
+        }
+        return value;
+      };
+
+      if (typeof fromUuid === "function" && trimmed.includes(".")) {
+        try {
+          const document = await fromUuid(trimmed);
+          if (document) {
+            if (document.documentName === "Actor" || document.constructor?.name?.includes("Actor")) {
+              return tryStore(document);
+            }
+            if (document.actor) {
+              return tryStore(document.actor);
+            }
+          }
+        } catch (error) {
+          console.warn(error);
+        }
+      }
+
+      if (!actorDocument && typeof game?.actors?.get === "function") {
+        const fallbackId = trimmed.startsWith("Actor.") ? trimmed.split(".").pop() : trimmed;
+        actorDocument = game.actors.get(fallbackId);
+        if (actorDocument) {
+          return tryStore(actorDocument);
+        }
+      }
+
+      return tryStore(null);
+    };
+
+    for (const assignment of normalized) {
+      const candidateIds = [];
+      if (typeof assignment?.tokenUuid === "string") candidateIds.push(assignment.tokenUuid);
+      if (typeof assignment?.uuid === "string") candidateIds.push(assignment.uuid);
+      if (typeof assignment?.actorUuid === "string") candidateIds.push(assignment.actorUuid);
+      if (!candidateIds.length) continue;
+
+      for (const candidate of candidateIds) {
+        const actor = await fetchActor(candidate);
+        if (actor) {
+          addRecipientsFromActor(actor);
+          break;
+        }
+      }
+    }
+
+    return Array.from(recipients);
   }
 
   _onDragParticipant(event) {
