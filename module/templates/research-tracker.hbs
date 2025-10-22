@@ -77,10 +77,14 @@
               <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
             </div>
             <div class="research-topic__progress-label">
-              {{#if topic.locations.length}}
-                {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.locationTotals.displayMax}}
+              {{#if ../isGM}}
+                {{#if topic.locations.length}}
+                  {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.locationTotals.displayMax}}
+                {{else}}
+                  {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.target}}
+                {{/if}}
               {{else}}
-                {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.target}}
+                {{localize "PF2E.PointsTracker.Research.ProgressHidden"}}
               {{/if}}
               {{#if topic.completed}}
                 <span class="research-topic__badge">{{localize "PF2E.PointsTracker.Research.Completed"}}</span>
@@ -120,7 +124,11 @@
                 <h4>{{localize "PF2E.PointsTracker.Research.LocationsHeading"}}</h4>
                 <div class="research-topic__locations-actions">
                   <span class="research-topic__locations-total">
-                    {{localize "PF2E.PointsTracker.Research.LocationTotals" collected=topic.locationTotals.collected max=topic.locationTotals.displayMax}}
+                    {{#if ../isGM}}
+                      {{localize "PF2E.PointsTracker.Research.LocationTotals" collected=topic.locationTotals.collected max=topic.locationTotals.displayMax}}
+                    {{else}}
+                      {{localize "PF2E.PointsTracker.Research.LocationTotalsHidden"}}
+                    {{/if}}
                   </span>
                   {{#if ../isGM}}
                     <button type="button" data-action="create-location">
@@ -217,7 +225,11 @@
                               <div class="research-location__progress-bar" style="width: {{location.percent}}%"></div>
                             </div>
                             <div class="research-location__progress-label">
-                              {{localize "PF2E.PointsTracker.Research.LocationProgress" collected=location.collected max=location.displayMax}}
+                              {{#if ../../isGM}}
+                                {{localize "PF2E.PointsTracker.Research.LocationProgress" collected=location.collected max=location.displayMax}}
+                              {{else}}
+                                {{localize "PF2E.PointsTracker.Research.LocationProgressHidden"}}
+                              {{/if}}
                             </div>
                           </div>
                           <div class="research-location__chat">

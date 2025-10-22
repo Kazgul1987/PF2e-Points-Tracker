@@ -239,6 +239,15 @@ export class ResearchTrackerApp extends FormApplication {
         ? game.i18n.localize("PF2E.PointsTracker.Research.LocationUnlimited")
         : totalMax;
 
+      const sanitizedLocations = isGM
+        ? visibleLocations
+        : visibleLocations.map((location) => ({
+            ...location,
+            collected: null,
+            maxPoints: null,
+            displayMax: null,
+          }));
+
       const levelNumber = Number(topic.level);
       const hasLevel =
         topic.level !== null && topic.level !== undefined && Number.isFinite(levelNumber);
@@ -249,13 +258,13 @@ export class ResearchTrackerApp extends FormApplication {
         hasLevel,
         completed: topic.target > 0 && topic.progress >= topic.target,
         thresholds,
-        locations: visibleLocations,
+        locations: sanitizedLocations,
         hasHiddenLocations: normalizedLocations.some((location) => !location.isRevealed),
         isCollapsed: !this._expandedTopics.has(topic.id),
         locationTotals: {
-          collected: totalCollected,
-          max: totalMax,
-          displayMax: totalDisplayMax,
+          collected: isGM ? totalCollected : null,
+          max: isGM ? totalMax : null,
+          displayMax: isGM ? totalDisplayMax : null,
           hasUnlimited: hasUnlimitedLocation,
         },
         gatherInformationHtml: await this._enrichText(topic.gatherInformation ?? ""),
