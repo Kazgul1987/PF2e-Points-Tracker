@@ -1,0 +1,409 @@
+<section class="research-tracker">
+  <header class="research-tracker__header">
+    <h2>{{localize "PF2E.PointsTracker.Research.Title"}}</h2>
+    <div class="research-tracker__actions">
+      {{#if isGM}}
+        <button type="button" data-action="import-topics">
+          <i class="fas fa-file-import"></i>
+          {{localize "PF2E.PointsTracker.Research.Import"}}
+        </button>
+        <button type="button" data-action="export-topics">
+          <i class="fas fa-file-export"></i>
+          {{localize "PF2E.PointsTracker.Research.Export"}}
+        </button>
+      {{/if}}
+      {{#if isGM}}
+        <button type="button" class="research-tracker__create" data-action="create-topic">
+          <i class="fas fa-plus"></i>
+          {{localize "PF2E.PointsTracker.Research.CreateTopic"}}
+        </button>
+      {{/if}}
+    </div>
+  </header>
+
+  {{#if topics.length}}
+    <div class="research-tracker__topics">
+      {{#each topics as |topic|}}
+        <article class="research-topic" data-topic-id="{{topic.id}}">
+          <header class="research-topic__header">
+            <div class="research-topic__heading">
+              <button
+                type="button"
+                class="research-topic__toggle"
+                data-action="toggle-topic"
+                aria-expanded="{{#if topic.isCollapsed}}false{{else}}true{{/if}}"
+                aria-controls="research-topic-body-{{topic.id}}"
+                title="{{#if topic.isCollapsed}}{{localize 'PF2E.PointsTracker.Research.ExpandTopic'}}{{else}}{{localize 'PF2E.PointsTracker.Research.CollapseTopic'}}{{/if}}"
+                aria-label="{{#if topic.isCollapsed}}{{localize 'PF2E.PointsTracker.Research.ExpandTopic'}}{{else}}{{localize 'PF2E.PointsTracker.Research.CollapseTopic'}}{{/if}}"
+              >
+                <i class="fas fa-chevron-right research-topic__toggle-icon" aria-hidden="true"></i>
+              </button>
+              <div class="research-topic__title">
+                <h3 class="research-topic__name">{{topic.name}}</h3>
+                <div class="research-topic__meta">
+                  {{#if topic.hasLevel}}
+                    <span>{{localize "PF2E.PointsTracker.Research.LevelLabel" level=topic.level}}</span>
+                  {{/if}}
+                </div>
+              </div>
+            </div>
+            {{#if ../isGM}}
+              <div class="research-topic__controls">
+                <button type="button" data-action="add-points">
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button type="button" data-action="spend-points">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <button type="button" data-action="edit-topic">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  type="button"
+                  data-action="manage-locations"
+                  title="{{localize 'PF2E.PointsTracker.Research.ManageLocations'}}"
+                >
+                  <i class="fas fa-map-marked-alt"></i>
+                </button>
+                <button type="button" data-action="delete-topic">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            {{/if}}
+          </header>
+
+          <div class="research-topic__progress">
+            <div class="research-topic__progress-track">
+              <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
+            </div>
+            <div class="research-topic__progress-label">
+              {{#if ../isGM}}
+                {{#if topic.locations.length}}
+                  {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.locationTotals.displayMax}}
+                {{else}}
+                  {{localize "PF2E.PointsTracker.Research.ProgressLabel" collected=topic.progress target=topic.target}}
+                {{/if}}
+              {{else}}
+                {{localize "PF2E.PointsTracker.Research.ProgressHidden"}}
+              {{/if}}
+              {{#if topic.completed}}
+                <span class="research-topic__badge">{{localize "PF2E.PointsTracker.Research.Completed"}}</span>
+              {{/if}}
+            </div>
+          </div>
+
+          <div
+            class="research-topic__body{{#if topic.isCollapsed}} is-collapsed{{/if}}"
+            id="research-topic-body-{{topic.id}}"
+            data-topic-body
+          >
+            <section class="research-topic__statblock">
+              {{#if topic.summaryHtml}}
+                <div class="research-topic__summary">{{{topic.summaryHtml}}}</div>
+              {{/if}}
+            </section>
+
+            <section class="research-topic__locations">
+              <header class="research-topic__locations-header">
+                <h4>{{localize "PF2E.PointsTracker.Research.LocationsHeading"}}</h4>
+                <div class="research-topic__locations-actions">
+                  <span class="research-topic__locations-total">
+                    {{#if ../isGM}}
+                      {{localize "PF2E.PointsTracker.Research.LocationTotals" collected=topic.locationTotals.collected max=topic.locationTotals.displayMax}}
+                    {{else}}
+                      {{localize "PF2E.PointsTracker.Research.LocationTotalsHidden"}}
+                    {{/if}}
+                  </span>
+                  {{#if ../isGM}}
+                    <button type="button" data-action="create-location">
+                      <i class="fas fa-map-marker-alt"></i>
+                      {{localize "PF2E.PointsTracker.Research.AddLocation"}}
+                    </button>
+                  {{/if}}
+                </div>
+              </header>
+              {{#if topic.locations.length}}
+                <table class="research-topic__location-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationNameHeader"}}</th>
+                      <th scope="col">{{localize "PF2E.PointsTracker.Research.LocationProgressHeader"}}</th>
+                      {{#if ../isGM}}
+                        <th scope="col" class="research-topic__location-actions-header">{{localize "PF2E.PointsTracker.Research.Actions"}}</th>
+                      {{/if}}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{#each topic.locations as |location|}}
+                      <tr class="research-location" data-location-id="{{location.id}}">
+                        <th scope="row">
+                          <span class="research-location__name">{{location.name}}</span>
+                          {{#if ../../isGM}}
+                            {{#unless location.isRevealed}}
+                              <span class="research-location__status-tag">{{localize "PF2E.PointsTracker.Research.LocationHiddenTag"}}</span>
+                            {{/unless}}
+                          {{/if}}
+                          {{#if location.checkSummaries.length}}
+                            <div class="research-location__details">
+                              {{#each location.checkSummaries as |summary|}}
+                                <div class="research-location__detail">{{summary}}</div>
+                              {{/each}}
+                            </div>
+                          {{/if}}
+                          {{#if location.description}}
+                            <p class="research-location__description">{{location.description}}</p>
+                          {{/if}}
+                          <div
+                            class="research-location__assignments"
+                            data-topic-id="{{../id}}"
+                            data-location-id="{{location.id}}"
+                          >
+                            <span class="research-location__assignment-label">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDisplay"}}</span>
+                            <div
+                              class="research-location__dropzone{{#unless location.assignedActors.length}} is-empty{{/unless}}"
+                              data-dropzone="location"
+                              tabindex="0"
+                            >
+                              {{#if location.assignedActors.length}}
+                                <ul class="research-location__assignment-list">
+                                  {{#each location.assignedActors as |assigned|}}
+                                    <li
+                                      class="research-location__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}"
+                                      data-actor-uuid="{{assigned.uuid}}"
+                                      data-actor-name="{{assigned.name}}"
+                                    >
+                                      {{#if assigned.img}}
+                                        <img
+                                          class="research-location__assignment-portrait"
+                                          src="{{assigned.img}}"
+                                          alt="{{assigned.name}}"
+                                        />
+                                      {{/if}}
+                                      <span class="research-location__assignment-name">{{assigned.name}}</span>
+                                      {{#unless assigned.isActive}}
+                                        <span class="research-location__assignment-note">{{localize "PF2E.PointsTracker.Research.LocationAssignmentMissing"}}</span>
+                                      {{/unless}}
+                                      <button
+                                        type="button"
+                                        class="research-location__assignment-remove"
+                                        data-action="remove-assigned-actor"
+                                        data-actor-uuid="{{assigned.uuid}}"
+                                        aria-label="{{localize 'PF2E.PointsTracker.Research.LocationAssignmentsRemove'}}"
+                                        title="{{localize 'PF2E.PointsTracker.Research.LocationAssignmentsRemove'}}"
+                                      >
+                                        <i class="fas fa-times"></i>
+                                      </button>
+                                    </li>
+                                  {{/each}}
+                                </ul>
+                              {{else}}
+                                <p class="research-location__assignment-empty">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsEmpty"}}</p>
+                              {{/if}}
+                              <p class="research-location__dropzone-hint">{{localize "PF2E.PointsTracker.Research.LocationAssignmentsDropPrompt"}}</p>
+                            </div>
+                          </div>
+                        </th>
+                        <td>
+                          <div class="research-location__progress">
+                            <div class="research-location__progress-wrapper">
+                              <div class="research-location__progress-track">
+                                <div class="research-location__progress-bar" style="width: {{location.percent}}%"></div>
+                              </div>
+                              {{#if location.isComplete}}
+                                <span
+                                  class="research-location__progress-status"
+                                  aria-label="{{localize 'PF2E.PointsTracker.Research.LocationCompleteTooltip'}}"
+                                  title="{{localize 'PF2E.PointsTracker.Research.LocationCompleteTooltip'}}"
+                                >
+                                  <i class="fas fa-check" aria-hidden="true"></i>
+                                </span>
+                              {{/if}}
+                            </div>
+                            <div class="research-location__progress-label">
+                              {{#if ../../isGM}}
+                                {{localize "PF2E.PointsTracker.Research.LocationProgress" collected=location.collected max=location.displayMax}}
+                              {{else}}
+                                {{localize "PF2E.PointsTracker.Research.LocationProgressHidden"}}
+                              {{/if}}
+                            </div>
+                          </div>
+                          <div class="research-location__chat">
+                            <button
+                              type="button"
+                              data-action="post-location-check"
+                              data-location-id="{{location.id}}"
+                              {{#unless location.hasCheckData}}disabled{{/unless}}
+                            >
+                              <i class="fas fa-comment-dots"></i>
+                              {{localize "PF2E.PointsTracker.Research.LocationPostCheck"}}
+                            </button>
+                          </div>
+                        </td>
+                        {{#if ../../isGM}}
+                          <td class="research-location__actions">
+                            <div class="research-location__adjust">
+                              <button
+                                type="button"
+                                data-action="nudge-location"
+                                data-location-id="{{location.id}}"
+                                data-delta="+1"
+                              >
+                                <i class="fas fa-arrow-up"></i>
+                              </button>
+                              <button
+                                type="button"
+                                data-action="nudge-location"
+                                data-location-id="{{location.id}}"
+                                data-delta="-1"
+                              >
+                                <i class="fas fa-arrow-down"></i>
+                              </button>
+                            </div>
+                            <button type="button" data-action="edit-location">
+                              <i class="fas fa-edit"></i>
+                            </button>
+                            {{#if location.isRevealed}}
+                              <button
+                                type="button"
+                                data-action="resend-location"
+                                data-location-id="{{location.id}}"
+                                title="{{localize 'PF2E.PointsTracker.Research.LocationRevealResend'}}"
+                                aria-label="{{localize 'PF2E.PointsTracker.Research.LocationRevealResend'}}"
+                              >
+                                <i class="fas fa-bullhorn"></i>
+                              </button>
+                            {{else}}
+                              <button
+                                type="button"
+                                data-action="reveal-location"
+                                data-location-id="{{location.id}}"
+                                title="{{localize 'PF2E.PointsTracker.Research.LocationReveal'}}"
+                                aria-label="{{localize 'PF2E.PointsTracker.Research.LocationReveal'}}"
+                              >
+                                <i class="fas fa-eye"></i>
+                              </button>
+                            {{/if}}
+                            <button type="button" data-action="delete-location">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </td>
+                        {{/if}}
+                      </tr>
+                    {{/each}}
+                  </tbody>
+                </table>
+              {{else}}
+                <p class="research-topic__empty">{{localize "PF2E.PointsTracker.Research.NoLocations"}}</p>
+              {{/if}}
+            </section>
+
+            {{#if topic.thresholds.length}}
+              <section class="research-topic__thresholds">
+                <header>
+                  <h4>{{localize "PF2E.PointsTracker.Research.Thresholds"}}</h4>
+                </header>
+                <ul>
+                  {{#each topic.thresholds as |threshold|}}
+                    <li class="research-threshold{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}">
+                      <div class="research-threshold__meta">
+                        <span class="research-threshold__points">
+                          {{localize "PF2E.PointsTracker.Research.ThresholdPoints" points=threshold.points}}
+                        </span>
+                        <span class="research-threshold__status">
+                          {{#if threshold.isRevealed}}
+                            {{localize "PF2E.PointsTracker.Research.ThresholdRevealed"}}
+                          {{else if threshold.isUnlocked}}
+                            {{localize "PF2E.PointsTracker.Research.ThresholdUnlocked"}}
+                          {{else}}
+                            {{localize "PF2E.PointsTracker.Research.ThresholdLocked"}}
+                          {{/if}}
+                        </span>
+                      </div>
+                      {{#if ../../isGM}}
+                        {{#if threshold.playerText}}
+                          <div class="research-threshold__player-preview">
+                            <strong>{{localize "PF2E.PointsTracker.Research.PlayerText"}}</strong>
+                            {{{threshold.playerText}}}
+                          </div>
+                        {{/if}}
+                        {{#if threshold.gmText}}
+                          <div class="research-threshold__gm-text">
+                            <strong>{{localize "PF2E.PointsTracker.Research.GMText"}}</strong>
+                            {{{threshold.gmText}}}
+                          </div>
+                        {{/if}}
+                        <div class="research-threshold__controls">
+                          <button
+                            type="button"
+                            data-action="send-reveal"
+                            data-threshold-id="{{threshold.id}}"
+                            {{#unless threshold.isUnlocked}}disabled{{/unless}}
+                            {{#if threshold.isRevealed}}disabled{{/if}}
+                          >
+                            {{localize "PF2E.PointsTracker.Research.RevealSend"}}
+                          </button>
+                          {{#if threshold.isRevealed}}
+                            <button
+                              type="button"
+                              data-action="resend-reveal"
+                              data-threshold-id="{{threshold.id}}"
+                            >
+                              {{localize "PF2E.PointsTracker.Research.RevealResend"}}
+                            </button>
+                          {{/if}}
+                        </div>
+                      {{else}}
+                        {{#if threshold.isUnlocked}}
+                          {{#if threshold.playerText}}
+                            <div class="research-threshold__player-text">
+                              {{{threshold.playerText}}}
+                            </div>
+                          {{/if}}
+                        {{/if}}
+                      {{/if}}
+                    </li>
+                  {{/each}}
+                </ul>
+              </section>
+            {{/if}}
+
+          </div>
+        </article>
+      {{/each}}
+    </div>
+  {{else}}
+    <p class="research-tracker__empty">{{localize "PF2E.PointsTracker.Research.NoTopics"}}</p>
+  {{/if}}
+
+  <details class="research-tracker__log">
+    <summary class="research-tracker__log-summary">
+      <span class="research-tracker__log-icon" aria-hidden="true"></span>
+      <h3>{{localize "PF2E.PointsTracker.Research.Log"}}</h3>
+    </summary>
+    <div class="research-tracker__log-content">
+      {{#if log.length}}
+        <ul>
+          {{#each log as |entry|}}
+            <li>
+              <div class="log-entry__header">
+                <time>{{entry.timestampFormatted}}</time>
+                {{#if entry.actorName}}
+                  <span class="log-entry__actor">{{entry.actorName}}</span>
+                {{/if}}
+                {{#if entry.points}}
+                  <span class="log-entry__points">{{entry.points}}</span>
+                {{/if}}
+              </div>
+              <p class="log-entry__message">{{entry.message}}</p>
+              {{#if entry.rollSummary}}
+                <p class="log-entry__roll">{{entry.rollSummary}}</p>
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      {{else}}
+        <p class="research-tracker__no-log">{{localize "PF2E.PointsTracker.Research.NoLog"}}</p>
+      {{/if}}
+    </div>
+  </details>
+</section>

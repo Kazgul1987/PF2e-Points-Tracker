@@ -1,0 +1,79 @@
+<section class="reputation-tracker">
+  <header class="reputation-tracker__header">
+    <h2>{{localize "PF2E.PointsTracker.Reputation.Title"}}</h2>
+    {{#if isGM}}
+      <div class="reputation-tracker__actions">
+        <button type="button" data-action="create-faction">
+          <i class="fas fa-plus"></i>
+          {{localize "PF2E.PointsTracker.Reputation.CreateFaction"}}
+        </button>
+      </div>
+    {{/if}}
+  </header>
+
+  {{#if factions.length}}
+    <div class="reputation-tracker__list">
+      {{#each factions as |faction|}}
+        <article class="reputation-faction" data-faction-id="{{faction.id}}">
+          <header class="reputation-faction__header">
+            <div class="reputation-faction__title">
+              <h3 class="reputation-faction__name">{{faction.name}}</h3>
+              <div class="reputation-faction__meta">
+                <span class="reputation-faction__value">
+                  {{localize "PF2E.PointsTracker.Reputation.ValueLabel" value=faction.value max=faction.maxValue min=faction.minValue}}
+                </span>
+                {{#if faction.updatedAtFormatted}}
+                  <span class="reputation-faction__updated">{{localize "PF2E.PointsTracker.Reputation.LastUpdated" timestamp=faction.updatedAtFormatted}}</span>
+                {{/if}}
+              </div>
+            </div>
+            {{#if ../isGM}}
+              <div class="reputation-faction__controls">
+                <button
+                  type="button"
+                  data-action="adjust-reputation"
+                  data-delta="-1"
+                  {{#unless faction.canDecrease}}disabled{{/unless}}
+                  title="{{localize 'PF2E.PointsTracker.Reputation.Decrease'}}"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
+                <button
+                  type="button"
+                  data-action="adjust-reputation"
+                  data-delta="1"
+                  {{#unless faction.canIncrease}}disabled{{/unless}}
+                  title="{{localize 'PF2E.PointsTracker.Reputation.Increase'}}"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button type="button" data-action="edit-faction" title="{{localize 'PF2E.PointsTracker.Reputation.EditFaction'}}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" data-action="delete-faction" title="{{localize 'PF2E.PointsTracker.Reputation.DeleteFaction'}}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            {{/if}}
+          </header>
+
+          <div class="reputation-faction__progress">
+            <div class="reputation-faction__progress-track">
+              <div class="reputation-faction__progress-bar" style="width: {{faction.progressPercent}}%"></div>
+            </div>
+          </div>
+
+          {{#if faction.description}}
+            <p class="reputation-faction__description">{{faction.description}}</p>
+          {{/if}}
+
+          {{#if faction.notes}}
+            <p class="reputation-faction__notes">{{faction.notes}}</p>
+          {{/if}}
+        </article>
+      {{/each}}
+    </div>
+  {{else}}
+    <p class="reputation-tracker__empty">{{localize "PF2E.PointsTracker.Reputation.Empty"}}</p>
+  {{/if}}
+</section>

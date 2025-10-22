@@ -1,28 +1,43 @@
 import { createResearchTracker } from "./research/tracker.js";
-import { ResearchTrackerApp } from "./apps/research-tracker-app.js";
+import { createReputationTracker } from "./reputation/reputation-tracker.js";
+import { PointsTrackerApp } from "./apps/points-tracker-app.js";
 import { ResearchImportExport } from "./research/importer.js";
 import { registerResearchAutoUpdates } from "./research/auto-update.js";
 import { registerResearchTrackerControl } from "./ui/scene-controls.js";
 
 const MODULE_ID = "pf2e-points-tracker";
-const SETTING_KEY = "research-tracker-state";
+const RESEARCH_SETTING_KEY = "research-tracker-state";
+const REPUTATION_SETTING_KEY = "reputation-tracker-state";
 
-const tracker = createResearchTracker({ moduleId: MODULE_ID, settingKey: SETTING_KEY });
+const researchTracker = createResearchTracker({
+  moduleId: MODULE_ID,
+  settingKey: RESEARCH_SETTING_KEY,
+});
+const reputationTracker = createReputationTracker({
+  moduleId: MODULE_ID,
+  settingKey: REPUTATION_SETTING_KEY,
+});
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing PF2e Points Tracker module.`);
-  tracker.registerSettings();
+  researchTracker.registerSettings();
+  reputationTracker.registerSettings();
 
-  registerResearchTrackerControl(tracker);
+  PointsTrackerApp.preloadTemplates?.();
+
+  registerResearchTrackerControl({ researchTracker, reputationTracker });
 
   const moduleData = game.modules.get(MODULE_ID);
   if (moduleData) {
     moduleData.api = moduleData.api ?? {};
     Object.assign(moduleData.api, {
-      tracker,
-      openResearchTracker: () => ResearchTrackerApp.open(tracker),
-      importResearchTopics: () => ResearchImportExport.promptImport(tracker),
-      exportResearchTopics: () => ResearchImportExport.exportTopics(tracker),
+      tracker: researchTracker,
+      researchTracker,
+      reputationTracker,
+      openResearchTracker: () => PointsTrackerApp.open({ researchTracker, reputationTracker }),
+      openPointsTracker: () => PointsTrackerApp.open({ researchTracker, reputationTracker }),
+      importResearchTopics: () => ResearchImportExport.promptImport(researchTracker),
+      exportResearchTopics: () => ResearchImportExport.exportTopics(researchTracker),
     });
   }
 });
@@ -31,7 +46,8 @@ Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | Starting PF2e Points Tracker initialization.`);
 
   try {
-    await tracker.initialize();
+    await researchTracker.initialize();
+    await reputationTracker.initialize();
   } catch (error) {
     console.error(`${MODULE_ID} | Failed to initialize PF2e Points Tracker.`, error);
     return;
@@ -39,13 +55,15 @@ Hooks.once("ready", async () => {
 
   console.log(`${MODULE_ID} | PF2e Points Tracker initialized successfully.`);
 
-  registerResearchAutoUpdates(tracker);
+  registerResearchAutoUpdates(researchTracker);
 
   game.pf2ePointsTracker = {
-    tracker,
-    open: () => ResearchTrackerApp.open(tracker),
-    import: () => ResearchImportExport.promptImport(tracker),
-    export: () => ResearchImportExport.exportTopics(tracker),
+    tracker: researchTracker,
+    researchTracker,
+    reputationTracker,
+    open: () => PointsTrackerApp.open({ researchTracker, reputationTracker }),
+    import: () => ResearchImportExport.promptImport(researchTracker),
+    export: () => ResearchImportExport.exportTopics(researchTracker),
   };
 
   console.log(`${MODULE_ID} | PF2e Points Tracker global API registered.`);
@@ -59,7 +77,7 @@ Hooks.on("renderTokenHUD", (_app, html) => {
       "PF2E.PointsTracker.Research.Title"
     )}"><i class="fas fa-flask"></i></div>`
   );
-  button.on("click", () => ResearchTrackerApp.open(tracker));
+  button.on("click", () => PointsTrackerApp.open({ researchTracker, reputationTracker }));
   html.find(".col.right").append(button);
 });
 
@@ -70,10 +88,10 @@ Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
     class: "research-tracker-open",
     label: game.i18n.localize("PF2E.PointsTracker.Research.Title"),
     icon: "fas fa-flask",
-    onclick: () => ResearchTrackerApp.open(tracker),
+    onclick: () => PointsTrackerApp.open({ researchTracker, reputationTracker }),
   });
 });
 
 export function openResearchTracker() {
-  return ResearchTrackerApp.open(tracker);
+  return PointsTrackerApp.open({ researchTracker, reputationTracker });
 }
