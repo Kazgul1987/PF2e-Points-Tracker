@@ -3,7 +3,6 @@ import { createReputationTracker } from "./reputation/reputation-tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
 import { ResearchImportExport } from "./research/importer.js";
 import { registerResearchAutoUpdates } from "./research/auto-update.js";
-import { registerResearchTrackerControl } from "./ui/scene-controls.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const RESEARCH_SETTING_KEY = "research-tracker-state";
@@ -24,8 +23,6 @@ Hooks.once("init", () => {
   reputationTracker.registerSettings();
 
   PointsTrackerApp.preloadTemplates?.();
-
-  registerResearchTrackerControl({ researchTracker, reputationTracker });
 
   const moduleData = game.modules.get(MODULE_ID);
   if (moduleData) {
