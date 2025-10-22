@@ -185,8 +185,6 @@ function sanitizeCheckArray(raw, { fallbackSkill, fallbackDc, allowFallback = tr
  * @property {number} target
  * @property {number|null} [level]
  * @property {string} [summary]
- * @property {string} [gatherInformation]
- * @property {string} [researchChecks]
  * @property {ResearchLocation[]} locations
  * @property {ResearchRevealThreshold[]} thresholds
  * @property {string[]} revealedThresholdIds
@@ -415,8 +413,6 @@ export class ResearchTracker {
       target: Number.isFinite(data.target) ? Number(data.target) : 10,
       level: data.level,
       summary: data.summary ?? "",
-      gatherInformation: data.gatherInformation ?? "",
-      researchChecks: data.researchChecks ?? "",
       thresholds: Array.isArray(data.thresholds) ? data.thresholds : [],
       locations: Array.isArray(data.locations) ? data.locations : [],
       revealedThresholdIds: Array.isArray(data.revealedThresholdIds)
@@ -1082,8 +1078,6 @@ export class ResearchTracker {
       target,
       level,
       summary: topic.summary ?? "",
-      gatherInformation: topic.gatherInformation ?? "",
-      researchChecks: topic.researchChecks ?? "",
       locations,
       thresholds,
       revealedThresholdIds,
