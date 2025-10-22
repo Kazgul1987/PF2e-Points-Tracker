@@ -27,11 +27,8 @@ function extractLocationChecks(location, topic) {
 
   if (normalized.length) return normalized;
 
-  const fallbackSkill = typeof location?.skill === "string"
-    ? location.skill.trim()
-    : typeof topic?.skill === "string"
-    ? topic.skill.trim()
-    : "";
+  const fallbackSkill =
+    typeof location?.skill === "string" ? location.skill.trim() : "";
   if (!fallbackSkill) return [];
   const dcNumber = Number(location?.dc);
   const dc = Number.isFinite(dcNumber) && dcNumber > 0 ? Number(dcNumber) : null;
@@ -201,7 +198,6 @@ function findMatchingTargets(tracker, skillSlug, actorData, context) {
 
   const matchesWithAssignment = [];
   const matchesWithoutAssignment = [];
-  const topicLevelMatches = [];
 
   for (const topic of topics) {
     const locations = Array.isArray(topic.locations) ? topic.locations : [];
@@ -237,11 +233,6 @@ function findMatchingTargets(tracker, skillSlug, actorData, context) {
           matchesWithoutAssignment.push(matchData);
         }
       }
-    } else {
-      const topicSkill = (topic.skill || "").toLowerCase();
-      if (topicSkill && topicSkill === normalizedSkill) {
-        topicLevelMatches.push({ topicId: topic.id });
-      }
     }
   }
 
@@ -259,13 +250,6 @@ function findMatchingTargets(tracker, skillSlug, actorData, context) {
       "pf2e-points-tracker | Multiple research locations matched the same skill check. Assign party members to locations to disambiguate automatic updates."
     );
     return [];
-  }
-
-  if (topicLevelMatches.length === 1) return topicLevelMatches;
-  if (topicLevelMatches.length > 1) {
-    console.warn(
-      "pf2e-points-tracker | Multiple research topics matched the same skill check. Automatic point adjustment was skipped."
-    );
   }
 
   return [];
