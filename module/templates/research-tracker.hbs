@@ -149,6 +149,11 @@
                       <tr class="research-location" data-location-id="{{location.id}}">
                         <th scope="row">
                           <span class="research-location__name">{{location.name}}</span>
+                          {{#if ../../isGM}}
+                            {{#unless location.isRevealed}}
+                              <span class="research-location__status-tag">{{localize "PF2E.PointsTracker.Research.LocationHiddenTag"}}</span>
+                            {{/unless}}
+                          {{/if}}
                           {{#if location.checkSummaries.length}}
                             <div class="research-location__details">
                               {{#each location.checkSummaries as |summary|}}
@@ -241,6 +246,27 @@
                             <button type="button" data-action="edit-location">
                               <i class="fas fa-edit"></i>
                             </button>
+                            {{#if location.isRevealed}}
+                              <button
+                                type="button"
+                                data-action="resend-location"
+                                data-location-id="{{location.id}}"
+                                title="{{localize 'PF2E.PointsTracker.Research.LocationRevealResend'}}"
+                                aria-label="{{localize 'PF2E.PointsTracker.Research.LocationRevealResend'}}"
+                              >
+                                <i class="fas fa-bullhorn"></i>
+                              </button>
+                            {{else}}
+                              <button
+                                type="button"
+                                data-action="reveal-location"
+                                data-location-id="{{location.id}}"
+                                title="{{localize 'PF2E.PointsTracker.Research.LocationReveal'}}"
+                                aria-label="{{localize 'PF2E.PointsTracker.Research.LocationReveal'}}"
+                              >
+                                <i class="fas fa-eye"></i>
+                              </button>
+                            {{/if}}
                             <button type="button" data-action="delete-location">
                               <i class="fas fa-trash"></i>
                             </button>
