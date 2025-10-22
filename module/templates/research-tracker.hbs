@@ -205,8 +205,19 @@
                         </th>
                         <td>
                           <div class="research-location__progress">
-                            <div class="research-location__progress-track">
-                              <div class="research-location__progress-bar" style="width: {{location.percent}}%"></div>
+                            <div class="research-location__progress-wrapper">
+                              <div class="research-location__progress-track">
+                                <div class="research-location__progress-bar" style="width: {{location.percent}}%"></div>
+                              </div>
+                              {{#if location.isComplete}}
+                                <span
+                                  class="research-location__progress-status"
+                                  aria-label="{{localize 'PF2E.PointsTracker.Research.LocationCompleteTooltip'}}"
+                                  title="{{localize 'PF2E.PointsTracker.Research.LocationCompleteTooltip'}}"
+                                >
+                                  <i class="fas fa-check" aria-hidden="true"></i>
+                                </span>
+                              {{/if}}
                             </div>
                             <div class="research-location__progress-label">
                               {{#if ../../isGM}}

@@ -111,6 +111,7 @@ export class ResearchTrackerApp extends FormApplication {
         const collected = Number.isFinite(location.collected)
           ? Number(location.collected)
           : 0;
+        const isComplete = maxPoints > 0 && collected >= maxPoints;
         const percent = maxPoints > 0 ? Math.min((collected / maxPoints) * 100, 100) : 0;
         const displayMax =
           maxPoints > 0
@@ -215,6 +216,7 @@ export class ResearchTrackerApp extends FormApplication {
           checkSummaries,
           description,
           hasCheckData: hasRollableCheck,
+          isComplete,
           assignedActors,
           hasMissingAssignments: assignedActors.some((actor) => !actor.isActive),
         };
