@@ -2581,6 +2581,7 @@ class BaseResearchTrackerApp extends FormApplication {
 const POINTS_TRACKER_PARTIALS = [
   `modules/${MODULE_ID}/module/templates/partials/research-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/reputation-tab.hbs`,
+  `modules/${MODULE_ID}/module/templates/partials/awareness-tab.hbs`,
 ];
 
 export class PointsTrackerApp extends BaseResearchTrackerApp {
@@ -2588,12 +2589,17 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
    * @param {object} options
    * @param {import("../research/tracker.js").ResearchTracker} [options.researchTracker]
    * @param {import("../reputation/reputation-tracker.js").ReputationTracker} [options.reputationTracker]
+   * @param {import("../awareness/awareness-tracker.js").AwarenessTracker} [options.awarenessTracker]
    * @param {object} [renderOptions]
    */
-  constructor({ researchTracker = null, reputationTracker = null } = {}, renderOptions = {}) {
+  constructor(
+    { researchTracker = null, reputationTracker = null, awarenessTracker = null } = {},
+    renderOptions = {}
+  ) {
     super(researchTracker, renderOptions);
     this.researchTracker = researchTracker ?? null;
     this.reputationTracker = reputationTracker ?? null;
+    this.awarenessTracker = awarenessTracker ?? null;
     this.tracker = this.researchTracker ?? this.tracker ?? null;
     this._activeTab = renderOptions?.activeTab ?? "research";
     this.options.activeTab = this._activeTab;
@@ -2616,10 +2622,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     await this._preloadPromise;
   }
 
-  static open({ researchTracker = null, reputationTracker = null, activeTab = null } = {}) {
+  static open({
+    researchTracker = null,
+    reputationTracker = null,
+    awarenessTracker = null,
+    activeTab = null,
+  } = {}) {
     if (!this._instance) {
       this._instance = new this(
-        { researchTracker, reputationTracker },
+        { researchTracker, reputationTracker, awarenessTracker },
         { activeTab: activeTab ?? "research" }
       );
     } else {
@@ -2630,6 +2641,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       if (reputationTracker) {
         this._instance.reputationTracker = reputationTracker;
       }
+      if (awarenessTracker) {
+        this._instance.awarenessTracker = awarenessTracker;
+      }
       if (activeTab) {
         this._instance.activeTab = activeTab;
       }
@@ -2639,12 +2653,26 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
   }
 
   get activeTab() {
-    return this._activeTab ?? "research";
+    const candidate = this._activeTab ?? "research";
+    if (candidate === "awareness" && !this._canAccessAwareness()) {
+      return "research";
+    }
+    return candidate;
   }
 
   set activeTab(value) {
-    this._activeTab = value ?? "research";
+    const allowedTabs = new Set(["research", "reputation"]);
+    if (this._canAccessAwareness()) {
+      allowedTabs.add("awareness");
+    }
+    const normalized = allowedTabs.has(value) ? value : "research";
+    this._activeTab = normalized;
     this.options.activeTab = this._activeTab;
+  }
+
+  _canAccessAwareness() {
+    const isGM = game.user?.isGM ?? false;
+    return Boolean(isGM && this.awarenessTracker);
   }
 
   async getData(options) {
@@ -2662,15 +2690,18 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     }
 
     const reputationData = this._prepareReputationData({ isGM });
+    const awarenessData = this._prepareAwarenessData({ isGM });
 
     const activeTab = this.activeTab;
     return {
       activeTab,
       isResearchActive: activeTab === "research",
       isReputationActive: activeTab === "reputation",
+      isAwarenessActive: activeTab === "awareness",
       isGM,
       research: researchData,
       reputation: reputationData,
+      awareness: awarenessData,
     };
   }
 
@@ -2687,9 +2718,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this.activeTab === "reputation") {
       this._initializeReputationTab(html);
     }
+    if (this.activeTab === "awareness") {
+      this._initializeAwarenessTab(html);
+    }
 
     if (this.reputationTracker) {
       this._activateReputationListeners(html);
+    }
+    if (this._canAccessAwareness()) {
+      this._activateAwarenessListeners(html);
     }
   }
 
@@ -2700,11 +2737,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .on("click.pointsTracker", (event) => {
         event.preventDefault();
         const tab = event.currentTarget?.dataset.tab;
+        if (tab === "awareness" && !this._canAccessAwareness()) return;
         if (!tab || tab === this.activeTab) return;
         this.activeTab = tab;
         this._applyActiveTab(html);
         if (tab === "reputation") {
           this._initializeReputationTab(html);
+        }
+        if (tab === "awareness") {
+          this._initializeAwarenessTab(html);
         }
       });
   }
@@ -2730,6 +2771,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     html.find("[data-tab-panel='reputation']").attr("data-initialized", "true");
   }
 
+  _initializeAwarenessTab(html) {
+    if (this._initializedTabs.has("awareness")) return;
+    this._initializedTabs.add("awareness");
+    html.find("[data-tab-panel='awareness']").attr("data-initialized", "true");
+  }
+
   _activateReputationListeners(html) {
     html
       .find("[data-action='create-faction']")
@@ -2747,6 +2794,28 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='adjust-reputation']")
       .off("click")
       .on("click", (event) => this._onAdjustFaction(event));
+  }
+
+  _activateAwarenessListeners(html) {
+    const panel = html.find("[data-tab-panel='awareness']");
+    if (!panel.length) return;
+
+    panel
+      .find("[data-action='create-awareness-entry']")
+      .off("click")
+      .on("click", (event) => this._onCreateAwarenessEntry(event));
+    panel
+      .find("[data-action='adjust']")
+      .off("click")
+      .on("click", (event) => this._onAdjustAwarenessEntry(event));
+    panel
+      .find("[data-action='edit']")
+      .off("click")
+      .on("click", (event) => this._onEditAwarenessEntry(event));
+    panel
+      .find("[data-action='delete']")
+      .off("click")
+      .on("click", (event) => this._onDeleteAwarenessEntry(event));
   }
 
   _prepareReputationData({ isGM }) {
@@ -2785,6 +2854,56 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       isGM,
       factions,
       hasTracker: true,
+    };
+  }
+
+  _prepareAwarenessData({ isGM }) {
+    const hasTracker = Boolean(this.awarenessTracker);
+    const hasAccess = Boolean(hasTracker && isGM);
+
+    if (!hasAccess) {
+      return {
+        isGM,
+        hasTracker,
+        hasAccess,
+        entries: [],
+      };
+    }
+
+    const entries = this.awarenessTracker.getEntries().map((entry) => {
+      const current = Number.isFinite(entry.current) ? Number(entry.current) : 0;
+      const target = Number.isFinite(entry.target) ? Math.max(Number(entry.target), 0) : 0;
+      const normalizedTarget = target > 0 ? target : Math.max(current, 1);
+      const ratio = normalizedTarget > 0 ? Math.min(Math.max(current / normalizedTarget, 0), 1) : 0;
+      const progressPercent = Math.max(0, Math.min(100, Number(entry.progressPercent ?? ratio * 100)));
+      const intensity = Math.min(1, Math.max(0.2, 0.2 + ratio * 0.8));
+      const updatedAtFormatted = Number.isFinite(entry.updatedAt)
+        ? new Date(entry.updatedAt).toLocaleString()
+        : null;
+
+      const categoryKey =
+        entry.category === "person"
+          ? "PF2E.PointsTracker.Awareness.Category.person"
+          : "PF2E.PointsTracker.Awareness.Category.location";
+
+      return {
+        ...entry,
+        current,
+        target: normalizedTarget,
+        progressPercent,
+        intensity: Number(intensity.toFixed(2)),
+        updatedAtFormatted,
+        categoryLabel: game.i18n.localize(categoryKey),
+        canIncrease: current < normalizedTarget,
+        canDecrease: current > 0,
+      };
+    });
+
+    return {
+      isGM,
+      hasTracker,
+      hasAccess,
+      entries,
     };
   }
 
@@ -2942,6 +3061,176 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 minValue,
                 maxValue,
                 value,
+              });
+            },
+          },
+          cancel: {
+            icon: "fas fa-times",
+            label: game.i18n.localize("PF2E.PointsTracker.Cancel"),
+            callback: () => resolve(null),
+          },
+        },
+        default: "confirm",
+        close: () => resolve(null),
+      });
+      dialog.render(true);
+    });
+  }
+
+  async _onCreateAwarenessEntry(event) {
+    event.preventDefault();
+    if (!this.awarenessTracker) return;
+
+    const result = await this._promptAwarenessDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Awareness.CreateEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Awareness.Create"),
+    });
+    if (!result) return;
+
+    await this.awarenessTracker.createEntry(result);
+    this.render();
+  }
+
+  async _onEditAwarenessEntry(event) {
+    event.preventDefault();
+    if (!this.awarenessTracker) return;
+
+    const entryId = event.currentTarget.closest("[data-entry-id]")?.dataset.entryId;
+    if (!entryId) return;
+
+    const entry = this.awarenessTracker.getEntry(entryId);
+    if (!entry) return;
+
+    const result = await this._promptAwarenessDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Awareness.EditEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Awareness.Save"),
+      initial: entry,
+    });
+    if (!result) return;
+
+    await this.awarenessTracker.updateEntry(entryId, result);
+    this.render();
+  }
+
+  async _onDeleteAwarenessEntry(event) {
+    event.preventDefault();
+    if (!this.awarenessTracker) return;
+
+    const entryId = event.currentTarget.closest("[data-entry-id]")?.dataset.entryId;
+    if (!entryId) return;
+
+    const entry = this.awarenessTracker.getEntry(entryId);
+    if (!entry) return;
+
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Awareness.DeleteEntry"),
+      content: `<p>${game.i18n.format("PF2E.PointsTracker.Awareness.DeleteConfirm", {
+        name: escapeHtml(entry.name),
+      })}</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false,
+    });
+    if (!confirmed) return;
+
+    await this.awarenessTracker.deleteEntry(entryId);
+    this.render();
+  }
+
+  async _onAdjustAwarenessEntry(event) {
+    event.preventDefault();
+    if (!this.awarenessTracker) return;
+
+    const button = event.currentTarget;
+    const entryId = button.closest("[data-entry-id]")?.dataset.entryId;
+    if (!entryId) return;
+    const delta = Number(button.dataset.delta ?? 0);
+    if (!Number.isFinite(delta) || delta === 0) return;
+
+    await this.awarenessTracker.adjustAwareness(entryId, delta, { notify: false });
+    this.render();
+  }
+
+  async _promptAwarenessDialog({ title, label, initial = {} }) {
+    const defaultTarget = Number.isFinite(initial.target) ? Math.max(Number(initial.target), 1) : 10;
+    const defaultCurrent = Number.isFinite(initial.current)
+      ? Math.max(0, Math.min(Number(initial.current), defaultTarget))
+      : 0;
+    const selectedCategory = initial.category === "person" ? "person" : "location";
+
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Awareness.EntryName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(initial.name ?? "")}" required>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Awareness.Category")}</label>
+          <select name="category">
+            <option value="location" ${selectedCategory === "location" ? "selected" : ""}>
+              ${game.i18n.localize("PF2E.PointsTracker.Awareness.Category.location")}
+            </option>
+            <option value="person" ${selectedCategory === "person" ? "selected" : ""}>
+              ${game.i18n.localize("PF2E.PointsTracker.Awareness.Category.person")}
+            </option>
+          </select>
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Awareness.CurrentValue")}</label>
+          <input type="number" name="current" min="0" step="1" value="${escapeAttribute(defaultCurrent)}">
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Awareness.TargetValue")}</label>
+          <input type="number" name="target" min="1" step="1" value="${escapeAttribute(defaultTarget)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Awareness.Notes")}</label>
+          <textarea name="notes" rows="3">${escapeHtml(initial.notes ?? "")}</textarea>
+        </div>
+      </form>
+    `;
+
+    return new Promise((resolve) => {
+      const dialog = new Dialog({
+        title,
+        content: template,
+        buttons: {
+          confirm: {
+            icon: "fas fa-save",
+            label,
+            callback: (html) => {
+              const form = html[0].querySelector("form");
+              if (!form) {
+                resolve(null);
+                return;
+              }
+
+              const formData = new FormData(form);
+              const name = String(formData.get("name") ?? "").trim();
+              if (!name) {
+                ui.notifications?.warn(
+                  game.i18n.localize("PF2E.PointsTracker.Awareness.NameRequired")
+                );
+                resolve(null);
+                return;
+              }
+
+              const categoryRaw = String(formData.get("category") ?? "location").trim().toLowerCase();
+              const category = categoryRaw === "person" ? "person" : "location";
+              const targetRaw = Number(formData.get("target"));
+              const currentRaw = Number(formData.get("current"));
+              const target = Number.isFinite(targetRaw) && targetRaw > 0 ? Math.floor(targetRaw) : defaultTarget;
+              let current = Number.isFinite(currentRaw) ? Math.floor(currentRaw) : defaultCurrent;
+              if (current < 0) current = 0;
+              if (current > target) current = target;
+              const notes = String(formData.get("notes") ?? "").trim();
+
+              resolve({
+                name,
+                category,
+                current,
+                target,
+                notes,
               });
             },
           },
