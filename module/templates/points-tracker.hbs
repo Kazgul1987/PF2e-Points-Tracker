@@ -16,6 +16,16 @@
       <i class="fas fa-users" aria-hidden="true"></i>
       {{localize "PF2E.PointsTracker.Reputation.Title"}}
     </button>
+    {{#if awareness.hasAccess}}
+      <button
+        type="button"
+        class="points-tracker__tab{{#if isAwarenessActive}} is-active{{/if}}"
+        data-tab="awareness"
+      >
+        <i class="fas fa-eye" aria-hidden="true"></i>
+        {{localize "PF2E.PointsTracker.Awareness.Title"}}
+      </button>
+    {{/if}}
   </nav>
 
   <div class="points-tracker__panels">
@@ -31,5 +41,13 @@
     >
       {{> "modules/pf2e-points-tracker/module/templates/partials/reputation-tab.hbs" reputation}}
     </section>
+    {{#if awareness.hasAccess}}
+      <section
+        class="points-tracker__panel{{#if isAwarenessActive}} is-active{{/if}}"
+        data-tab-panel="awareness"
+      >
+        {{> "modules/pf2e-points-tracker/module/templates/partials/awareness-tab.hbs" awareness}}
+      </section>
+    {{/if}}
   </div>
 </section>

@@ -1,0 +1,79 @@
+<section class="awareness-tracker">
+  <header class="awareness-tracker__header">
+    <h2>{{localize "PF2E.PointsTracker.Awareness.Title"}}</h2>
+    {{#if hasAccess}}
+      <div class="awareness-tracker__actions">
+        <button type="button" data-action="create-awareness-entry">
+          <i class="fas fa-plus"></i>
+          {{localize "PF2E.PointsTracker.Awareness.CreateEntry"}}
+        </button>
+      </div>
+    {{/if}}
+  </header>
+
+  {{#if entries.length}}
+    <div class="awareness-tracker__list">
+      {{#each entries as |entry|}}
+        <article class="awareness-entry" data-entry-id="{{entry.id}}">
+          <header class="awareness-entry__header">
+            <div class="awareness-entry__title">
+              <h3 class="awareness-entry__name">{{entry.name}}</h3>
+              <div class="awareness-entry__meta">
+                <span class="awareness-entry__category">{{entry.categoryLabel}}</span>
+                <span class="awareness-entry__value">
+                  {{localize "PF2E.PointsTracker.Awareness.ValueLabel" current=entry.current target=entry.target}}
+                </span>
+                {{#if entry.updatedAtFormatted}}
+                  <span class="awareness-entry__updated">
+                    {{localize "PF2E.PointsTracker.Awareness.LastUpdated" timestamp=entry.updatedAtFormatted}}
+                  </span>
+                {{/if}}
+              </div>
+            </div>
+            <div class="awareness-entry__controls">
+              <button
+                type="button"
+                data-action="adjust"
+                data-delta="-1"
+                {{#unless entry.canDecrease}}disabled{{/unless}}
+                title="{{localize 'PF2E.PointsTracker.Awareness.AdjustDecrease'}}"
+              >
+                <i class="fas fa-minus"></i>
+              </button>
+              <button
+                type="button"
+                data-action="adjust"
+                data-delta="1"
+                {{#unless entry.canIncrease}}disabled{{/unless}}
+                title="{{localize 'PF2E.PointsTracker.Awareness.AdjustIncrease'}}"
+              >
+                <i class="fas fa-plus"></i>
+              </button>
+              <button type="button" data-action="edit" title="{{localize 'PF2E.PointsTracker.Awareness.EditEntry'}}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button type="button" data-action="delete" title="{{localize 'PF2E.PointsTracker.Awareness.DeleteEntry'}}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </header>
+
+          <div class="awareness-entry__progress">
+            <div class="awareness-entry__progress-track">
+              <div
+                class="awareness-entry__progress-bar"
+                style="width: {{entry.progressPercent}}%; background-color: rgba(220, 53, 69, {{entry.intensity}});"
+              ></div>
+            </div>
+          </div>
+
+          {{#if entry.notes}}
+            <p class="awareness-entry__notes">{{entry.notes}}</p>
+          {{/if}}
+        </article>
+      {{/each}}
+    </div>
+  {{else}}
+    <p class="awareness-tracker__empty">{{localize "PF2E.PointsTracker.Awareness.Empty"}}</p>
+  {{/if}}
+</section>
