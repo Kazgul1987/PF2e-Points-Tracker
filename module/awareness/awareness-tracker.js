@@ -1,6 +1,15 @@
+import { localizeWithFallback } from "../utils/localize.js";
+
 const DEFAULT_STATE = {
   entries: [],
 };
+
+const DEFAULT_AWARENESS_NAME_KEY = "PF2E.PointsTracker.Awareness.DefaultName";
+const DEFAULT_AWARENESS_NAME_FALLBACK = "Awareness Entry";
+
+function getDefaultAwarenessName() {
+  return localizeWithFallback(DEFAULT_AWARENESS_NAME_KEY, DEFAULT_AWARENESS_NAME_FALLBACK);
+}
 
 function duplicateData(data) {
   if (typeof foundry !== "undefined" && foundry?.utils?.duplicate) {
@@ -205,10 +214,13 @@ export class AwarenessTracker {
    */
   _normalizeEntry(data) {
     const id = typeof data?.id === "string" && data.id.trim() ? data.id.trim() : createId();
-    const name =
+    const defaultName = getDefaultAwarenessName();
+    const rawName =
       typeof data?.name === "string" && data.name.trim()
         ? data.name.trim()
-        : game?.i18n?.localize?.("PF2E.PointsTracker.Awareness.DefaultName") ?? "Awareness Entry";
+        : "";
+    const name =
+      rawName && rawName !== DEFAULT_AWARENESS_NAME_KEY ? rawName : defaultName;
 
     const rawCategory = typeof data?.category === "string" ? data.category.trim().toLowerCase() : "";
     const category = rawCategory === "person" ? "person" : "location";

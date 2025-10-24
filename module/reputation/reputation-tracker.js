@@ -1,6 +1,15 @@
+import { localizeWithFallback } from "../utils/localize.js";
+
 const DEFAULT_STATE = {
   factions: [],
 };
+
+const DEFAULT_FACTION_NAME_KEY = "PF2E.PointsTracker.Reputation.DefaultName";
+const DEFAULT_FACTION_NAME_FALLBACK = "Faction";
+
+function getDefaultFactionName() {
+  return localizeWithFallback(DEFAULT_FACTION_NAME_KEY, DEFAULT_FACTION_NAME_FALLBACK);
+}
 
 function duplicateData(data) {
   if (typeof foundry !== "undefined" && foundry?.utils?.duplicate) {
@@ -117,10 +126,14 @@ export class ReputationTracker {
     const id = data.id ?? createId();
     const faction = this._normalizeFaction({
       id,
-      name:
-        typeof data.name === "string" && data.name.trim()
-          ? data.name.trim()
-          : game.i18n.localize("PF2E.PointsTracker.Reputation.DefaultName"),
+      name: (() => {
+        const defaultName = getDefaultFactionName();
+        if (typeof data.name === "string" && data.name.trim()) {
+          const trimmed = data.name.trim();
+          return trimmed === DEFAULT_FACTION_NAME_KEY ? defaultName : trimmed;
+        }
+        return defaultName;
+      })(),
       value: data.value,
       maxValue: data.maxValue,
       minValue: data.minValue,
@@ -214,10 +227,13 @@ export class ReputationTracker {
    */
   _normalizeFaction(data) {
     const id = typeof data?.id === "string" && data.id.trim() ? data.id.trim() : createId();
-    const name =
+    const defaultName = getDefaultFactionName();
+    const rawName =
       typeof data?.name === "string" && data.name.trim()
         ? data.name.trim()
-        : game?.i18n?.localize?.("PF2E.PointsTracker.Reputation.DefaultName") ?? "Faction";
+        : "";
+    const name =
+      rawName && rawName !== DEFAULT_FACTION_NAME_KEY ? rawName : defaultName;
 
     const maxValueRaw = Number(data?.maxValue);
     const maxValue = Number.isFinite(maxValueRaw) && maxValueRaw > 0 ? Number(maxValueRaw) : 100;

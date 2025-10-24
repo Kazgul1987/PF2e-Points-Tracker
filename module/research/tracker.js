@@ -1,7 +1,22 @@
+import { localizeWithFallback } from "../utils/localize.js";
+
 const DEFAULT_STATE = {
   topics: [],
   log: [],
 };
+
+const DEFAULT_TOPIC_NAME_KEY = "PF2E.PointsTracker.Research.DefaultName";
+const DEFAULT_TOPIC_NAME_FALLBACK = "Research Topic";
+const DEFAULT_LOCATION_NAME_KEY = "PF2E.PointsTracker.Research.LocationDefaultName";
+const DEFAULT_LOCATION_NAME_FALLBACK = "Location";
+
+function getDefaultTopicName() {
+  return localizeWithFallback(DEFAULT_TOPIC_NAME_KEY, DEFAULT_TOPIC_NAME_FALLBACK);
+}
+
+function getDefaultLocationName() {
+  return localizeWithFallback(DEFAULT_LOCATION_NAME_KEY, DEFAULT_LOCATION_NAME_FALLBACK);
+}
 
 /**
  * Utility to duplicate an object without retaining references.
@@ -407,8 +422,14 @@ export class ResearchTracker {
     const id = data.id ?? createId();
     const topic = this._normalizeTopic({
       id,
-      name:
-        data.name ?? game.i18n.localize("PF2E.PointsTracker.Research.DefaultName"),
+      name: (() => {
+        const defaultName = getDefaultTopicName();
+        if (typeof data.name === "string" && data.name.trim()) {
+          const trimmed = data.name.trim();
+          return trimmed === DEFAULT_TOPIC_NAME_KEY ? defaultName : trimmed;
+        }
+        return defaultName;
+      })(),
       progress: Number.isFinite(data.progress) ? Number(data.progress) : 0,
       target: Number.isFinite(data.target) ? Number(data.target) : 10,
       level: data.level,
@@ -542,10 +563,14 @@ export class ResearchTracker {
       : [];
     locations.push({
       id,
-      name:
-        data.name ??
-        game?.i18n?.localize?.("PF2E.PointsTracker.Research.LocationDefaultName") ??
-          "Location",
+      name: (() => {
+        const defaultName = getDefaultLocationName();
+        if (typeof data.name === "string" && data.name.trim()) {
+          const trimmed = data.name.trim();
+          return trimmed === DEFAULT_LOCATION_NAME_KEY ? defaultName : trimmed;
+        }
+        return defaultName;
+      })(),
       maxPoints: Number.isFinite(data.maxPoints) ? Number(data.maxPoints) : 0,
       collected: Number.isFinite(data.collected) ? Number(data.collected) : 0,
       skill:
@@ -1055,6 +1080,13 @@ export class ResearchTracker {
     const { locations, totalCollected, totalMax } = this._normalizeLocations(
       topic
     );
+    const defaultTopicName = getDefaultTopicName();
+    const rawName =
+      typeof topic?.name === "string" && topic.name.trim()
+        ? topic.name.trim()
+        : "";
+    const name =
+      rawName && rawName !== DEFAULT_TOPIC_NAME_KEY ? rawName : defaultTopicName;
     const rawTarget = Number.isFinite(topic.target) ? Number(topic.target) : 0;
     const rawProgress = Number.isFinite(topic.progress)
       ? Number(topic.progress)
@@ -1073,7 +1105,7 @@ export class ResearchTracker {
     const level = Number.isFinite(numericLevel) ? Number(numericLevel) : null;
     return {
       id: String(topic.id ?? createId()),
-      name: topic.name ?? "Research Topic",
+      name,
       progress,
       target,
       level,
@@ -1158,15 +1190,19 @@ export class ResearchTracker {
       ? topic.locations.slice()
       : [];
 
+    const defaultLocationName = getDefaultLocationName();
     const normalized = rawLocations.map((location, index) => {
       const fallbackId = `${topic.id ?? "location"}-${index}`;
       const rawId = location?.id ?? fallbackId;
       const id = String(rawId || createId());
-      const name = location?.name
-        ? String(location.name)
-        : game?.i18n?.localize?.(
-            "PF2E.PointsTracker.Research.LocationDefaultName"
-          ) ?? "Location";
+      const rawName =
+        typeof location?.name === "string" && location.name.trim()
+          ? location.name.trim()
+          : "";
+      const name =
+        rawName && rawName !== DEFAULT_LOCATION_NAME_KEY
+          ? rawName
+          : defaultLocationName;
       const maxPoints = Number.isFinite(location?.maxPoints)
         ? Math.max(Number(location.maxPoints), 0)
         : 0;
