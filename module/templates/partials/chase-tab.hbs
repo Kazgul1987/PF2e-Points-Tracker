@@ -1,0 +1,278 @@
+<section class="chase-tracker">
+  <header class="chase-tracker__header">
+    <h2>{{localize "PF2E.PointsTracker.Chase.Title"}}</h2>
+    {{#if isGM}}
+      <button type="button" class="chase-tracker__create" data-action="create-chase-event">
+        <i class="fas fa-plus"></i>
+        {{localize "PF2E.PointsTracker.Chase.CreateEvent"}}
+      </button>
+    {{/if}}
+  </header>
+
+  {{#if hasTracker}}
+    {{#if participants.length}}
+      <section class="chase-tracker__participants">
+        <h3>{{localize "PF2E.PointsTracker.Chase.ParticipantsHeading"}}</h3>
+        <ul class="chase-participants__list">
+          {{#each participants as |participant|}}
+            <li
+              class="chase-participants__entry"
+              data-draggable="participant"
+              draggable="true"
+              data-actor-uuid="{{participant.actorUuid}}"
+              data-actor-name="{{participant.name}}"
+              {{#if participant.tokenUuid}}data-token-uuid="{{participant.tokenUuid}}"{{/if}}
+              {{#if participant.img}}data-token-img="{{participant.img}}"{{/if}}
+            >
+              {{#if participant.img}}
+                <img
+                  class="chase-participants__portrait"
+                  src="{{participant.img}}"
+                  alt="{{participant.name}}"
+                />
+              {{/if}}
+              <span class="chase-participants__name">{{participant.name}}</span>
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{#if events.length}}
+      <div class="chase-tracker__events">
+        {{#each events as |chaseEvent|}}
+          <article class="chase-event" data-chase-event-id="{{chaseEvent.id}}">
+            <header class="chase-event__header">
+              <h3 class="chase-event__name">{{chaseEvent.name}}</h3>
+              {{#if ../isGM}}
+                <div class="chase-event__controls">
+                  <button type="button" data-action="create-chase-obstacle">
+                    <i class="fas fa-flag"></i>
+                    {{localize "PF2E.PointsTracker.Chase.AddObstacle"}}
+                  </button>
+                  <button type="button" data-action="create-chase-opportunity">
+                    <i class="fas fa-lightbulb"></i>
+                    {{localize "PF2E.PointsTracker.Chase.AddOpportunity"}}
+                  </button>
+                  <button type="button" data-action="edit-chase-event">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button type="button" data-action="delete-chase-event">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              {{/if}}
+            </header>
+
+            {{#if chaseEvent.description}}
+              <p class="chase-event__description">{{chaseEvent.description}}</p>
+            {{/if}}
+
+            <section class="chase-event__obstacles">
+              <header class="chase-event__section-header">
+                <h4>{{localize "PF2E.PointsTracker.Chase.ObstaclesHeading"}}</h4>
+              </header>
+              {{#if chaseEvent.obstacles.length}}
+                <table class="chase-obstacle__table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{{localize "PF2E.PointsTracker.Chase.ObstacleNameHeader"}}</th>
+                      <th scope="col">{{localize "PF2E.PointsTracker.Chase.ObstacleProgressHeader"}}</th>
+                      {{#if ../../isGM}}
+                        <th scope="col" class="chase-obstacle__actions-header">{{localize "PF2E.PointsTracker.Chase.Actions"}}</th>
+                      {{/if}}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{#each chaseEvent.obstacles as |obstacle|}}
+                      <tr class="chase-obstacle" data-obstacle-id="{{obstacle.id}}">
+                        <th scope="row">
+                          <div class="chase-obstacle__name">{{obstacle.name}}</div>
+                          {{#if obstacle.description}}
+                            <p class="chase-obstacle__description">{{obstacle.description}}</p>
+                          {{/if}}
+                          <div
+                            class="chase-obstacle__assignments"
+                            data-chase-event-id="{{../id}}"
+                            data-obstacle-id="{{obstacle.id}}"
+                          >
+                            <span class="chase-obstacle__assignment-label">{{localize "PF2E.PointsTracker.Chase.AssignmentsLabel"}}</span>
+                            <div
+                              class="chase-obstacle__dropzone{{#unless obstacle.assignedActors.length}} is-empty{{/unless}}"
+                              data-dropzone="chase-assignment"
+                              data-assignment-type="chase-obstacle"
+                              tabindex="0"
+                            >
+                              {{#if obstacle.assignedActors.length}}
+                                <ul class="chase-obstacle__assignment-list">
+                                  {{#each obstacle.assignedActors as |assigned|}}
+                                    <li
+                                      class="chase-obstacle__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}"
+                                      data-actor-uuid="{{assigned.uuid}}"
+                                    >
+                                      {{#if assigned.img}}
+                                        <img
+                                          class="chase-obstacle__assignment-portrait"
+                                          src="{{assigned.img}}"
+                                          alt="{{assigned.name}}"
+                                        />
+                                      {{/if}}
+                                      <span class="chase-obstacle__assignment-name">{{assigned.name}}</span>
+                                      {{#unless assigned.isActive}}
+                                        <span class="chase-obstacle__assignment-note">{{localize "PF2E.PointsTracker.Chase.AssignmentInactive"}}</span>
+                                      {{/unless}}
+                                      <button
+                                        type="button"
+                                        class="chase-obstacle__assignment-remove"
+                                        data-action="remove-assigned-actor"
+                                        data-actor-uuid="{{assigned.uuid}}"
+                                        aria-label="{{localize 'PF2E.PointsTracker.Chase.RemoveAssignment'}}"
+                                        title="{{localize 'PF2E.PointsTracker.Chase.RemoveAssignment'}}"
+                                      >
+                                        <i class="fas fa-times"></i>
+                                      </button>
+                                    </li>
+                                  {{/each}}
+                                </ul>
+                              {{else}}
+                                <p class="chase-obstacle__assignment-empty">{{localize "PF2E.PointsTracker.Chase.AssignmentsEmpty"}}</p>
+                              {{/if}}
+                              <p class="chase-obstacle__dropzone-hint">{{localize "PF2E.PointsTracker.Chase.AssignmentsHint"}}</p>
+                            </div>
+                          </div>
+                        </th>
+                        <td>
+                          <div class="chase-obstacle__progress">
+                            <div class="chase-obstacle__progress-track">
+                              <div class="chase-obstacle__progress-bar" style="width: {{obstacle.progressPercent}}%"></div>
+                            </div>
+                            <div class="chase-obstacle__progress-label">
+                              {{#if obstacle.requiredPoints}}
+                                {{localize "PF2E.PointsTracker.Chase.ObstacleProgressLabel" progress=obstacle.progress required=obstacle.requiredPoints}}
+                              {{else}}
+                                {{localize "PF2E.PointsTracker.Chase.ObstacleProgressOpen" progress=obstacle.progress}}
+                              {{/if}}
+                              {{#if obstacle.isComplete}}
+                                <span class="chase-obstacle__badge">{{localize "PF2E.PointsTracker.Chase.ObstacleComplete"}}</span>
+                              {{/if}}
+                            </div>
+                          </div>
+                        </td>
+                        {{#if ../../isGM}}
+                          <td class="chase-obstacle__actions">
+                            <button type="button" data-action="nudge-chase-obstacle" data-delta="1">
+                              <i class="fas fa-plus"></i>
+                            </button>
+                            <button type="button" data-action="nudge-chase-obstacle" data-delta="-1">
+                              <i class="fas fa-minus"></i>
+                            </button>
+                            <button type="button" data-action="set-chase-obstacle-progress">
+                              <i class="fas fa-sliders-h"></i>
+                            </button>
+                            <button type="button" data-action="edit-chase-obstacle">
+                              <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" data-action="delete-chase-obstacle">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </td>
+                        {{/if}}
+                      </tr>
+                    {{/each}}
+                  </tbody>
+                </table>
+              {{else}}
+                <p class="chase-event__empty">{{localize "PF2E.PointsTracker.Chase.NoObstacles"}}</p>
+              {{/if}}
+            </section>
+
+            <section class="chase-event__opportunities">
+              <header class="chase-event__section-header">
+                <h4>{{localize "PF2E.PointsTracker.Chase.OpportunitiesHeading"}}</h4>
+              </header>
+              {{#if chaseEvent.opportunities.length}}
+                <ul class="chase-opportunity__list">
+                  {{#each chaseEvent.opportunities as |opportunity|}}
+                    <li class="chase-opportunity" data-opportunity-id="{{opportunity.id}}">
+                      <div class="chase-opportunity__header">
+                        <h5 class="chase-opportunity__name">{{opportunity.name}}</h5>
+                        {{#if ../../isGM}}
+                          <div class="chase-opportunity__controls">
+                            <button type="button" data-action="edit-chase-opportunity">
+                              <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" data-action="delete-chase-opportunity">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        {{/if}}
+                      </div>
+                      {{#if opportunity.description}}
+                        <p class="chase-opportunity__description">{{opportunity.description}}</p>
+                      {{/if}}
+                      <div
+                        class="chase-opportunity__assignments"
+                        data-chase-event-id="{{../id}}"
+                        data-opportunity-id="{{opportunity.id}}"
+                      >
+                        <span class="chase-opportunity__assignment-label">{{localize "PF2E.PointsTracker.Chase.AssignmentsLabel"}}</span>
+                        <div
+                          class="chase-opportunity__dropzone{{#unless opportunity.assignedActors.length}} is-empty{{/unless}}"
+                          data-dropzone="chase-assignment"
+                          data-assignment-type="chase-opportunity"
+                          tabindex="0"
+                        >
+                          {{#if opportunity.assignedActors.length}}
+                            <ul class="chase-opportunity__assignment-list">
+                              {{#each opportunity.assignedActors as |assigned|}}
+                                <li
+                                  class="chase-opportunity__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}"
+                                  data-actor-uuid="{{assigned.uuid}}"
+                                >
+                                  {{#if assigned.img}}
+                                    <img
+                                      class="chase-opportunity__assignment-portrait"
+                                      src="{{assigned.img}}"
+                                      alt="{{assigned.name}}"
+                                    />
+                                  {{/if}}
+                                  <span class="chase-opportunity__assignment-name">{{assigned.name}}</span>
+                                  {{#unless assigned.isActive}}
+                                    <span class="chase-opportunity__assignment-note">{{localize "PF2E.PointsTracker.Chase.AssignmentInactive"}}</span>
+                                  {{/unless}}
+                                  <button
+                                    type="button"
+                                    class="chase-opportunity__assignment-remove"
+                                    data-action="remove-assigned-actor"
+                                    data-actor-uuid="{{assigned.uuid}}"
+                                    aria-label="{{localize 'PF2E.PointsTracker.Chase.RemoveAssignment'}}"
+                                    title="{{localize 'PF2E.PointsTracker.Chase.RemoveAssignment'}}"
+                                  >
+                                    <i class="fas fa-times"></i>
+                                  </button>
+                                </li>
+                              {{/each}}
+                            </ul>
+                          {{else}}
+                            <p class="chase-opportunity__assignment-empty">{{localize "PF2E.PointsTracker.Chase.AssignmentsEmpty"}}</p>
+                          {{/if}}
+                          <p class="chase-opportunity__dropzone-hint">{{localize "PF2E.PointsTracker.Chase.AssignmentsHint"}}</p>
+                        </div>
+                      </div>
+                    </li>
+                  {{/each}}
+                </ul>
+              {{else}}
+                <p class="chase-event__empty">{{localize "PF2E.PointsTracker.Chase.NoOpportunities"}}</p>
+              {{/if}}
+            </section>
+          </article>
+        {{/each}}
+      </div>
+    {{else}}
+      <p class="chase-tracker__empty">{{localize "PF2E.PointsTracker.Chase.NoEvents"}}</p>
+    {{/if}}
+  {{else}}
+    <p class="chase-tracker__empty">{{localize "PF2E.PointsTracker.Chase.NoTracker"}}</p>
+  {{/if}}
+</section>
