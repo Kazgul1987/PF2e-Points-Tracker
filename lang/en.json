@@ -9,7 +9,7 @@
       "Cancel": "Cancel",
       "PointsTrackerTitle": "Points Tracker",
       "Research": {
-        "Title": "Research Tracker",
+        "Title": "Research",
         "Actions": "Actions",
         "Add": "Add",
         "AddCheck": "Add Skill/DC",
@@ -149,7 +149,7 @@
         "Thresholds": "Threshold Reveals"
       },
       "Reputation": {
-        "Title": "Reputation Tracker",
+        "Title": "Reputation",
         "DefaultName": "New Faction",
         "CreateFaction": "Add Faction",
         "Create": "Create",
@@ -172,7 +172,7 @@
         "ChangeNotification": "{name} reputation is now {value}."
       },
       "Awareness": {
-        "Title": "Awareness Tracker",
+        "Title": "Awareness",
         "DefaultName": "New Awareness Entry",
         "CreateEntry": "Add Awareness Entry",
         "Create": "Create",
