@@ -364,7 +364,7 @@ class BaseResearchTrackerApp extends FormApplication {
       .off("click")
       .on("click", (event) => this._onRevealLocation(event, true));
 
-    this._setupLocationDragAndDrop(html);
+    this._setupAssignmentDragAndDrop(html);
     html
       .find("[data-action='remove-assigned-actor']")
       .off("click")
@@ -1703,18 +1703,23 @@ class BaseResearchTrackerApp extends FormApplication {
     await ChatMessage.create(payload);
   }
 
-  _setupLocationDragAndDrop(html) {
-    const root = html?.[0];
-    if (!root || typeof DragDrop === "undefined") return;
-
-    if (Array.isArray(this._dragDropHandlers)) {
-      for (const handler of this._dragDropHandlers) {
-        if (handler?.unbind) {
-          handler.unbind();
-        }
+  _resetDragDropHandlers() {
+    if (!Array.isArray(this._dragDropHandlers)) return;
+    for (const handler of this._dragDropHandlers) {
+      try {
+        handler?.unbind?.();
+      } catch (error) {
+        console.error(error);
       }
     }
     this._dragDropHandlers = [];
+  }
+
+  _setupAssignmentDragAndDrop(html) {
+    const root = html?.[0];
+    if (!root || typeof DragDrop === "undefined") return;
+
+    this._resetDragDropHandlers();
 
     const participants = root.querySelectorAll("[data-draggable='participant']");
     participants.forEach((element) => {
@@ -1723,45 +1728,57 @@ class BaseResearchTrackerApp extends FormApplication {
       });
     });
 
-    const topics = root.querySelectorAll(".research-topic");
-    topics.forEach((topicElement) => {
-      const dropZones = topicElement.querySelectorAll("[data-dropzone='location']");
-      if (!dropZones.length) return;
-
-      dropZones.forEach((zone) => {
-        zone.setAttribute("aria-dropeffect", "move");
-        zone.addEventListener("dragenter", (event) => {
-          event.preventDefault();
-          this._setDropzoneState(zone, true);
-        });
-        zone.addEventListener("dragover", (event) => {
-          event.preventDefault();
-          if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = "move";
-          }
-          this._setDropzoneState(zone, true);
-        });
-        zone.addEventListener("dragleave", (event) => {
-          const related = event.relatedTarget;
-          if (!zone.contains(related)) {
-            this._setDropzoneState(zone, false);
-          }
-        });
-        zone.addEventListener("drop", () => this._setDropzoneState(zone, false));
+    const configs = [
+      { containerSelector: ".research-topic", dropSelector: "[data-dropzone='location']" },
+    ];
+    if (this.chaseTracker) {
+      configs.push({
+        containerSelector: ".chase-event",
+        dropSelector: "[data-dropzone='chase-assignment']",
       });
+    }
 
-      const dragDrop = new DragDrop({
-        dragSelector: "[data-draggable='participant']",
-        dropSelector: "[data-dropzone='location']",
-        permissions: { dragstart: () => true, drop: () => true },
-        callbacks: {
-          dragstart: (event) => this._onDragParticipant(event),
-          drop: (event, data) => this._onDropParticipant(event, data),
-        },
+    for (const config of configs) {
+      const containers = root.querySelectorAll(config.containerSelector);
+      containers.forEach((container) => {
+        const dropZones = container.querySelectorAll(config.dropSelector);
+        if (!dropZones.length) return;
+
+        dropZones.forEach((zone) => {
+          zone.setAttribute("aria-dropeffect", "move");
+          zone.addEventListener("dragenter", (event) => {
+            event.preventDefault();
+            this._setDropzoneState(zone, true);
+          });
+          zone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = "move";
+            }
+            this._setDropzoneState(zone, true);
+          });
+          zone.addEventListener("dragleave", (event) => {
+            const related = event.relatedTarget;
+            if (!zone.contains(related)) {
+              this._setDropzoneState(zone, false);
+            }
+          });
+          zone.addEventListener("drop", () => this._setDropzoneState(zone, false));
+        });
+
+        const dragDrop = new DragDrop({
+          dragSelector: "[data-draggable='participant']",
+          dropSelector: config.dropSelector,
+          permissions: { dragstart: () => true, drop: () => true },
+          callbacks: {
+            dragstart: (event) => this._onDragParticipant(event),
+            drop: (event, data) => this._onDropParticipant(event, data),
+          },
+        });
+        dragDrop.bind(container);
+        this._dragDropHandlers.push(dragDrop);
       });
-      dragDrop.bind(topicElement);
-      this._dragDropHandlers.push(dragDrop);
-    });
+    }
   }
 
   _setDropzoneState(zone, isActive) {
@@ -1814,6 +1831,65 @@ class BaseResearchTrackerApp extends FormApplication {
         return { uuid: trimmedUuid, ...normalized };
       })
       .filter((entry) => entry && entry.uuid);
+  }
+
+  _mapAssignedActors(assignments = [], actorLookup = new Map()) {
+    const normalized = this._normalizeAssignedActors(assignments);
+    return normalized.map((assigned) => {
+      const candidate = actorLookup.get(assigned.uuid) ?? actorLookup.get(String(assigned.uuid));
+      const actor = candidate?.actor ?? candidate?.document ?? null;
+      const token = candidate?.token ?? null;
+
+      const trim = (value) => (typeof value === "string" ? value.trim() : "");
+      const storedTokenUuid =
+        trim(assigned.tokenUuid) || trim(assigned.tokenUUID) || trim(assigned.tokenId);
+      const storedTokenImg =
+        trim(assigned.tokenImg) || trim(assigned.tokenImage) || trim(assigned.imgToken);
+      const storedActorImg =
+        trim(assigned.actorImg) ||
+        trim(assigned.actorImage) ||
+        trim(assigned.imgActor) ||
+        trim(assigned.actorTokenImg);
+      const storedFinalImg = trim(assigned.img) || trim(assigned.image);
+
+      const tokenTexture = token?.texture ?? token?.data?.texture ?? token;
+      const tokenImg = (() => {
+        if (!tokenTexture) return "";
+        if (typeof tokenTexture === "string") return trim(tokenTexture);
+        if (typeof tokenTexture?.src === "string") return trim(tokenTexture.src);
+        if (typeof token?.img === "string") return trim(token.img);
+        if (typeof token?.data?.img === "string") return trim(token.data.img);
+        return "";
+      })();
+
+      const actorPrototypeImg = (() => {
+        const proto = actor?.prototypeToken?.texture ?? actor?.prototypeToken;
+        if (!proto) return "";
+        if (typeof proto === "string") return trim(proto);
+        if (typeof proto?.src === "string") return trim(proto.src);
+        return "";
+      })();
+
+      const actorPortraitImg = trim(actor?.img) || trim(actor?.data?.img) || actorPrototypeImg;
+      const finalImg = storedFinalImg || storedTokenImg || storedActorImg || tokenImg || actorPortraitImg;
+
+      const name =
+        trim(assigned.name) || trim(candidate?.name) || trim(actor?.name) || assigned.uuid;
+
+      const result = {
+        ...assigned,
+        uuid: assigned.uuid,
+        name,
+        img: finalImg,
+        isActive: Boolean(actor || token),
+      };
+
+      if (!result.tokenUuid && storedTokenUuid) {
+        result.tokenUuid = storedTokenUuid;
+      }
+
+      return result;
+    });
   }
 
   async _getAssignedPlayerRecipients(assignments = []) {
@@ -1962,11 +2038,17 @@ class BaseResearchTrackerApp extends FormApplication {
 
     const actorName = element.dataset.actorName?.trim() ?? "";
     const topicId = element.closest("[data-topic-id]")?.dataset.topicId;
+    const chaseEventId = element.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const tokenUuid = element.dataset.tokenUuid?.trim();
+    const tokenImg = element.dataset.tokenImg?.trim();
     return {
       type: "pf2e-research-participant",
       actorUuid,
       actorName,
       topicId,
+      chaseEventId,
+      tokenUuid,
+      tokenImg,
     };
   }
 
@@ -1999,7 +2081,13 @@ class BaseResearchTrackerApp extends FormApplication {
 
     const topicId = dropZone.closest("[data-topic-id]")?.dataset.topicId;
     const locationId = dropZone.closest("[data-location-id]")?.dataset.locationId;
-    if (!topicId || !locationId) return;
+    const chaseEventId = dropZone.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = dropZone.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    const opportunityId = dropZone.closest("[data-opportunity-id]")?.dataset.opportunityId;
+
+    const hasResearchContext = Boolean(topicId && locationId);
+    const hasChaseContext = Boolean(chaseEventId && (obstacleId || opportunityId));
+    if (!hasResearchContext && !hasChaseContext) return;
 
     const isActorDrag =
       data?.type === "pf2e-research-participant" ||
@@ -2126,34 +2214,78 @@ class BaseResearchTrackerApp extends FormApplication {
     const tokenImg =
       getTextureSrc(tokenDocument?.texture) ||
       trimString(tokenDocument?.img ?? tokenDocument?.data?.img);
+    const explicitTokenImg = trimString(data?.tokenImg);
     const actorPrototypeImg = getTextureSrc(actorDocument?.prototypeToken?.texture);
     const actorPortraitImg =
       trimString(actorDocument?.img ?? actorDocument?.data?.img) || actorPrototypeImg;
-    const finalImg = tokenImg || actorPrototypeImg || actorPortraitImg;
-
-    const topic = this.tracker.getTopic(topicId);
-    const location = topic?.locations?.find((entry) => entry.id === locationId);
-    if (!location) return;
-
-    const normalized = this._normalizeAssignedActors(location.assignedActors);
-    if (normalized.some((entry) => entry.uuid === actorUuid)) {
-      return;
-    }
+    const finalImg = explicitTokenImg || tokenImg || actorPrototypeImg || actorPortraitImg;
 
     const newAssignment = { uuid: actorUuid };
     if (actorName) newAssignment.name = actorName;
     if (tokenUuid) newAssignment.tokenUuid = tokenUuid;
-    if (tokenImg) newAssignment.tokenImg = tokenImg;
+    if (explicitTokenImg || tokenImg) newAssignment.tokenImg = explicitTokenImg || tokenImg;
     if (actorPrototypeImg) newAssignment.actorTokenImg = actorPrototypeImg;
     if (actorPortraitImg) newAssignment.actorImg = actorPortraitImg;
     if (finalImg) newAssignment.img = finalImg;
 
-    const newAssignments = [...normalized, newAssignment];
+    if (hasResearchContext) {
+      const topic = this.tracker.getTopic(topicId);
+      const location = topic?.locations?.find((entry) => entry.id === locationId);
+      if (!location) return;
 
-    await this.tracker.updateLocation(topicId, locationId, {
-      assignedActors: newAssignments,
-    });
-    this.render();
+      const normalized = this._normalizeAssignedActors(location.assignedActors);
+      if (normalized.some((entry) => entry.uuid === actorUuid)) {
+        return;
+      }
+
+      const newAssignments = [...normalized, newAssignment];
+
+      await this.tracker.updateLocation(topicId, locationId, {
+        assignedActors: newAssignments,
+      });
+      this.render();
+      return;
+    }
+
+    if (hasChaseContext && this.chaseTracker) {
+      const eventData = this.chaseTracker.getEvent(chaseEventId);
+      if (!eventData) return;
+
+      if (obstacleId) {
+        const obstacle = eventData.obstacles?.find((entry) => entry.id === obstacleId);
+        if (!obstacle) return;
+        const normalized = this._normalizeAssignedActors(obstacle.assignedActors);
+        if (normalized.some((entry) => entry.uuid === actorUuid)) {
+          return;
+        }
+        const newAssignments = [...normalized, newAssignment];
+        await this.chaseTracker.assignActorsToObstacle(
+          chaseEventId,
+          obstacleId,
+          newAssignments
+        );
+        this.render();
+        return;
+      }
+
+      if (opportunityId) {
+        const opportunity = eventData.opportunities?.find(
+          (entry) => entry.id === opportunityId
+        );
+        if (!opportunity) return;
+        const normalized = this._normalizeAssignedActors(opportunity.assignedActors);
+        if (normalized.some((entry) => entry.uuid === actorUuid)) {
+          return;
+        }
+        const newAssignments = [...normalized, newAssignment];
+        await this.chaseTracker.assignActorsToOpportunity(
+          chaseEventId,
+          opportunityId,
+          newAssignments
+        );
+        this.render();
+      }
+    }
   }
 
   async _onRemoveAssignedActor(event) {
@@ -2162,20 +2294,58 @@ class BaseResearchTrackerApp extends FormApplication {
     const actorUuid = button?.dataset.actorUuid;
     const topicId = button?.closest("[data-topic-id]")?.dataset.topicId;
     const locationId = button?.closest("[data-location-id]")?.dataset.locationId;
-    if (!topicId || !locationId || !actorUuid) return;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    const opportunityId = button?.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    if (!actorUuid) return;
 
-    const topic = this.tracker.getTopic(topicId);
-    const location = topic?.locations?.find((entry) => entry.id === locationId);
-    if (!location) return;
+    if (topicId && locationId) {
+      const topic = this.tracker.getTopic(topicId);
+      const location = topic?.locations?.find((entry) => entry.id === locationId);
+      if (!location) return;
 
-    const normalized = this._normalizeAssignedActors(location.assignedActors);
-    const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
-    if (filtered.length === normalized.length) return;
+      const normalized = this._normalizeAssignedActors(location.assignedActors);
+      const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
+      if (filtered.length === normalized.length) return;
 
-    await this.tracker.updateLocation(topicId, locationId, {
-      assignedActors: filtered,
-    });
-    this.render();
+      await this.tracker.updateLocation(topicId, locationId, {
+        assignedActors: filtered,
+      });
+      this.render();
+      return;
+    }
+
+    if (this.chaseTracker && chaseEventId && (obstacleId || opportunityId)) {
+      const eventData = this.chaseTracker.getEvent(chaseEventId);
+      if (!eventData) return;
+
+      if (obstacleId) {
+        const obstacle = eventData.obstacles?.find((entry) => entry.id === obstacleId);
+        if (!obstacle) return;
+        const normalized = this._normalizeAssignedActors(obstacle.assignedActors);
+        const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
+        if (filtered.length === normalized.length) return;
+        await this.chaseTracker.assignActorsToObstacle(chaseEventId, obstacleId, filtered);
+        this.render();
+        return;
+      }
+
+      if (opportunityId) {
+        const opportunity = eventData.opportunities?.find(
+          (entry) => entry.id === opportunityId
+        );
+        if (!opportunity) return;
+        const normalized = this._normalizeAssignedActors(opportunity.assignedActors);
+        const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
+        if (filtered.length === normalized.length) return;
+        await this.chaseTracker.assignActorsToOpportunity(
+          chaseEventId,
+          opportunityId,
+          filtered
+        );
+        this.render();
+      }
+    }
   }
 
   /** @private */
@@ -2325,6 +2495,108 @@ class BaseResearchTrackerApp extends FormApplication {
     }
     const actors = game?.actors?.contents ?? [];
     return actors.filter((actor) => actor.type === "character" && actor.hasPlayerOwner);
+  }
+
+  _getChaseActors() {
+    const lookup = new Map();
+
+    const ensureUuid = (actor) => {
+      if (!actor) return "";
+      if (typeof actor.uuid === "string" && actor.uuid) return actor.uuid;
+      if (typeof actor.id === "string" && actor.id) return `Actor.${actor.id}`;
+      if (typeof actor._id === "string" && actor._id) return `Actor.${actor._id}`;
+      return "";
+    };
+
+    const getTokenData = (token) => {
+      if (!token) return { tokenUuid: "", tokenImg: "" };
+      const trim = (value) => (typeof value === "string" ? value.trim() : "");
+      const tokenUuid = (() => {
+        if (typeof token.uuid === "string" && token.uuid) return token.uuid;
+        const sceneId =
+          token?.scene?.id ?? token?.parent?.id ?? token?.data?.scene ?? token?.scene?._id;
+        const tokenId = token?.id ?? token?._id;
+        if (sceneId && tokenId) return `Scene.${sceneId}.Token.${tokenId}`;
+        return "";
+      })();
+      const texture = token?.texture ?? token?.data?.texture ?? null;
+      const tokenImg = (() => {
+        if (!texture) {
+          if (typeof token?.img === "string") return trim(token.img);
+          if (typeof token?.data?.img === "string") return trim(token.data.img);
+          return "";
+        }
+        if (typeof texture === "string") return trim(texture);
+        if (typeof texture?.src === "string") return trim(texture.src);
+        return "";
+      })();
+      return { tokenUuid: trim(tokenUuid), tokenImg };
+    };
+
+    const addActor = (actor, token = null) => {
+      if (!actor) return;
+      const uuid = ensureUuid(actor);
+      if (!uuid) return;
+      const existing = lookup.get(uuid) ?? {
+        actor,
+        uuid,
+        name: actor.name ?? uuid,
+        actorImg:
+          (typeof actor.img === "string" && actor.img) ||
+          (typeof actor.data?.img === "string" && actor.data.img) ||
+          (typeof actor.prototypeToken?.texture?.src === "string"
+            ? actor.prototypeToken.texture.src
+            : ""),
+        tokens: [],
+      };
+
+      if (!lookup.has(uuid)) {
+        lookup.set(uuid, existing);
+      }
+
+      if (token) {
+        existing.tokens.push(token);
+      }
+    };
+
+    for (const actor of this._getPartyActors()) {
+      addActor(actor);
+    }
+
+    const collectFromScene = (scene) => {
+      if (!scene) return;
+      const tokens = Array.isArray(scene.tokens)
+        ? scene.tokens
+        : scene.tokens?.contents ?? [];
+      for (const token of tokens) {
+        const actor = token?.actor ?? (typeof token.getActor === "function" ? token.getActor() : null);
+        addActor(actor, token);
+      }
+    };
+
+    if (canvas?.scene) {
+      collectFromScene(canvas.scene);
+    }
+    const activeScene = game?.scenes?.active;
+    if (activeScene && activeScene !== canvas?.scene) {
+      collectFromScene(activeScene);
+    }
+
+    const actors = [];
+    for (const entry of lookup.values()) {
+      const token = entry.tokens[0] ?? null;
+      const tokenData = getTokenData(token);
+      const img = tokenData.tokenImg || entry.actorImg || "";
+      actors.push({
+        ...entry,
+        img,
+        token: token ?? null,
+        tokenUuid: tokenData.tokenUuid,
+        tokenImg: tokenData.tokenImg,
+      });
+    }
+
+    return actors;
   }
 
   _normalizeLocationChecks(location) {
@@ -2582,6 +2854,7 @@ const POINTS_TRACKER_PARTIALS = [
   `modules/${MODULE_ID}/module/templates/partials/research-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/reputation-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/awareness-tab.hbs`,
+  `modules/${MODULE_ID}/module/templates/partials/chase-tab.hbs`,
 ];
 
 export class PointsTrackerApp extends BaseResearchTrackerApp {
@@ -2590,16 +2863,23 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
    * @param {import("../research/tracker.js").ResearchTracker} [options.researchTracker]
    * @param {import("../reputation/reputation-tracker.js").ReputationTracker} [options.reputationTracker]
    * @param {import("../awareness/awareness-tracker.js").AwarenessTracker} [options.awarenessTracker]
+   * @param {import("../chase/tracker.js").ChaseTracker} [options.chaseTracker]
    * @param {object} [renderOptions]
    */
   constructor(
-    { researchTracker = null, reputationTracker = null, awarenessTracker = null } = {},
+    {
+      researchTracker = null,
+      reputationTracker = null,
+      awarenessTracker = null,
+      chaseTracker = null,
+    } = {},
     renderOptions = {}
   ) {
     super(researchTracker, renderOptions);
     this.researchTracker = researchTracker ?? null;
     this.reputationTracker = reputationTracker ?? null;
     this.awarenessTracker = awarenessTracker ?? null;
+    this.chaseTracker = chaseTracker ?? null;
     this.tracker = this.researchTracker ?? this.tracker ?? null;
     this._activeTab = renderOptions?.activeTab ?? "research";
     this.options.activeTab = this._activeTab;
@@ -2626,11 +2906,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     researchTracker = null,
     reputationTracker = null,
     awarenessTracker = null,
+    chaseTracker = null,
     activeTab = null,
   } = {}) {
     if (!this._instance) {
       this._instance = new this(
-        { researchTracker, reputationTracker, awarenessTracker },
+        { researchTracker, reputationTracker, awarenessTracker, chaseTracker },
         { activeTab: activeTab ?? "research" }
       );
     } else {
@@ -2643,6 +2924,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       }
       if (awarenessTracker) {
         this._instance.awarenessTracker = awarenessTracker;
+      }
+      if (chaseTracker) {
+        this._instance.chaseTracker = chaseTracker;
       }
       if (activeTab) {
         this._instance.activeTab = activeTab;
@@ -2661,7 +2945,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
   }
 
   set activeTab(value) {
-    const allowedTabs = new Set(["research", "reputation"]);
+    const allowedTabs = new Set(["research", "reputation", "chase"]);
     if (this._canAccessAwareness()) {
       allowedTabs.add("awareness");
     }
@@ -2691,6 +2975,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     const reputationData = this._prepareReputationData({ isGM });
     const awarenessData = this._prepareAwarenessData({ isGM });
+    const chaseData = this._prepareChaseData({ isGM });
 
     const activeTab = this.activeTab;
     return {
@@ -2698,10 +2983,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       isResearchActive: activeTab === "research",
       isReputationActive: activeTab === "reputation",
       isAwarenessActive: activeTab === "awareness",
+      isChaseActive: activeTab === "chase",
       isGM,
       research: researchData,
       reputation: reputationData,
       awareness: awarenessData,
+      chase: chaseData,
     };
   }
 
@@ -2721,12 +3008,18 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this.activeTab === "awareness") {
       this._initializeAwarenessTab(html);
     }
+    if (this.activeTab === "chase") {
+      this._initializeChaseTab(html);
+    }
 
     if (this.reputationTracker) {
       this._activateReputationListeners(html);
     }
     if (this._canAccessAwareness()) {
       this._activateAwarenessListeners(html);
+    }
+    if (this.chaseTracker) {
+      this._activateChaseListeners(html);
     }
   }
 
@@ -2746,6 +3039,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         }
         if (tab === "awareness") {
           this._initializeAwarenessTab(html);
+        }
+        if (tab === "chase") {
+          this._initializeChaseTab(html);
         }
       });
   }
@@ -2775,6 +3071,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this._initializedTabs.has("awareness")) return;
     this._initializedTabs.add("awareness");
     html.find("[data-tab-panel='awareness']").attr("data-initialized", "true");
+  }
+
+  _initializeChaseTab(html) {
+    if (this._initializedTabs.has("chase")) return;
+    this._initializedTabs.add("chase");
+    html.find("[data-tab-panel='chase']").attr("data-initialized", "true");
   }
 
   _activateReputationListeners(html) {
@@ -2816,6 +3118,378 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='delete']")
       .off("click")
       .on("click", (event) => this._onDeleteAwarenessEntry(event));
+  }
+
+  _activateChaseListeners(html) {
+    const panel = html.find("[data-tab-panel='chase']");
+    if (!panel.length) return;
+
+    panel
+      .find("[data-action='create-chase-event']")
+      .off("click")
+      .on("click", (event) => this._onCreateChaseEvent(event));
+    panel
+      .find("[data-action='edit-chase-event']")
+      .off("click")
+      .on("click", (event) => this._onEditChaseEvent(event));
+    panel
+      .find("[data-action='delete-chase-event']")
+      .off("click")
+      .on("click", (event) => this._onDeleteChaseEvent(event));
+    panel
+      .find("[data-action='create-chase-obstacle']")
+      .off("click")
+      .on("click", (event) => this._onCreateChaseObstacle(event));
+    panel
+      .find("[data-action='edit-chase-obstacle']")
+      .off("click")
+      .on("click", (event) => this._onEditChaseObstacle(event));
+    panel
+      .find("[data-action='delete-chase-obstacle']")
+      .off("click")
+      .on("click", (event) => this._onDeleteChaseObstacle(event));
+    panel
+      .find("[data-action='nudge-chase-obstacle']")
+      .off("click")
+      .on("click", (event) => this._onNudgeChaseObstacle(event));
+    panel
+      .find("[data-action='set-chase-obstacle-progress']")
+      .off("click")
+      .on("click", (event) => this._onSetChaseObstacleProgress(event));
+    panel
+      .find("[data-action='create-chase-opportunity']")
+      .off("click")
+      .on("click", (event) => this._onCreateChaseOpportunity(event));
+    panel
+      .find("[data-action='edit-chase-opportunity']")
+      .off("click")
+      .on("click", (event) => this._onEditChaseOpportunity(event));
+    panel
+      .find("[data-action='delete-chase-opportunity']")
+      .off("click")
+      .on("click", (event) => this._onDeleteChaseOpportunity(event));
+  }
+
+  async _onCreateChaseEvent(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const data = await this._promptChaseEventDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.CreateEvent"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Create"),
+    });
+    if (!data) return;
+    await this.chaseTracker.createEvent(data);
+    this.render();
+  }
+
+  async _onEditChaseEvent(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    if (!chaseEventId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    if (!eventData) return;
+    const data = await this._promptChaseEventDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.EditEvent"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Save"),
+      initial: eventData,
+    });
+    if (!data) return;
+    await this.chaseTracker.updateEvent(chaseEventId, data);
+    this.render();
+  }
+
+  async _onDeleteChaseEvent(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    if (!chaseEventId) return;
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.DeleteEvent"),
+      content: `<p>${game.i18n.localize("PF2E.PointsTracker.Chase.DeleteEventConfirm")}</p>`,
+    });
+    if (!confirmed) return;
+    await this.chaseTracker.deleteEvent(chaseEventId);
+    this.render();
+  }
+
+  async _onCreateChaseObstacle(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    if (!chaseEventId) return;
+    const data = await this._promptChaseObstacleDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.CreateObstacle"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Create"),
+    });
+    if (!data) return;
+    await this.chaseTracker.createObstacle(chaseEventId, data);
+    this.render();
+  }
+
+  async _onEditChaseObstacle(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    if (!chaseEventId || !obstacleId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    const obstacle = eventData?.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle) return;
+    const data = await this._promptChaseObstacleDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.EditObstacle"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Save"),
+      initial: obstacle,
+    });
+    if (!data) return;
+    await this.chaseTracker.updateObstacle(chaseEventId, obstacleId, data);
+    this.render();
+  }
+
+  async _onDeleteChaseObstacle(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    if (!chaseEventId || !obstacleId) return;
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.DeleteObstacle"),
+      content: `<p>${game.i18n.localize("PF2E.PointsTracker.Chase.DeleteObstacleConfirm")}</p>`,
+    });
+    if (!confirmed) return;
+    await this.chaseTracker.deleteObstacle(chaseEventId, obstacleId);
+    this.render();
+  }
+
+  async _onNudgeChaseObstacle(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    const delta = Number(button?.dataset.delta ?? 0);
+    if (!chaseEventId || !obstacleId || !Number.isFinite(delta) || delta === 0) return;
+    await this.chaseTracker.adjustObstacleProgress(chaseEventId, obstacleId, delta);
+    this.render();
+  }
+
+  async _onSetChaseObstacleProgress(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    if (!chaseEventId || !obstacleId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    const obstacle = eventData?.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle) return;
+    const data = await this._promptSetChaseObstacleProgress({ initial: obstacle });
+    if (data === null) return;
+    await this.chaseTracker.setObstacleProgress(chaseEventId, obstacleId, data);
+    this.render();
+  }
+
+  async _onCreateChaseOpportunity(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    if (!chaseEventId) return;
+    const data = await this._promptChaseOpportunityDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.CreateOpportunity"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Create"),
+    });
+    if (!data) return;
+    await this.chaseTracker.createOpportunity(chaseEventId, data);
+    this.render();
+  }
+
+  async _onEditChaseOpportunity(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const opportunityId = button?.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    if (!chaseEventId || !opportunityId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    const opportunity = eventData?.opportunities?.find((entry) => entry.id === opportunityId);
+    if (!opportunity) return;
+    const data = await this._promptChaseOpportunityDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.EditOpportunity"),
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Save"),
+      initial: opportunity,
+    });
+    if (!data) return;
+    await this.chaseTracker.updateOpportunity(chaseEventId, opportunityId, data);
+    this.render();
+  }
+
+  async _onDeleteChaseOpportunity(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const opportunityId = button?.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    if (!chaseEventId || !opportunityId) return;
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.DeleteOpportunity"),
+      content: `<p>${game.i18n.localize("PF2E.PointsTracker.Chase.DeleteOpportunityConfirm")}</p>`,
+    });
+    if (!confirmed) return;
+    await this.chaseTracker.deleteOpportunity(chaseEventId, opportunityId);
+    this.render();
+  }
+
+  async _promptChaseEventDialog({ title, label, initial = {} }) {
+    const name = typeof initial?.name === "string" ? initial.name : "";
+    const description = typeof initial?.description === "string" ? initial.description : "";
+    const template = `
+      <form>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.EventName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(name)}" required />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.EventDescription")}</label>
+          <textarea name="description" rows="4">${escapeHtml(description)}</textarea>
+        </div>
+      </form>
+    `;
+    const result = await Dialog.prompt({
+      title,
+      content: template,
+      label,
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        const formData = new FormData(form);
+        const nameValue = formData.get("name")?.toString().trim();
+        const descriptionValue = formData.get("description")?.toString().trim();
+        return {
+          name: nameValue ?? "",
+          description: descriptionValue ?? "",
+        };
+      },
+      rejectClose: false,
+    });
+    if (!result) return null;
+    return result;
+  }
+
+  async _promptChaseObstacleDialog({ title, label, initial = {} }) {
+    const name = typeof initial?.name === "string" ? initial.name : "";
+    const description = typeof initial?.description === "string" ? initial.description : "";
+    const requiredPoints = Number.isFinite(initial?.requiredPoints) ? initial.requiredPoints : 0;
+    const template = `
+      <form>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ObstacleName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(name)}" required />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ObstacleRequiredPoints")}</label>
+          <input type="number" name="requiredPoints" min="0" step="1" value="${Number(requiredPoints) || 0}" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ObstacleDescription")}</label>
+          <textarea name="description" rows="4">${escapeHtml(description)}</textarea>
+        </div>
+      </form>
+    `;
+    const result = await Dialog.prompt({
+      title,
+      content: template,
+      label,
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        const formData = new FormData(form);
+        const nameValue = formData.get("name")?.toString().trim();
+        const descriptionValue = formData.get("description")?.toString().trim();
+        const requiredPointsValue = Number(formData.get("requiredPoints"));
+        return {
+          name: nameValue ?? "",
+          description: descriptionValue ?? "",
+          requiredPoints: Number.isFinite(requiredPointsValue) ? requiredPointsValue : 0,
+        };
+      },
+      rejectClose: false,
+    });
+    if (!result) return null;
+    return result;
+  }
+
+  async _promptSetChaseObstacleProgress({ initial = {} }) {
+    const progress = Number.isFinite(initial?.progress) ? initial.progress : 0;
+    const requiredPoints = Number.isFinite(initial?.requiredPoints)
+      ? initial.requiredPoints
+      : 0;
+    const template = `
+      <form>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ObstacleProgress")}</label>
+          <input type="number" name="progress" min="0" step="1" value="${Number(progress) || 0}" ${
+            requiredPoints > 0 ? `max="${requiredPoints}"` : ""
+          } />
+        </div>
+      </form>
+    `;
+    const result = await Dialog.prompt({
+      title: game.i18n.localize("PF2E.PointsTracker.Chase.SetObstacleProgress"),
+      content: template,
+      label: game.i18n.localize("PF2E.PointsTracker.Chase.Save"),
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        const formData = new FormData(form);
+        const value = Number(formData.get("progress"));
+        if (!Number.isFinite(value) || value < 0) return 0;
+        if (requiredPoints > 0) {
+          return Math.min(value, requiredPoints);
+        }
+        return value;
+      },
+      rejectClose: false,
+    });
+    if (result === undefined) return null;
+    return result;
+  }
+
+  async _promptChaseOpportunityDialog({ title, label, initial = {} }) {
+    const name = typeof initial?.name === "string" ? initial.name : "";
+    const description = typeof initial?.description === "string" ? initial.description : "";
+    const template = `
+      <form>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.OpportunityName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(name)}" required />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.OpportunityDescription")}</label>
+          <textarea name="description" rows="4">${escapeHtml(description)}</textarea>
+        </div>
+      </form>
+    `;
+    const result = await Dialog.prompt({
+      title,
+      content: template,
+      label,
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        const formData = new FormData(form);
+        const nameValue = formData.get("name")?.toString().trim();
+        const descriptionValue = formData.get("description")?.toString().trim();
+        return {
+          name: nameValue ?? "",
+          description: descriptionValue ?? "",
+        };
+      },
+      rejectClose: false,
+    });
+    if (!result) return null;
+    return result;
   }
 
   _prepareReputationData({ isGM }) {
@@ -2904,6 +3578,82 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       hasTracker,
       hasAccess,
       entries,
+    };
+  }
+
+  _prepareChaseData({ isGM }) {
+    if (!this.chaseTracker) {
+      return {
+        isGM,
+        hasTracker: false,
+        events: [],
+        participants: [],
+      };
+    }
+
+    const events = this.chaseTracker.getEvents();
+    const chaseActors = this._getChaseActors();
+    const actorLookup = new Map();
+    for (const entry of chaseActors) {
+      if (!entry?.uuid) continue;
+      actorLookup.set(entry.uuid, entry);
+      if (entry.actor?.id && !actorLookup.has(entry.actor.id)) {
+        actorLookup.set(entry.actor.id, entry);
+      }
+      if (entry.actor?._id && !actorLookup.has(entry.actor._id)) {
+        actorLookup.set(entry.actor._id, entry);
+      }
+    }
+
+    const enrichedEvents = events.map((event) => {
+      const obstacles = Array.isArray(event.obstacles) ? event.obstacles : [];
+      const opportunities = Array.isArray(event.opportunities) ? event.opportunities : [];
+
+      const normalizedObstacles = obstacles.map((obstacle) => {
+        const required = Number.isFinite(obstacle.requiredPoints)
+          ? Math.max(0, Number(obstacle.requiredPoints))
+          : 0;
+        const progress = Number.isFinite(obstacle.progress)
+          ? Math.max(0, Number(obstacle.progress))
+          : 0;
+        const percent = required > 0 ? Math.min((progress / required) * 100, 100) : 0;
+        return {
+          ...obstacle,
+          requiredPoints: required,
+          progress,
+          progressPercent: percent,
+          isComplete: required > 0 && progress >= required,
+          assignedActors: this._mapAssignedActors(obstacle.assignedActors, actorLookup),
+        };
+      });
+
+      const normalizedOpportunities = opportunities.map((opportunity) => ({
+        ...opportunity,
+        assignedActors: this._mapAssignedActors(opportunity.assignedActors, actorLookup),
+      }));
+
+      return {
+        ...event,
+        obstacles: normalizedObstacles,
+        opportunities: normalizedOpportunities,
+        hasObstacles: normalizedObstacles.length > 0,
+        hasOpportunities: normalizedOpportunities.length > 0,
+      };
+    });
+
+    const participants = chaseActors.map((entry) => ({
+      uuid: entry.uuid,
+      actorUuid: entry.uuid,
+      tokenUuid: entry.tokenUuid ?? "",
+      name: entry.name,
+      img: entry.img,
+    }));
+
+    return {
+      isGM,
+      hasTracker: true,
+      events: enrichedEvents,
+      participants,
     };
   }
 
