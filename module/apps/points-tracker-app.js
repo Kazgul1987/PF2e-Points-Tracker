@@ -3773,6 +3773,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           })
         : [];
 
+      const discoveryChecks =
+        typeof npc.discoveryChecks === "string" ? npc.discoveryChecks.trim() : "";
+      const discoveryChecksHtml = escapeHtml(discoveryChecks).replace(/\n/g, "<br />");
+      const influenceChecks =
+        typeof npc.influenceChecks === "string" ? npc.influenceChecks.trim() : "";
+      const influenceChecksHtml = escapeHtml(influenceChecks).replace(/\n/g, "<br />");
       const penalty = npc.penalty ?? "";
       const penaltyHtml = escapeHtml(penalty).replace(/\n/g, "<br />");
       const notes = npc.notes ?? "";
@@ -3824,6 +3830,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         hasSkillDcs: skillDcs.length > 0,
         thresholds,
         hasThresholds: thresholds.length > 0,
+        discoveryChecks,
+        discoveryChecksHtml,
+        hasDiscoveryChecks: Boolean(discoveryChecks),
+        influenceChecks,
+        influenceChecksHtml,
+        hasInfluenceChecks: Boolean(influenceChecks),
         penalty,
         penaltyHtml,
         notes,
@@ -4158,6 +4170,16 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       ? initial.traits
       : "";
     const traitsPlaceholder = game.i18n.localize("PF2E.PointsTracker.Influence.TraitsPlaceholder");
+    const discoveryChecksDefault =
+      typeof initial.discoveryChecks === "string" ? initial.discoveryChecks : "";
+    const influenceChecksDefault =
+      typeof initial.influenceChecks === "string" ? initial.influenceChecks : "";
+    const discoveryChecksPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.DiscoveryChecksPlaceholder"
+    );
+    const influenceChecksPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.InfluenceChecksPlaceholder"
+    );
 
     const template = `
       <form class="flexcol points-tracker-dialog">
@@ -4180,6 +4202,14 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.TraitsLabel")}</label>
           <input type="text" name="traits" value="${escapeAttribute(traitsDefault)}" placeholder="${escapeAttribute(traitsPlaceholder)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.DiscoveryChecksLabel")}</label>
+          <textarea name="discoveryChecks" rows="3" placeholder="${escapeAttribute(discoveryChecksPlaceholder)}">${escapeHtml(discoveryChecksDefault)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.InfluenceChecksLabel")}</label>
+          <textarea name="influenceChecks" rows="3" placeholder="${escapeAttribute(influenceChecksPlaceholder)}">${escapeHtml(influenceChecksDefault)}</textarea>
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.PenaltyText")}</label>
@@ -4219,6 +4249,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               const maxInfluenceValue = Number(formData.get("maxInfluence"));
               const baseDcValue = Number(formData.get("baseDc"));
               const traitsRaw = String(formData.get("traits") ?? "").trim();
+              const discoveryChecks = String(formData.get("discoveryChecks") ?? "").trim();
+              const influenceChecks = String(formData.get("influenceChecks") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
 
@@ -4232,6 +4264,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                   : 0,
                 baseDc: Number.isFinite(baseDcValue) ? Math.max(0, baseDcValue) : null,
                 traits: traitsRaw,
+                discoveryChecks,
+                influenceChecks,
                 penalty,
                 notes,
               };

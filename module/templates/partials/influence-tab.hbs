@@ -142,6 +142,20 @@
                 </section>
               {{/if}}
 
+              {{#if npc.hasDiscoveryChecks}}
+                <section class="influence-npc__discovery">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.DiscoveryChecksHeader"}}</h4>
+                  <div class="influence-npc__discovery-text">{{{npc.discoveryChecksHtml}}}</div>
+                </section>
+              {{/if}}
+
+              {{#if npc.hasInfluenceChecks}}
+                <section class="influence-npc__influence">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.InfluenceChecksHeader"}}</h4>
+                  <div class="influence-npc__influence-text">{{{npc.influenceChecksHtml}}}</div>
+                </section>
+              {{/if}}
+
               {{#if npc.penalty}}
                 <section class="influence-npc__penalty">
                   <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>

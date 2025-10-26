@@ -178,6 +178,10 @@ function normalizeNpc(data = {}) {
     skillDcs: normalizeSkillEntries(data.skillDcs ?? data.skills ?? []),
     thresholds: normalizeThresholds(data.thresholds ?? []),
     traits: normalizeTraits(data.traits ?? data.trait ?? []),
+    discoveryChecks:
+      typeof data.discoveryChecks === "string" ? data.discoveryChecks.trim() : "",
+    influenceChecks:
+      typeof data.influenceChecks === "string" ? data.influenceChecks.trim() : "",
     penalty: typeof data.penalty === "string" ? data.penalty.trim() : "",
     notes: typeof data.notes === "string" ? data.notes.trim() : "",
     isCollapsed: Boolean(data.isCollapsed),
@@ -278,6 +282,8 @@ export class InfluenceTracker {
           revealedAt: threshold.revealedAt ?? null,
         })),
         traits: Array.isArray(npc.traits) ? npc.traits : [],
+        discoveryChecks: npc.discoveryChecks ?? "",
+        influenceChecks: npc.influenceChecks ?? "",
         penalty: npc.penalty ?? "",
         notes: npc.notes ?? "",
         isCollapsed: npc.isCollapsed ?? false,
