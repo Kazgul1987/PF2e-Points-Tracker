@@ -88,7 +88,13 @@
                   <h4>{{localize "PF2E.PointsTracker.Influence.SkillHeader"}}</h4>
                   <ul>
                     {{#each npc.skillDcs as |skill|}}
-                      <li>{{skill.label}}</li>
+                      <li>
+                        {{#if skill.inlineHtml}}
+                          {{{skill.inlineHtml}}}
+                        {{else}}
+                          {{skill.label}}
+                        {{/if}}
+                      </li>
                     {{/each}}
                   </ul>
                 </section>

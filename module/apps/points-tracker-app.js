@@ -2989,7 +2989,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const reputationData = this._prepareReputationData({ isGM });
     const awarenessData = this._prepareAwarenessData({ isGM });
     const chaseData = this._prepareChaseData({ isGM });
-    const influenceData = this._prepareInfluenceData({ isGM });
+    const influenceData = await this._prepareInfluenceData({ isGM });
 
     const activeTab = this.activeTab;
     return {
@@ -3699,7 +3699,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     };
   }
 
-  _prepareInfluenceData({ isGM }) {
+  async _prepareInfluenceData({ isGM }) {
     if (!this.influenceTracker) {
       return {
         isGM,
@@ -3712,7 +3712,24 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     const npcsRaw = this.influenceTracker.getNpcs();
     const npcLookup = new Map();
-    const npcs = npcsRaw.map((npc) => {
+    const slugifySkill = (value) => {
+      if (!value) return "";
+      if (foundry?.utils?.slugify) {
+        try {
+          return foundry.utils.slugify(value, { strict: true });
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      return String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    };
+
+    const npcs = [];
+    for (const npc of npcsRaw) {
       npcLookup.set(npc.id, npc);
       const maxInfluence = Number.isFinite(npc.maxInfluence) ? Number(npc.maxInfluence) : 0;
       const currentInfluence = Number.isFinite(npc.currentInfluence)
@@ -3730,25 +3747,41 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             .filter((trait) => trait)
         : [];
       const traitsLabel = traits.join(", ");
-      const skillDcs = Array.isArray(npc.skillDcs)
-        ? npc.skillDcs.map((entry) => ({
+      const skillDcsRaw = Array.isArray(npc.skillDcs) ? npc.skillDcs : [];
+      const skillDcs = await Promise.all(
+        skillDcsRaw.map(async (entry) => {
+          const skill = typeof entry.skill === "string" ? entry.skill.trim() : "";
+          const dc = Number.isFinite(entry.dc) ? Number(entry.dc) : null;
+          const label = (() => {
+            const parts = [];
+            if (skill) parts.push(skill);
+            if (dc !== null) {
+              parts.push(
+                game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
+                  dc,
+                })
+              );
+            }
+            return parts.join(" • ") || skill;
+          })();
+          const slug = slugifySkill(skill);
+          const inlineParts = [];
+          if (slug) {
+            inlineParts.push(`type:${slug}`);
+            if (dc !== null) inlineParts.push(`dc:${dc}`);
+          }
+          const displayText = label || skill;
+          const inlineText = inlineParts.length && displayText ? `@Check[${inlineParts.join("|")}]${displayText}` : "";
+          const inlineHtml = inlineText ? await this._enrichText(inlineText) : "";
+          return {
             id: entry.id,
-            skill: entry.skill ?? "",
-            dc: Number.isFinite(entry.dc) ? Number(entry.dc) : null,
-            label: (() => {
-              const parts = [];
-              if (entry.skill) parts.push(entry.skill);
-              if (Number.isFinite(entry.dc)) {
-                parts.push(
-                  game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
-                    dc: Number(entry.dc),
-                  })
-                );
-              }
-              return parts.join(" • ") || entry.skill || "";
-            })(),
-          }))
-        : [];
+            skill,
+            dc,
+            label,
+            inlineHtml: inlineHtml || null,
+          };
+        })
+      );
       const thresholds = Array.isArray(npc.thresholds)
         ? npc.thresholds.map((threshold) => {
             const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
@@ -3811,7 +3844,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           userName: entry.userName ?? "",
         }));
 
-      return {
+      const npcData = {
         id: npc.id,
         name: npc.name,
         currentInfluence,
@@ -3847,7 +3880,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         canIncrease: maxInfluence === 0 || currentInfluence < maxInfluence,
         canDecrease: currentInfluence > 0,
       };
-    });
+      npcs.push(npcData);
+    }
 
     const logEntries = this.influenceTracker
       .getLog()
