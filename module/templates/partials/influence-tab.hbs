@@ -130,6 +130,12 @@
                         {{#if threshold.playerText}}
                           <p class="influence-npc__threshold-player">{{threshold.playerText}}</p>
                         {{/if}}
+                        {{#if threshold.reward}}
+                          <p class="influence-npc__threshold-reward">
+                            <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdRewardHeading"}}</strong>
+                            {{threshold.reward}}
+                          </p>
+                        {{/if}}
                       </li>
                     {{/each}}
                   </ul>
