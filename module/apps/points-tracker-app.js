@@ -3761,6 +3761,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               points,
               gmText: threshold.gmText ?? "",
               playerText: threshold.playerText ?? "",
+              reward: threshold.reward ?? "",
               isUnlocked,
               isRevealed: revealedAt !== null,
               revealedAt,
@@ -4325,6 +4326,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         const points = Number.isFinite(entry?.points) ? Number(entry.points) : "";
         const gmText = entry?.gmText ?? "";
         const playerText = entry?.playerText ?? "";
+        const reward = entry?.reward ?? "";
         const revealedAt = Number.isFinite(entry?.revealedAt) ? Number(entry.revealedAt) : "";
         return `
           <div class="influence-threshold-row" data-threshold-row>
@@ -4341,6 +4343,10 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             <div class="form-group">
               <label>${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdPlayerText")}</label>
               <textarea name="thresholdPlayerText[]" rows="2">${escapeHtml(playerText)}</textarea>
+            </div>
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdRewardText")}</label>
+              <textarea name="thresholdReward[]" rows="2">${escapeHtml(reward)}</textarea>
             </div>
           </div>
         `;
@@ -4366,6 +4372,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         const pointsList = formData.getAll("thresholdPoints[]");
         const gmTexts = formData.getAll("thresholdGmText[]");
         const playerTexts = formData.getAll("thresholdPlayerText[]");
+        const rewards = formData.getAll("thresholdReward[]");
         const revealedValues = formData.getAll("thresholdRevealedAt[]");
 
         const thresholds = [];
@@ -4373,8 +4380,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           const pointsRaw = Number(pointsList[index]);
           const gmText = String(gmTexts[index] ?? "").trim();
           const playerText = String(playerTexts[index] ?? "").trim();
+          const reward = String(rewards[index] ?? "").trim();
           const hasPoints = Number.isFinite(pointsRaw);
-          if (!hasPoints && !gmText && !playerText) continue;
+          if (!hasPoints && !gmText && !playerText && !reward) continue;
 
           let id = String(ids[index] ?? "").trim();
           if (!id) id = this._generateId();
@@ -4386,6 +4394,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             points: hasPoints ? Math.max(0, Number(pointsRaw)) : 0,
             gmText,
             playerText,
+            reward,
             revealedAt,
           });
         }

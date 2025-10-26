@@ -242,6 +242,8 @@
         "ThresholdPointsLabel": "Threshold Points",
         "ThresholdGmText": "GM Notes",
         "ThresholdPlayerText": "Player Reveal Text",
+        "ThresholdRewardText": "Reward / Outcome",
+        "ThresholdRewardHeading": "Reward:",
         "ThresholdHint": "Leave unused rows blank to remove thresholds.",
         "ThresholdUnlocked": "Unlocked",
         "ThresholdLocked": "Locked",

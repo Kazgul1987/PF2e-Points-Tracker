@@ -97,6 +97,11 @@ function normalizeThresholds(raw) {
     const points = Number.isFinite(pointsRaw) ? Number(pointsRaw) : 0;
     const gmText = typeof entry.gmText === "string" ? entry.gmText.trim() : "";
     const playerText = typeof entry.playerText === "string" ? entry.playerText.trim() : "";
+    const reward = (() => {
+      if (typeof entry.reward === "string") return entry.reward.trim();
+      if (typeof entry.outcome === "string") return entry.outcome.trim();
+      return "";
+    })();
     const revealedAtRaw = Number(entry.revealedAt);
     const revealedAt = Number.isFinite(revealedAtRaw) ? Number(revealedAtRaw) : null;
 
@@ -105,6 +110,7 @@ function normalizeThresholds(raw) {
       points,
       gmText,
       playerText,
+      reward,
       revealedAt,
     });
   }
@@ -268,6 +274,7 @@ export class InfluenceTracker {
           points: threshold.points,
           gmText: threshold.gmText,
           playerText: threshold.playerText,
+          reward: threshold.reward ?? "",
           revealedAt: threshold.revealedAt ?? null,
         })),
         traits: Array.isArray(npc.traits) ? npc.traits : [],
