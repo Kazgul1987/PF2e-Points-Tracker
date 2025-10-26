@@ -10,6 +10,14 @@
     </button>
     <button
       type="button"
+      class="points-tracker__tab{{#if isInfluenceActive}} is-active{{/if}}"
+      data-tab="influence"
+    >
+      <i class="fas fa-handshake" aria-hidden="true"></i>
+      {{localize "PF2E.PointsTracker.Influence.Title"}}
+    </button>
+    <button
+      type="button"
       class="points-tracker__tab{{#if isChaseActive}} is-active{{/if}}"
       data-tab="chase"
     >
@@ -42,6 +50,12 @@
       data-tab-panel="research"
     >
       {{> "modules/pf2e-points-tracker/module/templates/partials/research-tab.hbs" research}}
+    </section>
+    <section
+      class="points-tracker__panel{{#if isInfluenceActive}} is-active{{/if}}"
+      data-tab-panel="influence"
+    >
+      {{> "modules/pf2e-points-tracker/module/templates/partials/influence-tab.hbs" influence}}
     </section>
     <section
       class="points-tracker__panel{{#if isChaseActive}} is-active{{/if}}"

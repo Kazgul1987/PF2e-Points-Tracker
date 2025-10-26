@@ -2855,6 +2855,7 @@ const POINTS_TRACKER_PARTIALS = [
   `modules/${MODULE_ID}/module/templates/partials/reputation-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/awareness-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/chase-tab.hbs`,
+  `modules/${MODULE_ID}/module/templates/partials/influence-tab.hbs`,
 ];
 
 export class PointsTrackerApp extends BaseResearchTrackerApp {
@@ -2872,6 +2873,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       reputationTracker = null,
       awarenessTracker = null,
       chaseTracker = null,
+      influenceTracker = null,
     } = {},
     renderOptions = {}
   ) {
@@ -2880,6 +2882,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     this.reputationTracker = reputationTracker ?? null;
     this.awarenessTracker = awarenessTracker ?? null;
     this.chaseTracker = chaseTracker ?? null;
+    this.influenceTracker = influenceTracker ?? null;
     this.tracker = this.researchTracker ?? this.tracker ?? null;
     this._activeTab = renderOptions?.activeTab ?? "research";
     this.options.activeTab = this._activeTab;
@@ -2907,11 +2910,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     reputationTracker = null,
     awarenessTracker = null,
     chaseTracker = null,
+    influenceTracker = null,
     activeTab = null,
   } = {}) {
     if (!this._instance) {
       this._instance = new this(
-        { researchTracker, reputationTracker, awarenessTracker, chaseTracker },
+        { researchTracker, reputationTracker, awarenessTracker, chaseTracker, influenceTracker },
         { activeTab: activeTab ?? "research" }
       );
     } else {
@@ -2928,6 +2932,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       if (chaseTracker) {
         this._instance.chaseTracker = chaseTracker;
       }
+      if (influenceTracker) {
+        this._instance.influenceTracker = influenceTracker;
+      }
       if (activeTab) {
         this._instance.activeTab = activeTab;
       }
@@ -2941,6 +2948,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (candidate === "awareness" && !this._canAccessAwareness()) {
       return "research";
     }
+    if (candidate === "influence" && !this.influenceTracker) {
+      return "research";
+    }
     return candidate;
   }
 
@@ -2948,6 +2958,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const allowedTabs = new Set(["research", "reputation", "chase"]);
     if (this._canAccessAwareness()) {
       allowedTabs.add("awareness");
+    }
+    if (this.influenceTracker) {
+      allowedTabs.add("influence");
     }
     const normalized = allowedTabs.has(value) ? value : "research";
     this._activeTab = normalized;
@@ -2976,6 +2989,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const reputationData = this._prepareReputationData({ isGM });
     const awarenessData = this._prepareAwarenessData({ isGM });
     const chaseData = this._prepareChaseData({ isGM });
+    const influenceData = this._prepareInfluenceData({ isGM });
 
     const activeTab = this.activeTab;
     return {
@@ -2984,11 +2998,13 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       isReputationActive: activeTab === "reputation",
       isAwarenessActive: activeTab === "awareness",
       isChaseActive: activeTab === "chase",
+      isInfluenceActive: activeTab === "influence",
       isGM,
       research: researchData,
       reputation: reputationData,
       awareness: awarenessData,
       chase: chaseData,
+      influence: influenceData,
     };
   }
 
@@ -3011,6 +3027,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this.activeTab === "chase") {
       this._initializeChaseTab(html);
     }
+    if (this.activeTab === "influence") {
+      this._initializeInfluenceTab(html);
+    }
 
     if (this.reputationTracker) {
       this._activateReputationListeners(html);
@@ -3020,6 +3039,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     }
     if (this.chaseTracker) {
       this._activateChaseListeners(html);
+    }
+    if (this.influenceTracker) {
+      this._activateInfluenceListeners(html);
     }
   }
 
@@ -3031,6 +3053,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         event.preventDefault();
         const tab = event.currentTarget?.dataset.tab;
         if (tab === "awareness" && !this._canAccessAwareness()) return;
+        if (tab === "influence" && !this.influenceTracker) return;
         if (!tab || tab === this.activeTab) return;
         this.activeTab = tab;
         this._applyActiveTab(html);
@@ -3042,6 +3065,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         }
         if (tab === "chase") {
           this._initializeChaseTab(html);
+        }
+        if (tab === "influence") {
+          this._initializeInfluenceTab(html);
         }
       });
   }
@@ -3061,6 +3087,16 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       });
   }
 
+  _generateId() {
+    if (typeof foundry !== "undefined" && foundry?.utils?.randomID) {
+      return foundry.utils.randomID();
+    }
+    if (typeof crypto !== "undefined" && crypto?.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).slice(2, 10);
+  }
+
   _initializeReputationTab(html) {
     if (this._initializedTabs.has("reputation")) return;
     this._initializedTabs.add("reputation");
@@ -3077,6 +3113,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this._initializedTabs.has("chase")) return;
     this._initializedTabs.add("chase");
     html.find("[data-tab-panel='chase']").attr("data-initialized", "true");
+  }
+
+  _initializeInfluenceTab(html) {
+    if (this._initializedTabs.has("influence")) return;
+    this._initializedTabs.add("influence");
+    html.find("[data-tab-panel='influence']").attr("data-initialized", "true");
   }
 
   _activateReputationListeners(html) {
@@ -3655,6 +3697,795 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       events: enrichedEvents,
       participants,
     };
+  }
+
+  _prepareInfluenceData({ isGM }) {
+    if (!this.influenceTracker) {
+      return {
+        isGM,
+        hasTracker: false,
+        npcs: [],
+        log: [],
+        hasNpcs: false,
+      };
+    }
+
+    const npcsRaw = this.influenceTracker.getNpcs();
+    const npcLookup = new Map();
+    const npcs = npcsRaw.map((npc) => {
+      npcLookup.set(npc.id, npc);
+      const maxInfluence = Number.isFinite(npc.maxInfluence) ? Number(npc.maxInfluence) : 0;
+      const currentInfluence = Number.isFinite(npc.currentInfluence)
+        ? Math.max(0, Number(npc.currentInfluence))
+        : 0;
+      const percent = maxInfluence > 0 ? Math.min((currentInfluence / maxInfluence) * 100, 100) : 0;
+      const progressPercent = Math.max(0, Math.min(100, Number(percent.toFixed(2))));
+      const baseDc = Number.isFinite(npc.baseDc) ? Number(npc.baseDc) : null;
+      const baseDcLabel = baseDc !== null
+        ? game.i18n.format("PF2E.PointsTracker.Influence.BaseDCLabel", { dc: baseDc })
+        : game.i18n.localize("PF2E.PointsTracker.Influence.BaseDCMissing");
+      const skillDcs = Array.isArray(npc.skillDcs)
+        ? npc.skillDcs.map((entry) => ({
+            id: entry.id,
+            skill: entry.skill ?? "",
+            dc: Number.isFinite(entry.dc) ? Number(entry.dc) : null,
+            label: (() => {
+              const parts = [];
+              if (entry.skill) parts.push(entry.skill);
+              if (Number.isFinite(entry.dc)) {
+                parts.push(
+                  game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
+                    dc: Number(entry.dc),
+                  })
+                );
+              }
+              return parts.join(" • ") || entry.skill || "";
+            })(),
+          }))
+        : [];
+      const thresholds = Array.isArray(npc.thresholds)
+        ? npc.thresholds.map((threshold) => {
+            const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
+            const isUnlocked = currentInfluence >= points;
+            const revealedAt = Number.isFinite(threshold.revealedAt)
+              ? Number(threshold.revealedAt)
+              : null;
+            return {
+              id: threshold.id,
+              points,
+              gmText: threshold.gmText ?? "",
+              playerText: threshold.playerText ?? "",
+              isUnlocked,
+              isRevealed: revealedAt !== null,
+              revealedAt,
+              revealedAtFormatted: revealedAt ? new Date(revealedAt).toLocaleString() : null,
+              pointsLabel: game.i18n.format("PF2E.PointsTracker.Influence.ThresholdPoints", {
+                points,
+              }),
+            };
+          })
+        : [];
+
+      const penalty = npc.penalty ?? "";
+      const penaltyHtml = escapeHtml(penalty).replace(/\n/g, "<br />");
+      const notes = npc.notes ?? "";
+      const notesHtml = escapeHtml(notes).replace(/\n/g, "<br />");
+      const updatedAt = Number.isFinite(npc.updatedAt) ? Number(npc.updatedAt) : null;
+      const updatedAtFormatted = updatedAt ? new Date(updatedAt).toLocaleString() : null;
+
+      const npcLog = this.influenceTracker
+        .getNpcLog(npc.id)
+        .slice()
+        .reverse()
+        .slice(0, 10)
+        .map((entry) => ({
+          id: entry.id,
+          npcId: entry.npcId,
+          timestamp: entry.timestamp,
+          timestampFormatted: new Date(entry.timestamp).toLocaleString(),
+          delta: entry.delta,
+          deltaLabel: Number(entry.delta) > 0 ? `+${entry.delta}` : `${entry.delta}`,
+          reason: entry.reason ?? "",
+          note: entry.note ?? "",
+          type: entry.type ?? "adjustment",
+          total: entry.total,
+          totalLabel:
+            entry.total !== null && entry.total !== undefined
+              ? game.i18n.format("PF2E.PointsTracker.Influence.TotalAfter", {
+                  total: entry.total,
+                })
+              : "",
+          userName: entry.userName ?? "",
+        }));
+
+      return {
+        id: npc.id,
+        name: npc.name,
+        currentInfluence,
+        maxInfluence,
+        maxInfluenceLabel:
+          maxInfluence > 0
+            ? game.i18n.format("PF2E.PointsTracker.Influence.MaxInfluence", { value: maxInfluence })
+            : game.i18n.localize("PF2E.PointsTracker.Influence.MaxInfluenceUnlimited"),
+        progressPercent,
+        baseDc,
+        baseDcLabel,
+        skillDcs,
+        hasSkillDcs: skillDcs.length > 0,
+        thresholds,
+        hasThresholds: thresholds.length > 0,
+        penalty,
+        penaltyHtml,
+        notes,
+        notesHtml,
+        updatedAt,
+        updatedAtFormatted,
+        logEntries: npcLog,
+        hasLogEntries: npcLog.length > 0,
+        canIncrease: maxInfluence === 0 || currentInfluence < maxInfluence,
+        canDecrease: currentInfluence > 0,
+      };
+    });
+
+    const logEntries = this.influenceTracker
+      .getLog()
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const npc = entry.npcId ? npcLookup.get(entry.npcId) : null;
+        const timestampFormatted = new Date(entry.timestamp).toLocaleString();
+        const deltaLabel = Number(entry.delta) > 0 ? `+${entry.delta}` : `${entry.delta}`;
+        const totalLabel =
+          entry.total !== null && entry.total !== undefined
+            ? game.i18n.format("PF2E.PointsTracker.Influence.TotalAfter", { total: entry.total })
+            : "";
+        const typeKey = `PF2E.PointsTracker.Influence.LogType.${entry.type ?? "adjustment"}`;
+        return {
+          id: entry.id,
+          npcId: entry.npcId ?? "",
+          npcName: npc?.name ?? game.i18n.localize("PF2E.PointsTracker.Influence.LogUnknownNpc"),
+          timestamp: entry.timestamp,
+          timestampFormatted,
+          delta: entry.delta,
+          deltaLabel,
+          reason: entry.reason ?? "",
+          note: entry.note ?? "",
+          type: entry.type ?? "adjustment",
+          typeLabel: game.i18n.localize(typeKey),
+          total: entry.total,
+          totalLabel,
+          userName: entry.userName ?? "",
+        };
+      });
+
+    return {
+      isGM,
+      hasTracker: true,
+      npcs,
+      log: logEntries,
+      hasNpcs: npcs.length > 0,
+      canCreate: isGM,
+      hasLog: logEntries.length > 0,
+    };
+  }
+
+  _activateInfluenceListeners(html) {
+    const panel = html.find("[data-tab-panel='influence']");
+    if (!panel.length) return;
+
+    panel
+      .find("[data-action='create-influence-npc']")
+      .off("click")
+      .on("click", (event) => this._onCreateInfluenceNpc(event));
+
+    panel
+      .find("[data-action='edit-influence-npc']")
+      .off("click")
+      .on("click", (event) => this._onEditInfluenceNpc(event));
+
+    panel
+      .find("[data-action='delete-influence-npc']")
+      .off("click")
+      .on("click", (event) => this._onDeleteInfluenceNpc(event));
+
+    panel
+      .find("[data-action='adjust-influence']")
+      .off("click")
+      .on("click", (event) => this._onAdjustInfluence(event));
+
+    panel
+      .find("[data-action='set-influence']")
+      .off("click")
+      .on("click", (event) => this._onSetInfluence(event));
+
+    panel
+      .find("[data-action='manage-influence-skills']")
+      .off("click")
+      .on("click", (event) => this._onManageInfluenceSkills(event));
+
+    panel
+      .find("[data-action='manage-influence-thresholds']")
+      .off("click")
+      .on("click", (event) => this._onManageInfluenceThresholds(event));
+
+    panel
+      .find("[data-action='toggle-influence-threshold']")
+      .off("click")
+      .on("click", (event) => this._onToggleInfluenceThreshold(event));
+
+    panel
+      .find("[data-action='add-influence-log-entry']")
+      .off("click")
+      .on("click", (event) => this._onAddInfluenceLogEntry(event));
+
+    panel
+      .find("[data-action='edit-influence-log-entry']")
+      .off("click")
+      .on("click", (event) => this._onEditInfluenceLogEntry(event));
+
+    panel
+      .find("[data-action='delete-influence-log-entry']")
+      .off("click")
+      .on("click", (event) => this._onDeleteInfluenceLogEntry(event));
+  }
+
+  async _onCreateInfluenceNpc(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const result = await this._promptInfluenceNpcDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.CreateNpc"),
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Create"),
+    });
+    if (!result) return;
+
+    await this.influenceTracker.createNpc(result);
+    this.render();
+  }
+
+  async _onEditInfluenceNpc(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const result = await this._promptInfluenceNpcDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.EditNpc"),
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      initial: npc,
+    });
+    if (!result) return;
+
+    await this.influenceTracker.updateNpc(npcId, result);
+    this.render();
+  }
+
+  async _onDeleteInfluenceNpc(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.DeleteNpc"),
+      content: `<p>${game.i18n.format("PF2E.PointsTracker.Influence.DeleteNpcConfirm", {
+        name: escapeHtml(npc.name),
+      })}</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false,
+    });
+    if (!confirmed) return;
+
+    await this.influenceTracker.deleteNpc(npcId);
+    this.render();
+  }
+
+  async _onAdjustInfluence(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const delta = Number(button.dataset.delta ?? 0);
+    if (!Number.isFinite(delta) || delta === 0) return;
+
+    await this.influenceTracker.adjustInfluence(npcId, delta, { notify: false });
+    this.render();
+  }
+
+  async _onSetInfluence(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const result = await this._promptSetInfluenceValue({ npc, initialValue: npc.currentInfluence });
+    if (result === null || result === undefined) return;
+
+    await this.influenceTracker.setInfluence(npcId, result, { notify: false });
+    this.render();
+  }
+
+  async _onManageInfluenceSkills(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const result = await this._promptInfluenceSkillsDialog({ npc });
+    if (!result) return;
+
+    await this.influenceTracker.updateNpc(npcId, { skillDcs: result });
+    this.render();
+  }
+
+  async _onManageInfluenceThresholds(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const result = await this._promptInfluenceThresholdsDialog({ npc });
+    if (!result) return;
+
+    await this.influenceTracker.updateNpc(npcId, { thresholds: result });
+    this.render();
+  }
+
+  async _onToggleInfluenceThreshold(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    const thresholdId = button.closest("[data-threshold-id]")?.dataset.thresholdId;
+    if (!npcId || !thresholdId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const thresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
+    const updated = thresholds.map((threshold) => {
+      if (threshold.id !== thresholdId) return threshold;
+      const isRevealed = Number.isFinite(threshold.revealedAt) && threshold.revealedAt !== null;
+      return {
+        ...threshold,
+        revealedAt: isRevealed ? null : Date.now(),
+      };
+    });
+
+    await this.influenceTracker.updateNpc(npcId, { thresholds: updated });
+    this.render();
+  }
+
+  async _onAddInfluenceLogEntry(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId ?? "";
+    const result = await this._promptInfluenceLogDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.AddLogEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      npcId,
+    });
+    if (!result) return;
+
+    await this.influenceTracker.addLogEntry(result);
+    this.render();
+  }
+
+  async _onEditInfluenceLogEntry(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const logId = event.currentTarget.closest("[data-log-id]")?.dataset.logId;
+    if (!logId) return;
+    const entry = this.influenceTracker.getLogEntry(logId);
+    if (!entry) return;
+
+    const result = await this._promptInfluenceLogDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.EditLogEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      npcId: entry.npcId ?? "",
+      initial: entry,
+    });
+    if (!result) return;
+
+    await this.influenceTracker.updateLogEntry(logId, result);
+    this.render();
+  }
+
+  async _onDeleteInfluenceLogEntry(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const logId = event.currentTarget.closest("[data-log-id]")?.dataset.logId;
+    if (!logId) return;
+    const entry = this.influenceTracker.getLogEntry(logId);
+    if (!entry) return;
+
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.DeleteLogEntry"),
+      content: `<p>${game.i18n.localize("PF2E.PointsTracker.Influence.DeleteLogConfirm")}</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false,
+    });
+    if (!confirmed) return;
+
+    await this.influenceTracker.deleteLogEntry(logId);
+    this.render();
+  }
+
+  async _promptInfluenceNpcDialog({ title, label, initial = {} }) {
+    const maxInfluenceDefault = Number.isFinite(initial.maxInfluence)
+      ? Math.max(0, Number(initial.maxInfluence))
+      : 0;
+    const currentInfluenceDefault = Number.isFinite(initial.currentInfluence)
+      ? Math.max(0, Number(initial.currentInfluence))
+      : 0;
+    const baseDcDefault = Number.isFinite(initial.baseDc) ? Number(initial.baseDc) : "";
+
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.NpcName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(initial.name ?? "")}" required>
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.CurrentInfluence")}</label>
+          <input type="number" name="currentInfluence" min="0" step="1" value="${escapeAttribute(currentInfluenceDefault)}">
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.MaxInfluenceLabel")}</label>
+          <input type="number" name="maxInfluence" min="0" step="1" value="${escapeAttribute(maxInfluenceDefault)}">
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.BaseDC")}</label>
+          <input type="number" name="baseDc" min="0" step="1" value="${escapeAttribute(baseDcDefault)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.PenaltyText")}</label>
+          <textarea name="penalty" rows="3">${escapeHtml(initial.penalty ?? "")}</textarea>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.Notes")}</label>
+          <textarea name="notes" rows="3">${escapeHtml(initial.notes ?? "")}</textarea>
+        </div>
+      </form>
+    `;
+
+    return new Promise((resolve) => {
+      const dialog = new Dialog({
+        title,
+        content: template,
+        buttons: {
+          confirm: {
+            icon: "fas fa-save",
+            label,
+            callback: (html) => {
+              const form = html[0].querySelector("form");
+              if (!form) {
+                resolve(null);
+                return;
+              }
+              const formData = new FormData(form);
+              const name = String(formData.get("name") ?? "").trim();
+              if (!name) {
+                ui.notifications?.warn(
+                  game.i18n.localize("PF2E.PointsTracker.Influence.NameRequired")
+                );
+                resolve(null);
+                return;
+              }
+              const currentInfluenceValue = Number(formData.get("currentInfluence"));
+              const maxInfluenceValue = Number(formData.get("maxInfluence"));
+              const baseDcValue = Number(formData.get("baseDc"));
+              const penalty = String(formData.get("penalty") ?? "").trim();
+              const notes = String(formData.get("notes") ?? "").trim();
+
+              const payload = {
+                name,
+                currentInfluence: Number.isFinite(currentInfluenceValue)
+                  ? Math.max(0, currentInfluenceValue)
+                  : 0,
+                maxInfluence: Number.isFinite(maxInfluenceValue)
+                  ? Math.max(0, maxInfluenceValue)
+                  : 0,
+                baseDc: Number.isFinite(baseDcValue) ? Math.max(0, baseDcValue) : null,
+                penalty,
+                notes,
+              };
+              resolve(payload);
+            },
+          },
+          cancel: {
+            icon: "fas fa-times",
+            label: game.i18n.localize("PF2E.PointsTracker.Cancel"),
+            callback: () => resolve(null),
+          },
+        },
+        default: "confirm",
+        close: () => resolve(null),
+      });
+      dialog.render(true);
+    });
+  }
+
+  async _promptInfluenceSkillsDialog({ npc }) {
+    const existing = Array.isArray(npc?.skillDcs) ? npc.skillDcs : [];
+    const rows = existing.concat(new Array(3).fill(null));
+
+    const fields = rows
+      .map((entry) => {
+        const id = entry?.id ?? "";
+        const skill = entry?.skill ?? "";
+        const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
+        return `
+          <div class="influence-skill-row" data-skill-row>
+            <input type="hidden" name="skillId[]" value="${escapeAttribute(id)}">
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillName")}</label>
+              <input type="text" name="skillName[]" value="${escapeAttribute(skill)}">
+            </div>
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillDC")}</label>
+              <input type="number" name="skillDc[]" min="0" step="1" value="${escapeAttribute(dc)}">
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Influence.SkillHint")}</p>
+        ${fields}
+      </form>
+    `;
+
+    const result = await Dialog.prompt({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.ManageSkills"),
+      content: template,
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return null;
+        const formData = new FormData(form);
+        const ids = formData.getAll("skillId[]");
+        const skills = formData.getAll("skillName[]");
+        const dcs = formData.getAll("skillDc[]");
+
+        const entries = [];
+        for (let index = 0; index < skills.length; index += 1) {
+          const skill = String(skills[index] ?? "").trim();
+          const dcRaw = Number(dcs[index]);
+          const hasSkill = Boolean(skill);
+          const hasDc = Number.isFinite(dcRaw);
+          if (!hasSkill && !hasDc) continue;
+
+          let id = String(ids[index] ?? "").trim();
+          if (!id) id = this._generateId();
+          entries.push({ id, skill, dc: hasDc ? Number(dcRaw) : null });
+        }
+
+        return entries;
+      },
+      rejectClose: false,
+    });
+
+    if (!result) return null;
+    return result;
+  }
+
+  async _promptInfluenceThresholdsDialog({ npc }) {
+    const existing = Array.isArray(npc?.thresholds) ? npc.thresholds : [];
+    const rows = existing.concat(new Array(3).fill(null));
+    const fields = rows
+      .map((entry) => {
+        const id = entry?.id ?? "";
+        const points = Number.isFinite(entry?.points) ? Number(entry.points) : "";
+        const gmText = entry?.gmText ?? "";
+        const playerText = entry?.playerText ?? "";
+        const revealedAt = Number.isFinite(entry?.revealedAt) ? Number(entry.revealedAt) : "";
+        return `
+          <div class="influence-threshold-row" data-threshold-row>
+            <input type="hidden" name="thresholdId[]" value="${escapeAttribute(id)}">
+            <input type="hidden" name="thresholdRevealedAt[]" value="${escapeAttribute(revealedAt)}">
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdPointsLabel")}</label>
+              <input type="number" name="thresholdPoints[]" min="0" step="1" value="${escapeAttribute(points)}">
+            </div>
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdGmText")}</label>
+              <textarea name="thresholdGmText[]" rows="2">${escapeHtml(gmText)}</textarea>
+            </div>
+            <div class="form-group">
+              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdPlayerText")}</label>
+              <textarea name="thresholdPlayerText[]" rows="2">${escapeHtml(playerText)}</textarea>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Influence.ThresholdHint")}</p>
+        ${fields}
+      </form>
+    `;
+
+    const result = await Dialog.prompt({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.ManageThresholds"),
+      content: template,
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return null;
+        const formData = new FormData(form);
+        const ids = formData.getAll("thresholdId[]");
+        const pointsList = formData.getAll("thresholdPoints[]");
+        const gmTexts = formData.getAll("thresholdGmText[]");
+        const playerTexts = formData.getAll("thresholdPlayerText[]");
+        const revealedValues = formData.getAll("thresholdRevealedAt[]");
+
+        const thresholds = [];
+        for (let index = 0; index < pointsList.length; index += 1) {
+          const pointsRaw = Number(pointsList[index]);
+          const gmText = String(gmTexts[index] ?? "").trim();
+          const playerText = String(playerTexts[index] ?? "").trim();
+          const hasPoints = Number.isFinite(pointsRaw);
+          if (!hasPoints && !gmText && !playerText) continue;
+
+          let id = String(ids[index] ?? "").trim();
+          if (!id) id = this._generateId();
+          const revealedAtRaw = Number(revealedValues[index]);
+          const revealedAt = Number.isFinite(revealedAtRaw) ? Number(revealedAtRaw) : null;
+
+          thresholds.push({
+            id,
+            points: hasPoints ? Math.max(0, Number(pointsRaw)) : 0,
+            gmText,
+            playerText,
+            revealedAt,
+          });
+        }
+
+        thresholds.sort((a, b) => a.points - b.points);
+        return thresholds;
+      },
+      rejectClose: false,
+    });
+
+    if (!result) return null;
+    return result;
+  }
+
+  async _promptInfluenceLogDialog({ title, label, npcId = "", initial = {} }) {
+    const npcs = Array.isArray(this.influenceTracker?.getNpcs())
+      ? this.influenceTracker.getNpcs()
+      : [];
+    const options = npcs
+      .map((npc) => {
+        const selected = npc.id === (initial.npcId ?? npcId) ? "selected" : "";
+        return `<option value="${escapeAttribute(npc.id)}" ${selected}>${escapeHtml(npc.name)}</option>`;
+      })
+      .join("");
+
+    const type = typeof initial.type === "string" ? initial.type : "note";
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.LogNpc")}</label>
+          <select name="npcId">
+            <option value="">${game.i18n.localize("PF2E.PointsTracker.Influence.LogNoNpc")}</option>
+            ${options}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.LogTypeLabel")}</label>
+          <select name="type">
+            <option value="note" ${type === "note" ? "selected" : ""}>${game.i18n.localize(
+              "PF2E.PointsTracker.Influence.LogType.note"
+            )}</option>
+            <option value="info" ${type === "info" ? "selected" : ""}>${game.i18n.localize(
+              "PF2E.PointsTracker.Influence.LogType.info"
+            )}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.LogReason")}</label>
+          <input type="text" name="reason" value="${escapeAttribute(initial.reason ?? "")}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.LogNote")}</label>
+          <textarea name="note" rows="3">${escapeHtml(initial.note ?? "")}</textarea>
+        </div>
+      </form>
+    `;
+
+    const result = await Dialog.prompt({
+      title,
+      content: template,
+      label,
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return null;
+        const formData = new FormData(form);
+        const npcIdValue = String(formData.get("npcId") ?? "").trim();
+        const typeValue = String(formData.get("type") ?? "note").trim() || "note";
+        const reason = String(formData.get("reason") ?? "").trim();
+        const note = String(formData.get("note") ?? "").trim();
+
+        return {
+          npcId: npcIdValue,
+          type: typeValue,
+          reason,
+          note,
+        };
+      },
+      rejectClose: false,
+    });
+
+    if (!result) return null;
+    return result;
+  }
+
+  async _promptSetInfluenceValue({ npc, initialValue = 0 }) {
+    const maxInfluence = Number.isFinite(npc?.maxInfluence) ? Number(npc.maxInfluence) : 0;
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <div class="form-group">
+          <label>${game.i18n.format("PF2E.PointsTracker.Influence.SetInfluenceFor", {
+            name: escapeHtml(npc?.name ?? ""),
+          })}</label>
+          <input type="number" name="value" min="0" step="1" value="${escapeAttribute(initialValue)}" ${
+            maxInfluence > 0 ? `max="${escapeAttribute(maxInfluence)}"` : ""
+          }>
+        </div>
+      </form>
+    `;
+
+    const result = await Dialog.prompt({
+      title: game.i18n.localize("PF2E.PointsTracker.Influence.SetInfluence"),
+      content: template,
+      label: game.i18n.localize("PF2E.PointsTracker.Influence.Save"),
+      callback: (html) => {
+        const form = html[0].querySelector("form");
+        if (!form) return null;
+        const formData = new FormData(form);
+        const value = Number(formData.get("value"));
+        if (!Number.isFinite(value) || value < 0) {
+          return 0;
+        }
+        if (maxInfluence > 0) {
+          return Math.min(value, maxInfluence);
+        }
+        return value;
+      },
+      rejectClose: false,
+    });
+
+    if (result === undefined) return null;
+    return result;
   }
 
   async _onCreateFaction(event) {
