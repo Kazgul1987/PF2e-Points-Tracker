@@ -1209,7 +1209,7 @@
   border-color: rgba(255, 99, 71, 0.8);
 }
 
-.tag {
+.pf2e-points-tracker .tag {
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.5rem;
@@ -1221,17 +1221,17 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.tag--success {
+.pf2e-points-tracker .tag--success {
   background: rgba(76, 175, 80, 0.18);
   border-color: rgba(76, 175, 80, 0.45);
 }
 
-.tag--primary {
+.pf2e-points-tracker .tag--primary {
   background: rgba(33, 150, 243, 0.18);
   border-color: rgba(33, 150, 243, 0.45);
 }
 
-.tag--muted {
+.pf2e-points-tracker .tag--muted {
   opacity: 0.7;
 }
 
