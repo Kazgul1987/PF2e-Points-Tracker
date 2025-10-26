@@ -113,6 +113,41 @@ function normalizeThresholds(raw) {
   return normalized;
 }
 
+function normalizeTraits(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+    ? raw.split(",")
+    : raw && typeof raw === "object" && Array.isArray(raw.values)
+    ? raw.values
+    : [];
+
+  const normalized = [];
+  const seen = new Set();
+
+  for (const entry of list) {
+    let value = "";
+    if (typeof entry === "string") {
+      value = entry;
+    } else if (entry && typeof entry === "object") {
+      if (typeof entry.label === "string") value = entry.label;
+      else if (typeof entry.name === "string") value = entry.name;
+      else if (typeof entry.value === "string") value = entry.value;
+      else if (typeof entry.slug === "string") value = entry.slug;
+    }
+
+    value = typeof value === "string" ? value.trim() : "";
+    if (!value) continue;
+
+    const key = value.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(value);
+  }
+
+  return normalized;
+}
+
 function normalizeNpc(data = {}) {
   const id = typeof data.id === "string" && data.id.trim() ? data.id.trim() : createId();
   const name = (() => {
@@ -136,6 +171,7 @@ function normalizeNpc(data = {}) {
     baseDc: Number.isFinite(baseDcRaw) ? Number(baseDcRaw) : null,
     skillDcs: normalizeSkillEntries(data.skillDcs ?? data.skills ?? []),
     thresholds: normalizeThresholds(data.thresholds ?? []),
+    traits: normalizeTraits(data.traits ?? data.trait ?? []),
     penalty: typeof data.penalty === "string" ? data.penalty.trim() : "",
     notes: typeof data.notes === "string" ? data.notes.trim() : "",
     isCollapsed: Boolean(data.isCollapsed),
@@ -234,6 +270,7 @@ export class InfluenceTracker {
           playerText: threshold.playerText,
           revealedAt: threshold.revealedAt ?? null,
         })),
+        traits: Array.isArray(npc.traits) ? npc.traits : [],
         penalty: npc.penalty ?? "",
         notes: npc.notes ?? "",
         isCollapsed: npc.isCollapsed ?? false,

@@ -3724,6 +3724,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const baseDcLabel = baseDc !== null
         ? game.i18n.format("PF2E.PointsTracker.Influence.BaseDCLabel", { dc: baseDc })
         : game.i18n.localize("PF2E.PointsTracker.Influence.BaseDCMissing");
+      const traits = Array.isArray(npc.traits)
+        ? npc.traits
+            .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
+            .filter((trait) => trait)
+        : [];
+      const traitsLabel = traits.join(", ");
       const skillDcs = Array.isArray(npc.skillDcs)
         ? npc.skillDcs.map((entry) => ({
             id: entry.id,
@@ -3810,6 +3816,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         progressPercent,
         baseDc,
         baseDcLabel,
+        traits,
+        traitsLabel,
+        hasTraits: traits.length > 0,
         skillDcs,
         hasSkillDcs: skillDcs.length > 0,
         thresholds,
@@ -4142,6 +4151,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       ? Math.max(0, Number(initial.currentInfluence))
       : 0;
     const baseDcDefault = Number.isFinite(initial.baseDc) ? Number(initial.baseDc) : "";
+    const traitsDefault = Array.isArray(initial.traits)
+      ? initial.traits.join(", ")
+      : typeof initial.traits === "string"
+      ? initial.traits
+      : "";
+    const traitsPlaceholder = game.i18n.localize("PF2E.PointsTracker.Influence.TraitsPlaceholder");
 
     const template = `
       <form class="flexcol points-tracker-dialog">
@@ -4160,6 +4175,10 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         <div class="form-group form-group--split">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.BaseDC")}</label>
           <input type="number" name="baseDc" min="0" step="1" value="${escapeAttribute(baseDcDefault)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.TraitsLabel")}</label>
+          <input type="text" name="traits" value="${escapeAttribute(traitsDefault)}" placeholder="${escapeAttribute(traitsPlaceholder)}">
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.PenaltyText")}</label>
@@ -4198,6 +4217,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               const currentInfluenceValue = Number(formData.get("currentInfluence"));
               const maxInfluenceValue = Number(formData.get("maxInfluence"));
               const baseDcValue = Number(formData.get("baseDc"));
+              const traitsRaw = String(formData.get("traits") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
 
@@ -4210,6 +4230,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                   ? Math.max(0, maxInfluenceValue)
                   : 0,
                 baseDc: Number.isFinite(baseDcValue) ? Math.max(0, baseDcValue) : null,
+                traits: traitsRaw,
                 penalty,
                 notes,
               };

@@ -19,6 +19,13 @@
             <header class="influence-npc__header">
               <div class="influence-npc__title">
                 <h3 class="influence-npc__name">{{npc.name}}</h3>
+                {{#if npc.hasTraits}}
+                  <ul class="influence-npc__traits" aria-label="{{localize "PF2E.PointsTracker.Influence.TraitsHeader"}}">
+                    {{#each npc.traits as |trait|}}
+                      <li class="influence-npc__trait">{{trait}}</li>
+                    {{/each}}
+                  </ul>
+                {{/if}}
                 {{#if npc.updatedAtFormatted}}
                   <p class="influence-npc__updated">
                     {{localize "PF2E.PointsTracker.Influence.LastUpdated"}} {{npc.updatedAtFormatted}}
