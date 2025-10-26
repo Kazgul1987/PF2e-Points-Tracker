@@ -4319,35 +4319,40 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     });
   }
 
+  _renderInfluenceSkillRow(entry = {}) {
+    const id = entry?.id ?? "";
+    const skill = entry?.skill ?? "";
+    const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
+    return `
+      <div class="influence-skill-row" data-skill-row>
+        <input type="hidden" name="skillId[]" value="${escapeAttribute(id)}">
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillName")}</label>
+          <input type="text" name="skillName[]" value="${escapeAttribute(skill)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillDC")}</label>
+          <input type="number" name="skillDc[]" min="0" step="1" value="${escapeAttribute(dc)}">
+        </div>
+      </div>
+    `;
+  }
+
   async _promptInfluenceSkillsDialog({ npc }) {
     const existing = Array.isArray(npc?.skillDcs) ? npc.skillDcs : [];
     const rows = existing.concat(new Array(3).fill(null));
 
-    const fields = rows
-      .map((entry) => {
-        const id = entry?.id ?? "";
-        const skill = entry?.skill ?? "";
-        const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
-        return `
-          <div class="influence-skill-row" data-skill-row>
-            <input type="hidden" name="skillId[]" value="${escapeAttribute(id)}">
-            <div class="form-group">
-              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillName")}</label>
-              <input type="text" name="skillName[]" value="${escapeAttribute(skill)}">
-            </div>
-            <div class="form-group">
-              <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillDC")}</label>
-              <input type="number" name="skillDc[]" min="0" step="1" value="${escapeAttribute(dc)}">
-            </div>
-          </div>
-        `;
-      })
-      .join("");
+    const fields = rows.map((entry) => this._renderInfluenceSkillRow(entry)).join("");
 
     const template = `
       <form class="flexcol points-tracker-dialog">
         <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Influence.SkillHint")}</p>
-        ${fields}
+        <div data-skill-rows>
+          ${fields}
+        </div>
+        <button type="button" class="add-skill-row" data-action="add-skill-row">
+          ${game.i18n.localize("PF2E.PointsTracker.Influence.AddSkillRow")}
+        </button>
       </form>
     `;
 
@@ -4379,6 +4384,21 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         return entries;
       },
       rejectClose: false,
+      render: (html) => {
+        const addButton = html[0].querySelector('[data-action="add-skill-row"]');
+        const rowsContainer = html[0].querySelector('[data-skill-rows]');
+        if (!(addButton && rowsContainer)) return;
+
+        addButton.addEventListener("click", () => {
+          const template = document.createElement("template");
+          template.innerHTML = this._renderInfluenceSkillRow({ id: this._generateId() }).trim();
+          const newRow = template.content.firstElementChild;
+          if (!newRow) return;
+          rowsContainer.append(newRow);
+          const nameField = newRow.querySelector('input[name="skillName[]"]');
+          if (nameField instanceof HTMLInputElement) nameField.focus();
+        });
+      },
     });
 
     if (!result) return null;
