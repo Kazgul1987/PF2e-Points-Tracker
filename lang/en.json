@@ -243,6 +243,7 @@
         "SkillDC": "DC",
         "SkillDCValue": "DC {dc}",
         "SkillHint": "Leave fields blank to remove unused skills.",
+        "AddSkillRow": "Add Skill",
         "ThresholdHeader": "Reveal Thresholds",
         "ThresholdPoints": "Reveal at {points} Influence",
         "ThresholdPointsLabel": "Threshold Points",
