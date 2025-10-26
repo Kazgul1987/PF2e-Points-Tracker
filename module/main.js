@@ -2,6 +2,7 @@ import { createResearchTracker } from "./research/tracker.js";
 import { createReputationTracker } from "./reputation/reputation-tracker.js";
 import { createAwarenessTracker } from "./awareness/awareness-tracker.js";
 import { createChaseTracker } from "./chase/tracker.js";
+import { createInfluenceTracker } from "./influence/tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
 import { ResearchImportExport } from "./research/importer.js";
 import { registerResearchAutoUpdates } from "./research/auto-update.js";
@@ -11,6 +12,7 @@ const RESEARCH_SETTING_KEY = "research-tracker-state";
 const REPUTATION_SETTING_KEY = "reputation-tracker-state";
 const AWARENESS_SETTING_KEY = "awareness-tracker-state";
 const CHASE_SETTING_KEY = "chase-tracker-state";
+const INFLUENCE_SETTING_KEY = "influence-tracker-state";
 
 const researchTracker = createResearchTracker({
   moduleId: MODULE_ID,
@@ -28,6 +30,10 @@ const chaseTracker = createChaseTracker({
   moduleId: MODULE_ID,
   settingKey: CHASE_SETTING_KEY,
 });
+const influenceTracker = createInfluenceTracker({
+  moduleId: MODULE_ID,
+  settingKey: INFLUENCE_SETTING_KEY,
+});
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing PF2e Points Tracker module.`);
@@ -35,6 +41,7 @@ Hooks.once("init", () => {
   reputationTracker.registerSettings();
   awarenessTracker.registerSettings();
   chaseTracker.registerSettings();
+  influenceTracker.registerSettings();
 
   PointsTrackerApp.preloadTemplates?.();
 
@@ -47,12 +54,14 @@ Hooks.once("init", () => {
       reputationTracker,
       awarenessTracker,
       chaseTracker,
+      influenceTracker,
       openResearchTracker: () =>
         PointsTrackerApp.open({
           researchTracker,
           reputationTracker,
           awarenessTracker,
           chaseTracker,
+          influenceTracker,
         }),
       openPointsTracker: () =>
         PointsTrackerApp.open({
@@ -60,6 +69,7 @@ Hooks.once("init", () => {
           reputationTracker,
           awarenessTracker,
           chaseTracker,
+          influenceTracker,
         }),
       importResearchTopics: () => ResearchImportExport.promptImport(researchTracker),
       exportResearchTopics: () => ResearchImportExport.exportTopics(researchTracker),
@@ -75,6 +85,7 @@ Hooks.once("ready", async () => {
     await reputationTracker.initialize();
     await awarenessTracker.initialize();
     await chaseTracker.initialize();
+    await influenceTracker.initialize();
   } catch (error) {
     console.error(`${MODULE_ID} | Failed to initialize PF2e Points Tracker.`, error);
     return;
@@ -90,12 +101,14 @@ Hooks.once("ready", async () => {
     reputationTracker,
     awarenessTracker,
     chaseTracker,
+    influenceTracker,
     open: () =>
       PointsTrackerApp.open({
         researchTracker,
         reputationTracker,
         awarenessTracker,
         chaseTracker,
+        influenceTracker,
       }),
     import: () => ResearchImportExport.promptImport(researchTracker),
     export: () => ResearchImportExport.exportTopics(researchTracker),
@@ -118,6 +131,7 @@ Hooks.on("renderTokenHUD", (_app, html) => {
       reputationTracker,
       awarenessTracker,
       chaseTracker,
+      influenceTracker,
     })
   );
   html.find(".col.right").append(button);
@@ -136,6 +150,7 @@ Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
         reputationTracker,
         awarenessTracker,
         chaseTracker,
+        influenceTracker,
       }),
   });
 });
@@ -146,5 +161,6 @@ export function openResearchTracker() {
     reputationTracker,
     awarenessTracker,
     chaseTracker,
+    influenceTracker,
   });
 }

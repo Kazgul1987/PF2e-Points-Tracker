@@ -1,0 +1,240 @@
+{{#if hasTracker}}
+  <div class="influence-tab" data-influence-tab>
+    <header class="influence-tab__header">
+      <h2 class="points-tracker__section-title">
+        {{localize "PF2E.PointsTracker.Influence.PanelTitle"}}
+      </h2>
+      {{#if canCreate}}
+        <button type="button" class="points-tracker__button" data-action="create-influence-npc">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          {{localize "PF2E.PointsTracker.Influence.CreateNpc"}}
+        </button>
+      {{/if}}
+    </header>
+
+    {{#if hasNpcs}}
+      <div class="influence-npc-list">
+        {{#each npcs as |npc|}}
+          <article class="influence-npc" data-npc-id="{{npc.id}}">
+            <header class="influence-npc__header">
+              <div class="influence-npc__title">
+                <h3 class="influence-npc__name">{{npc.name}}</h3>
+                {{#if npc.updatedAtFormatted}}
+                  <p class="influence-npc__updated">
+                    {{localize "PF2E.PointsTracker.Influence.LastUpdated"}} {{npc.updatedAtFormatted}}
+                  </p>
+                {{/if}}
+              </div>
+              <div class="influence-npc__actions">
+                <button type="button" data-action="edit-influence-npc">
+                  <i class="fas fa-edit" aria-hidden="true"></i>
+                  {{localize "PF2E.PointsTracker.Influence.Edit"}}
+                </button>
+                <button type="button" data-action="manage-influence-skills">
+                  <i class="fas fa-list" aria-hidden="true"></i>
+                  {{localize "PF2E.PointsTracker.Influence.ManageSkills"}}
+                </button>
+                <button type="button" data-action="manage-influence-thresholds">
+                  <i class="fas fa-flag" aria-hidden="true"></i>
+                  {{localize "PF2E.PointsTracker.Influence.ManageThresholds"}}
+                </button>
+                <button type="button" class="points-tracker__button--danger" data-action="delete-influence-npc">
+                  <i class="fas fa-trash" aria-hidden="true"></i>
+                  {{localize "PF2E.PointsTracker.Influence.Delete"}}
+                </button>
+              </div>
+            </header>
+
+            <div class="influence-npc__body">
+              <section class="influence-npc__progress" aria-label="{{localize "PF2E.PointsTracker.Influence.Progress"}}">
+                <div class="influence-npc__progress-top">
+                  <span class="influence-npc__value">{{npc.currentInfluence}}</span>
+                  {{#if npc.maxInfluence}}
+                    <span class="influence-npc__max">/ {{npc.maxInfluence}}</span>
+                  {{/if}}
+                </div>
+                <div class="influence-npc__progress-bar" role="progressbar" aria-valuenow="{{npc.progressPercent}}" aria-valuemin="0" aria-valuemax="100">
+                  <div class="influence-npc__progress-fill" style="width: {{npc.progressPercent}}%;"></div>
+                </div>
+                <div class="influence-npc__labels">
+                  <span class="influence-npc__label">{{npc.maxInfluenceLabel}}</span>
+                  <span class="influence-npc__label">{{npc.baseDcLabel}}</span>
+                </div>
+                <div class="influence-npc__buttons">
+                  <button type="button" data-action="adjust-influence" data-delta="-1" {{#unless npc.canDecrease}}disabled{{/unless}}>
+                    -1
+                  </button>
+                  <button type="button" data-action="adjust-influence" data-delta="1" {{#unless npc.canIncrease}}disabled{{/unless}}>
+                    +1
+                  </button>
+                  <button type="button" data-action="adjust-influence" data-delta="2" {{#unless npc.canIncrease}}disabled{{/unless}}>
+                    +2
+                  </button>
+                  <button type="button" data-action="set-influence">
+                    {{localize "PF2E.PointsTracker.Influence.Set"}}
+                  </button>
+                </div>
+              </section>
+
+              {{#if npc.hasSkillDcs}}
+                <section class="influence-npc__skills">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.SkillHeader"}}</h4>
+                  <ul>
+                    {{#each npc.skillDcs as |skill|}}
+                      <li>{{skill.label}}</li>
+                    {{/each}}
+                  </ul>
+                </section>
+              {{/if}}
+
+              {{#if npc.hasThresholds}}
+                <section class="influence-npc__thresholds">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.ThresholdHeader"}}</h4>
+                  <ul>
+                    {{#each npc.thresholds as |threshold|}}
+                      <li class="influence-npc__threshold" data-threshold-id="{{threshold.id}}">
+                        <div class="influence-npc__threshold-info">
+                          <span class="influence-npc__threshold-points">{{threshold.pointsLabel}}</span>
+                          {{#if threshold.isUnlocked}}
+                            <span class="tag tag--success">{{localize "PF2E.PointsTracker.Influence.ThresholdUnlocked"}}</span>
+                          {{else}}
+                            <span class="tag tag--muted">{{localize "PF2E.PointsTracker.Influence.ThresholdLocked"}}</span>
+                          {{/if}}
+                          {{#if threshold.isRevealed}}
+                            <span class="tag tag--primary">{{localize "PF2E.PointsTracker.Influence.ThresholdRevealed"}}</span>
+                          {{else}}
+                            <span class="tag tag--muted">{{localize "PF2E.PointsTracker.Influence.ThresholdHidden"}}</span>
+                          {{/if}}
+                        </div>
+                        {{#if ../../isGM}}
+                          <div class="influence-npc__threshold-actions">
+                            <button type="button" data-action="toggle-influence-threshold">
+                              {{#if threshold.isRevealed}}
+                                {{localize "PF2E.PointsTracker.Influence.HideThreshold"}}
+                              {{else}}
+                                {{localize "PF2E.PointsTracker.Influence.RevealThreshold"}}
+                              {{/if}}
+                            </button>
+                          </div>
+                        {{/if}}
+                        {{#if threshold.gmText}}
+                          <p class="influence-npc__threshold-gm">{{threshold.gmText}}</p>
+                        {{/if}}
+                        {{#if threshold.playerText}}
+                          <p class="influence-npc__threshold-player">{{threshold.playerText}}</p>
+                        {{/if}}
+                      </li>
+                    {{/each}}
+                  </ul>
+                </section>
+              {{/if}}
+
+              {{#if npc.penalty}}
+                <section class="influence-npc__penalty">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>
+                  <div class="influence-npc__penalty-text">{{{npc.penaltyHtml}}}</div>
+                </section>
+              {{/if}}
+
+              {{#if npc.notes}}
+                <section class="influence-npc__notes">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.NotesHeader"}}</h4>
+                  <div class="influence-npc__notes-text">{{{npc.notesHtml}}}</div>
+                </section>
+              {{/if}}
+
+              <div class="influence-npc__log-actions">
+                <button type="button" data-action="add-influence-log-entry">
+                  <i class="fas fa-pen" aria-hidden="true"></i>
+                  {{localize "PF2E.PointsTracker.Influence.AddNpcLog"}}
+                </button>
+              </div>
+
+              {{#if npc.hasLogEntries}}
+                <section class="influence-npc__log">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.NpcLogHeader"}}</h4>
+                  <ul>
+                    {{#each npc.logEntries as |entry|}}
+                      <li class="influence-log__entry" data-log-id="{{entry.id}}" data-npc-id="{{entry.npcId}}">
+                        <span class="influence-log__timestamp">{{entry.timestampFormatted}}</span>
+                        <span class="influence-log__delta">{{entry.deltaLabel}}</span>
+                        {{#if entry.reason}}
+                          <span class="influence-log__reason">{{entry.reason}}</span>
+                        {{/if}}
+                        {{#if entry.note}}
+                          <span class="influence-log__note">{{entry.note}}</span>
+                        {{/if}}
+                        {{#if entry.totalLabel}}
+                          <span class="influence-log__total">{{entry.totalLabel}}</span>
+                        {{/if}}
+                        {{#if entry.userName}}
+                          <span class="influence-log__user">{{entry.userName}}</span>
+                        {{/if}}
+                        <div class="influence-log__actions">
+                          <button type="button" data-action="edit-influence-log-entry">
+                            {{localize "PF2E.PointsTracker.Influence.Edit"}}
+                          </button>
+                          <button type="button" data-action="delete-influence-log-entry">
+                            {{localize "PF2E.PointsTracker.Influence.Delete"}}
+                          </button>
+                        </div>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </section>
+              {{/if}}
+            </div>
+          </article>
+        {{/each}}
+      </div>
+    {{else}}
+      <p class="influence-tab__empty">{{localize "PF2E.PointsTracker.Influence.NoNpcs"}}</p>
+    {{/if}}
+
+    <section class="influence-tab__log" data-influence-log>
+      <header class="influence-tab__log-header">
+        <h3>{{localize "PF2E.PointsTracker.Influence.SessionLog"}}</h3>
+        <button type="button" data-action="add-influence-log-entry">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          {{localize "PF2E.PointsTracker.Influence.AddLogEntry"}}
+        </button>
+      </header>
+      {{#if hasLog}}
+        <ul class="influence-log__list">
+          {{#each log as |entry|}}
+            <li class="influence-log__entry" data-log-id="{{entry.id}}" data-npc-id="{{entry.npcId}}">
+              <span class="influence-log__timestamp">{{entry.timestampFormatted}}</span>
+              <span class="influence-log__npc">{{entry.npcName}}</span>
+              <span class="influence-log__delta">{{entry.deltaLabel}}</span>
+              <span class="influence-log__type">{{entry.typeLabel}}</span>
+              {{#if entry.reason}}
+                <span class="influence-log__reason">{{entry.reason}}</span>
+              {{/if}}
+              {{#if entry.note}}
+                <span class="influence-log__note">{{entry.note}}</span>
+              {{/if}}
+              {{#if entry.totalLabel}}
+                <span class="influence-log__total">{{entry.totalLabel}}</span>
+              {{/if}}
+              {{#if entry.userName}}
+                <span class="influence-log__user">{{entry.userName}}</span>
+              {{/if}}
+              <div class="influence-log__actions">
+                <button type="button" data-action="edit-influence-log-entry">
+                  {{localize "PF2E.PointsTracker.Influence.Edit"}}
+                </button>
+                <button type="button" data-action="delete-influence-log-entry">
+                  {{localize "PF2E.PointsTracker.Influence.Delete"}}
+                </button>
+              </div>
+            </li>
+          {{/each}}
+        </ul>
+      {{else}}
+        <p class="influence-log__empty">{{localize "PF2E.PointsTracker.Influence.NoLogEntries"}}</p>
+      {{/if}}
+    </section>
+  </div>
+{{else}}
+  <p class="influence-tab__disabled">{{localize "PF2E.PointsTracker.Influence.Disabled"}}</p>
+{{/if}}
