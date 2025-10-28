@@ -1,5 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
+export const RESEARCH_UPDATE_HOOK = "pf2ePointsTrackerResearchUpdated";
+
 const DEFAULT_STATE = {
   topics: [],
   log: [],
@@ -245,6 +247,9 @@ export class ResearchTracker {
       config: false,
       type: Object,
       default: duplicateData(DEFAULT_STATE),
+      onChange: (value) => {
+        this._applyState(value);
+      },
     });
   }
 
@@ -257,14 +262,32 @@ export class ResearchTracker {
     const stored = duplicateData(
       game.settings.get(this.moduleId, this.settingKey) ?? DEFAULT_STATE
     );
-    const topics = Array.isArray(stored.topics) ? stored.topics : [];
-    this.topics = new Collection(
-      topics.map((topic) => [topic.id, this._normalizeTopic(topic)])
-    );
-    this.log = Array.isArray(stored.log) ? stored.log : [];
+    this._applyState(stored);
     this._initialized = true;
 
     await this._runMigrations(stored);
+  }
+
+  /**
+   * Apply state data to the in-memory cache.
+   * @param {object} rawState
+   */
+  _applyState(rawState) {
+    const state = duplicateData(rawState ?? DEFAULT_STATE);
+    const topicsSource = Array.isArray(state.topics) ? state.topics : [];
+    const normalizedTopics = topicsSource.map((topic) => this._normalizeTopic(topic));
+    this.topics = new Collection(
+      normalizedTopics.map((topic) => [topic.id, topic])
+    );
+    this.log = Array.isArray(state.log)
+      ? state.log.map((entry) => ({ ...entry }))
+      : [];
+
+    Hooks?.callAll?.(RESEARCH_UPDATE_HOOK, {
+      tracker: this,
+      topics: this.getTopics(),
+      log: this.getLog(),
+    });
   }
 
   /**
