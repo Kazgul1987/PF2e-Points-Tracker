@@ -383,6 +383,14 @@ class BaseResearchTrackerApp extends FormApplication {
       .off("click")
       .on("click", (event) => this._onPostLocationCheck(event));
     html
+      .find("[data-action='select-topic-portrait']")
+      .off("click")
+      .on("click", (event) => this._onSelectTopicPortrait(event));
+    html
+      .find("[data-action='clear-topic-portrait']")
+      .off("click")
+      .on("click", (event) => this._onClearTopicPortrait(event));
+    html
       .find("[data-action='reveal-location']")
       .off("click")
       .on("click", (event) => this._onRevealLocation(event, false));
@@ -391,6 +399,7 @@ class BaseResearchTrackerApp extends FormApplication {
       .off("click")
       .on("click", (event) => this._onRevealLocation(event, true));
 
+    this._bindTopicPortraitDropzones(html);
     this._setupAssignmentDragAndDrop(html);
     html
       .find("[data-action='remove-assigned-actor']")
@@ -1740,6 +1749,398 @@ class BaseResearchTrackerApp extends FormApplication {
       }
     }
     this._dragDropHandlers = [];
+  }
+
+  _bindTopicPortraitDropzones(html) {
+    const root = html?.[0] ?? html;
+    if (!root || !game.user?.isGM) return;
+    const zones = root.querySelectorAll?.("[data-topic-portrait]");
+    if (!zones?.length) return;
+
+    zones.forEach((zone) => {
+      if (!(zone instanceof HTMLElement)) return;
+      const isInteractive = zone.dataset.dropzone === "topic-portrait";
+      if (isInteractive) {
+        zone.addEventListener("dragenter", (event) => {
+          event.preventDefault();
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "copy";
+          }
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragleave", (event) => {
+          const related = event.relatedTarget;
+          if (!zone.contains(related)) {
+            this._setDropzoneState(zone, false);
+          }
+        });
+        zone.addEventListener("drop", (event) => {
+          this._setDropzoneState(zone, false);
+          this._onDropTopicPortrait(event);
+        });
+        zone.addEventListener("keydown", (event) => {
+          if (event.defaultPrevented) return;
+          const key = event.key;
+          if (key !== "Enter" && key !== " ") return;
+          event.preventDefault();
+          this._onSelectTopicPortrait(event);
+        });
+      }
+    });
+  }
+
+  async _onDropTopicPortrait(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM) return;
+
+    const zone = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event.target instanceof HTMLElement
+      ? event.target.closest?.("[data-topic-portrait]")
+      : null;
+    if (!zone) return;
+
+    const topicId = zone.closest("[data-topic-id]")?.dataset.topicId;
+    if (!topicId) return;
+
+    const dataTransfer = event?.dataTransfer ?? event?.originalEvent?.dataTransfer;
+    let dropPayload = null;
+
+    const parsePayload = (raw) => {
+      if (!raw) return null;
+      if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+          try {
+            return JSON.parse(trimmed);
+          } catch (error) {
+            console.error(error);
+          }
+        }
+        return trimmed;
+      }
+      if (typeof raw === "object") return raw;
+      return null;
+    };
+
+    if (dataTransfer) {
+      const types = Array.from(dataTransfer.types ?? []);
+      const orderedTypes = ["text/plain", "text/json", "application/json"];
+      for (const type of orderedTypes) {
+        if (!types.includes(type)) continue;
+        try {
+          const raw = dataTransfer.getData(type);
+          const parsed = parsePayload(raw);
+          if (parsed) {
+            dropPayload = parsed;
+            break;
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      if (!dropPayload && types.includes("text/uri-list")) {
+        try {
+          const raw = dataTransfer.getData("text/uri-list");
+          const firstLine = typeof raw === "string" ? raw.split(/\r?\n/)[0] : raw;
+          const parsed = parsePayload(firstLine);
+          if (parsed) dropPayload = parsed;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+
+    if (!dropPayload && dataTransfer?.files?.length) {
+      const file = dataTransfer.files[0];
+      const path = file?.path ?? file?.name;
+      if (path) dropPayload = path;
+    }
+
+    const portrait = await this._resolveTopicPortrait(dropPayload);
+    if (!portrait || !portrait.img) return;
+
+    await this._setTopicPortrait(topicId, portrait);
+  }
+
+  async _resolveTopicPortrait(payload) {
+    const trim = (value) => (typeof value === "string" ? value.trim() : "");
+
+    if (!payload) return null;
+    if (typeof payload === "string") {
+      const trimmed = trim(payload);
+      if (!trimmed) return null;
+      return { img: trimmed, imageUuid: "" };
+    }
+
+    const images = [];
+    const uuids = [];
+    const seen = new WeakSet();
+
+    const pushImage = (value, { priority = false } = {}) => {
+      const trimmed = trim(value);
+      if (!trimmed) return;
+      if (images.includes(trimmed)) return;
+      if (priority) images.unshift(trimmed);
+      else images.push(trimmed);
+    };
+
+    const pushUuid = (value) => {
+      const trimmed = trim(value);
+      if (!trimmed) return;
+      if (uuids.includes(trimmed)) return;
+      uuids.push(trimmed);
+    };
+
+    const collect = (source, { priority = false } = {}) => {
+      if (!source || typeof source !== "object") return;
+      if (seen.has(source)) return;
+      seen.add(source);
+
+      const imageKeys = ["img", "image", "imgPath", "path", "icon", "portrait", "thumbnail", "imgSrc"];
+      for (const key of imageKeys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          pushImage(source[key], { priority });
+        }
+      }
+
+      const textures = [source.texture, source.imgTexture, source.imageTexture];
+      for (const texture of textures) {
+        if (!texture) continue;
+        if (typeof texture === "string") {
+          pushImage(texture, { priority });
+        } else if (typeof texture === "object") {
+          pushImage(texture.src, { priority });
+        }
+      }
+
+      if (Array.isArray(source.images)) {
+        for (const entry of source.images) {
+          pushImage(entry, { priority });
+        }
+      }
+
+      const uuidKeys = [
+        "uuid",
+        "actorUuid",
+        "tokenUuid",
+        "itemUuid",
+        "imageUuid",
+        "documentUuid",
+        "actorId",
+        "tokenId",
+        "itemId",
+        "id",
+      ];
+      for (const key of uuidKeys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          pushUuid(source[key]);
+        }
+      }
+
+      if (typeof source.collection === "string" && typeof source.id === "string") {
+        pushUuid(`${source.collection}.${source.id}`);
+      }
+      if (typeof source.collection === "string" && typeof source.documentId === "string") {
+        pushUuid(`${source.collection}.${source.documentId}`);
+      }
+      if (typeof source.pack === "string" && typeof source.id === "string") {
+        pushUuid(`${source.pack}.${source.collection ?? source.type ?? ""}.${source.id}`);
+      }
+
+      const coreSourceId = source?.flags?.core?.sourceId ?? source?.flags?.core?.sourceID;
+      pushUuid(coreSourceId);
+
+      if (source.data && typeof source.data === "object" && source.data !== source) {
+        collect(source.data, { priority });
+      }
+      if (source.actor && typeof source.actor === "object") {
+        collect(source.actor, { priority });
+      }
+      if (source.prototypeToken && typeof source.prototypeToken === "object") {
+        collect(source.prototypeToken, { priority });
+      }
+      if (source.token && typeof source.token === "object") {
+        collect(source.token, { priority });
+      }
+    };
+
+    collect(payload);
+    if (payload.document && typeof payload.document === "object") {
+      collect(payload.document, { priority: true });
+    }
+
+    let resolvedUuid = "";
+    let document = null;
+    const fromUuidFunc = typeof fromUuid === "function" ? fromUuid : null;
+    if (fromUuidFunc) {
+      for (const candidate of uuids) {
+        try {
+          const fetched = await fromUuidFunc(candidate);
+          if (fetched) {
+            document = fetched;
+            resolvedUuid = fetched.uuid ?? candidate;
+            break;
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+
+    const tryLocalCollection = (candidate) => {
+      const trimmed = trim(candidate);
+      if (!trimmed) return null;
+      if (trimmed.startsWith("Actor.")) {
+        const id = trimmed.split(".")[1] ?? trimmed;
+        const actor = game.actors?.get?.(id);
+        if (actor) return actor;
+      }
+      if (trimmed.startsWith("Item.")) {
+        const id = trimmed.split(".")[1] ?? trimmed;
+        const item = game.items?.get?.(id);
+        if (item) return item;
+      }
+      const collectionId = trimmed.split(".")[0];
+      const documentId = trimmed.substring(collectionId.length + 1);
+      const collection = game.collections?.get?.(collectionId);
+      if (collection?.get && documentId) {
+        try {
+          return collection.get(documentId);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      return null;
+    };
+
+    if (!document) {
+      for (const candidate of uuids) {
+        const local = tryLocalCollection(candidate);
+        if (local) {
+          document = local;
+          resolvedUuid = local.uuid ?? candidate;
+          break;
+        }
+      }
+    }
+
+    if (document) {
+      collect(document, { priority: true });
+      const texture = document.texture ?? document.imgTexture ?? document.prototypeToken?.texture;
+      if (texture) collect(texture, { priority: true });
+      if (document.actor) collect(document.actor, { priority: true });
+    }
+
+    const img = images.find((entry) => entry);
+    if (!img) return null;
+
+    const imageUuid = resolvedUuid || uuids.find((entry) => entry && entry.includes(".")) || "";
+    return { img, imageUuid };
+  }
+
+  async _onSelectTopicPortrait(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM) return;
+
+    const element = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event.target instanceof HTMLElement
+      ? event.target.closest?.("[data-topic-portrait]")
+      : null;
+    if (!element) return;
+
+    const topicId = element.closest("[data-topic-id]")?.dataset.topicId;
+    if (!topicId) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    const current = topic?.img ?? "";
+
+    if (typeof FilePicker?.pick === "function") {
+      try {
+        const result = await FilePicker.pick({ type: "image", current: current || undefined });
+        const path = typeof result === "string" ? result : typeof result?.path === "string" ? result.path : "";
+        if (path) {
+          await this._setTopicPortrait(topicId, { img: path, imageUuid: "" });
+        }
+        return;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    let browseTarget = current ?? "";
+    if (typeof FilePicker?.browse === "function") {
+      try {
+        const response = await FilePicker.browse("image", browseTarget || "", { wildcard: true });
+        if (response?.target) {
+          browseTarget = response.target;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    try {
+      const picker = new FilePicker({
+        type: "image",
+        current: browseTarget || current || undefined,
+        callback: async (path) => {
+          if (!path) return;
+          await this._setTopicPortrait(topicId, { img: path, imageUuid: "" });
+        },
+      });
+      if (typeof picker.render === "function") {
+        picker.render(true);
+      } else if (typeof picker.browse === "function") {
+        picker.browse();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async _onClearTopicPortrait(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!game.user?.isGM) return;
+
+    const button = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!button) return;
+
+    const topicId = button.closest("[data-topic-id]")?.dataset.topicId;
+    if (!topicId) return;
+
+    await this._setTopicPortrait(topicId, null);
+  }
+
+  async _setTopicPortrait(topicId, portrait) {
+    if (!topicId) return;
+
+    const topic = this.tracker.getTopic(topicId);
+    if (!topic) return;
+
+    const img = typeof portrait?.img === "string" ? portrait.img.trim() : "";
+    const imageUuid = typeof portrait?.imageUuid === "string" ? portrait.imageUuid.trim() : "";
+
+    if ((topic.img ?? "") === img && (topic.imageUuid ?? "") === imageUuid) return;
+
+    const update = {
+      img,
+      imageUuid,
+    };
+
+    await this.tracker.updateTopic(topicId, update);
+    this.render(false);
   }
 
   _setupAssignmentDragAndDrop(html) {

@@ -333,6 +333,16 @@ function sanitizeTopic(topic) {
     : undefined;
 
   const summary = sanitizeString(topic.summary ?? statblockSource?.summary);
+  const portrait = sanitizeString(
+    topic.img ?? topic.image ?? topic.portrait ?? statblockSource?.img ?? statblockSource?.image
+  );
+  const portraitUuid = sanitizeString(
+    topic.imageUuid ??
+      topic.imageUUID ??
+      topic.imgUuid ??
+      topic.portraitUuid ??
+      (typeof statblockSource?.imageUuid === "string" ? statblockSource.imageUuid : undefined)
+  );
   const rawLevelSource = (() => {
     if (topic.level !== undefined && topic.level !== null) {
       const stringValue = `${topic.level}`.trim();
@@ -420,6 +430,8 @@ function sanitizeTopic(topic) {
     progress: Number.isFinite(topic.progress) ? Number(topic.progress) : 0,
     target: Number.isFinite(topic.target) ? Number(topic.target) : 0,
     ...(level !== undefined ? { level } : {}),
+    ...(portrait !== undefined ? { img: portrait } : {}),
+    ...(portraitUuid !== undefined ? { imageUuid: portraitUuid } : {}),
     ...(summary !== undefined ? { summary } : {}),
     thresholds,
     revealedThresholdIds: revealed,
@@ -470,6 +482,8 @@ async function mergeTopic(tracker, topicData) {
     progress: topicData.progress,
     target: topicData.target,
     level: topicData.level,
+    img: topicData.img,
+    imageUuid: topicData.imageUuid,
     summary: topicData.summary,
     thresholds: topicData.thresholds,
     locations: topicData.locations,
@@ -497,6 +511,8 @@ function buildExportPayload(tracker) {
     const { progressPercent, ...rest } = topic;
 
     const summary = sanitizeString(rest.summary ?? "") ?? "";
+    const portrait = sanitizeString(rest.img);
+    const portraitUuid = sanitizeString(rest.imageUuid);
 
     const thresholds = (rest.thresholds ?? [])
       .map((threshold) => sanitizeThreshold(threshold))
@@ -555,6 +571,8 @@ function buildExportPayload(tracker) {
 
     return {
       ...rest,
+      ...(portrait !== undefined ? { img: portrait } : {}),
+      ...(portraitUuid !== undefined ? { imageUuid: portraitUuid } : {}),
       summary,
       thresholds,
       locations,
