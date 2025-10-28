@@ -199,6 +199,8 @@ function sanitizeCheckArray(raw, { fallbackSkill, fallbackDc, allowFallback = tr
  * @property {number} progress
  * @property {number} target
  * @property {number|null} [level]
+ * @property {string} [img]
+ * @property {string} [imageUuid]
  * @property {string} [summary]
  * @property {ResearchLocation[]} locations
  * @property {ResearchRevealThreshold[]} thresholds
@@ -433,6 +435,15 @@ export class ResearchTracker {
       progress: Number.isFinite(data.progress) ? Number(data.progress) : 0,
       target: Number.isFinite(data.target) ? Number(data.target) : 10,
       level: data.level,
+      img: typeof data.img === "string" ? data.img : data.image ?? "",
+      imageUuid:
+        typeof data.imageUuid === "string"
+          ? data.imageUuid
+          : typeof data.imgUuid === "string"
+          ? data.imgUuid
+          : typeof data.imageUUID === "string"
+          ? data.imageUUID
+          : "",
       summary: data.summary ?? "",
       thresholds: Array.isArray(data.thresholds) ? data.thresholds : [],
       locations: Array.isArray(data.locations) ? data.locations : [],
@@ -1103,12 +1114,30 @@ export class ResearchTracker {
     const percent = target > 0 ? Math.min((progress / target) * 100, 100) : 0;
     const numericLevel = Number(topic.level);
     const level = Number.isFinite(numericLevel) ? Number(numericLevel) : null;
+    const rawImg = (() => {
+      if (typeof topic?.img === "string") return topic.img;
+      if (typeof topic?.image === "string") return topic.image;
+      if (typeof topic?.portrait === "string") return topic.portrait;
+      if (typeof topic?.thumbnail === "string") return topic.thumbnail;
+      return "";
+    })();
+    const trimmedImg = typeof rawImg === "string" ? rawImg.trim() : "";
+    const rawImageUuid = (() => {
+      if (typeof topic?.imageUuid === "string") return topic.imageUuid;
+      if (typeof topic?.imageUUID === "string") return topic.imageUUID;
+      if (typeof topic?.imgUuid === "string") return topic.imgUuid;
+      if (typeof topic?.portraitUuid === "string") return topic.portraitUuid;
+      return "";
+    })();
+    const trimmedImageUuid = typeof rawImageUuid === "string" ? rawImageUuid.trim() : "";
     return {
       id: String(topic.id ?? createId()),
       name,
       progress,
       target,
       level,
+      img: trimmedImg,
+      imageUuid: trimmedImageUuid,
       summary: topic.summary ?? "",
       locations,
       thresholds,

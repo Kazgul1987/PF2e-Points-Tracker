@@ -47,6 +47,40 @@
                 </div>
               </div>
             </div>
+            <div
+              class="research-topic__portrait{{#unless topic.img}} is-empty{{/unless}}{{#unless ../isGM}} is-readonly{{/unless}}"
+              data-topic-portrait
+              {{#if ../isGM}}
+                role="button"
+                tabindex="0"
+                data-dropzone="topic-portrait"
+                data-action="select-topic-portrait"
+                aria-label="{{localize 'PF2E.PointsTracker.Research.TopicPortraitBrowse'}}"
+                title="{{localize 'PF2E.PointsTracker.Research.TopicPortraitBrowse'}}"
+              {{/if}}
+            >
+              {{#if topic.img}}
+                <img
+                  src="{{topic.img}}"
+                  alt="{{localize 'PF2E.PointsTracker.Research.TopicPortraitAlt' name=topic.name}}"
+                />
+                {{#if ../isGM}}
+                  <button
+                    type="button"
+                    class="research-topic__portrait-clear"
+                    data-action="clear-topic-portrait"
+                    title="{{localize 'PF2E.PointsTracker.Research.TopicPortraitClear'}}"
+                    aria-label="{{localize 'PF2E.PointsTracker.Research.TopicPortraitClear'}}"
+                  >
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                  </button>
+                {{/if}}
+              {{else if ../isGM}}
+                <span class="research-topic__portrait-hint">
+                  {{localize "PF2E.PointsTracker.Research.TopicPortraitHint"}}
+                </span>
+              {{/if}}
+            </div>
             {{#if ../isGM}}
               <div class="research-topic__controls">
                 <button type="button" data-action="add-points">
