@@ -2627,6 +2627,61 @@ class BaseResearchTrackerApp extends FormApplication {
         ? CONFIG.PF2E.skills
         : null;
 
+    const skillDatalistId = (() => {
+      const baseId = "research-location-skill-list";
+      const randomId =
+        typeof foundry?.utils?.randomID === "function"
+          ? foundry.utils.randomID()
+          : Math.random().toString(36).slice(2);
+      return `${baseId}-${randomId}`;
+    })();
+
+    const skillDatalist = document.createElement("datalist");
+    skillDatalist.id = skillDatalistId;
+
+    const getSkillLabel = (skillKey, skillData) => {
+      let label = "";
+      if (skillData && typeof skillData === "object") {
+        if (typeof skillData.label === "string" && skillData.label.trim()) {
+          label = skillData.label.trim();
+        } else if (typeof skillData.value === "string" && skillData.value.trim()) {
+          label = skillData.value.trim();
+        }
+      } else if (typeof skillData === "string" && skillData.trim()) {
+        label = skillData.trim();
+      }
+
+      if (!label) {
+        label = skillKey;
+      }
+
+      const i18n = game?.i18n;
+      if (i18n && typeof label === "string" && label.trim()) {
+        try {
+          if (typeof i18n.has === "function" && i18n.has(label)) {
+            return i18n.localize(label);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      return label;
+    };
+
+    if (pf2eSkills) {
+      for (const [skillKey, skillName] of Object.entries(pf2eSkills)) {
+        const option = document.createElement("option");
+        option.value = skillKey;
+        const label = getSkillLabel(skillKey, skillName);
+        if (label !== skillKey) {
+          option.label = label;
+          option.textContent = label;
+        }
+        skillDatalist.appendChild(option);
+      }
+    }
+
     const createInput = (type, value) => {
       const input = document.createElement("input");
       input.type = type;
@@ -2645,66 +2700,14 @@ class BaseResearchTrackerApp extends FormApplication {
       row.classList.add("research-location-check-editor__row");
       row.dataset.checkEntry = "true";
 
-      let skillInput;
-      if (pf2eSkills) {
-        skillInput = document.createElement("select");
-        skillInput.dataset.checkField = "skill";
-        const emptyOption = document.createElement("option");
-        emptyOption.value = "";
-        emptyOption.textContent = skillLabel;
-        skillInput.appendChild(emptyOption);
-        const getSkillLabel = (skillKey, skillData) => {
-          let label = "";
-          if (skillData && typeof skillData === "object") {
-            if (typeof skillData.label === "string" && skillData.label.trim()) {
-              label = skillData.label.trim();
-            } else if (typeof skillData.value === "string" && skillData.value.trim()) {
-              label = skillData.value.trim();
-            }
-          } else if (typeof skillData === "string" && skillData.trim()) {
-            label = skillData.trim();
-          }
-
-          if (!label) {
-            label = skillKey;
-          }
-
-          const i18n = game?.i18n;
-          if (i18n && typeof label === "string" && label.trim()) {
-            try {
-              if (typeof i18n.has === "function" && i18n.has(label)) {
-                return i18n.localize(label);
-              }
-            } catch (error) {
-              console.error(error);
-            }
-          }
-
-          return label;
-        };
-
-        for (const [skillKey, skillName] of Object.entries(pf2eSkills)) {
-          const option = document.createElement("option");
-          option.value = skillKey;
-          option.textContent = getSkillLabel(skillKey, skillName);
-          skillInput.appendChild(option);
-        }
-        const selectedValue = values?.skill ?? "";
-        if (selectedValue) {
-          skillInput.value = selectedValue;
-          if (skillInput.value !== selectedValue) {
-            const customOption = document.createElement("option");
-            customOption.value = selectedValue;
-            customOption.textContent = selectedValue;
-            skillInput.appendChild(customOption);
-            skillInput.value = selectedValue;
-          }
-        }
-      } else {
-        skillInput = createInput("text", values?.skill ?? "");
-        skillInput.dataset.checkField = "skill";
-        skillInput.placeholder = skillLabel;
+      if (!skillDatalist.isConnected) {
+        container.appendChild(skillDatalist);
       }
+
+      const skillInput = createInput("text", values?.skill ?? "");
+      skillInput.dataset.checkField = "skill";
+      skillInput.placeholder = skillLabel;
+      skillInput.setAttribute("list", skillDatalistId);
 
       const dcValue = values?.dc ?? "";
       const dcInput = createInput("number", dcValue ?? "");
