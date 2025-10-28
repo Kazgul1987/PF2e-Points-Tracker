@@ -60,22 +60,22 @@
 .research-topic__header {
   display: flex;
   justify-content: space-between;
-  gap: 0.75rem;
-  align-items: center;
+  gap: 1rem;
+  align-items: flex-start;
 }
 
 .research-topic__heading {
   display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.75rem;
   flex: 1;
 }
 
 .research-topic__portrait {
   position: relative;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 8px;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.05);
   display: inline-flex;
