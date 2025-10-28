@@ -74,7 +74,23 @@
 
           <div class="research-topic__progress">
             <div class="research-topic__progress-track">
-              <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
+              <div class="research-topic__progress-track-bar">
+                <div class="research-topic__progress-bar" style="width: {{topic.progressPercent}}%"></div>
+              </div>
+              {{#if topic.thresholds.length}}
+                <div class="research-topic__progress-markers">
+                  {{#each topic.thresholds as |threshold|}}
+                    <span
+                      class="research-topic__progress-marker{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}"
+                      style="left: {{threshold.markerPercent}}%"
+                      title="{{localize 'PF2E.PointsTracker.Research.ThresholdPoints' points=threshold.points}}"
+                      aria-label="{{localize 'PF2E.PointsTracker.Research.ThresholdPoints' points=threshold.points}}"
+                      role="img"
+                      tabindex="0"
+                    ></span>
+                  {{/each}}
+                </div>
+              {{/if}}
             </div>
             <div class="research-topic__progress-label">
               {{#if ../isGM}}

@@ -88,13 +88,40 @@ class BaseResearchTrackerApp extends FormApplication {
       }
     }
     for (const topic of topics) {
-      const thresholds = (topic.thresholds ?? []).map((threshold) => ({
-        ...threshold,
-        isUnlocked: topic.progress >= threshold.points,
-        isRevealed: Array.isArray(topic.revealedThresholdIds)
+      const rawThresholds = Array.isArray(topic.thresholds)
+        ? topic.thresholds
+        : [];
+      const highestThresholdPoints = rawThresholds.reduce(
+        (max, threshold) =>
+          Math.max(max, Number.isFinite(threshold?.points) ? Number(threshold.points) : 0),
+        0
+      );
+      const topicProgress = Number.isFinite(topic.progress) ? Number(topic.progress) : 0;
+      const topicTarget = Number.isFinite(topic.target) ? Number(topic.target) : 0;
+      const markerReference = topicTarget > 0
+        ? topicTarget
+        : Math.max(highestThresholdPoints, topicProgress);
+      const thresholds = rawThresholds.map((threshold) => {
+        const points = Number.isFinite(threshold?.points) ? Number(threshold.points) : 0;
+        const isUnlocked = topicProgress >= points;
+        const isRevealed = Array.isArray(topic.revealedThresholdIds)
           ? topic.revealedThresholdIds.includes(threshold.id)
-          : Boolean(threshold.revealedAt),
-      }));
+          : Boolean(threshold.revealedAt);
+        const markerPercentRaw = markerReference > 0 ? (points / markerReference) * 100 : 0;
+        const markerPercent = markerReference > 0
+          ? Math.max(
+              0,
+              Math.min(100, Math.round((markerPercentRaw + Number.EPSILON) * 100) / 100)
+            )
+          : 0;
+        return {
+          ...threshold,
+          points,
+          isUnlocked,
+          isRevealed,
+          markerPercent,
+        };
+      });
 
       const normalizedLocations = (topic.locations ?? []).map((location) => {
         const revealedAt =
