@@ -2929,6 +2929,9 @@ class BaseResearchTrackerApp extends FormApplication {
   _getChaseActors() {
     const lookup = new Map();
 
+    const partyActors = this._getPartyActors();
+    const allowedActorIds = new Set();
+
     const ensureUuid = (actor) => {
       if (!actor) return "";
       if (typeof actor.uuid === "string" && actor.uuid) return actor.uuid;
@@ -2936,6 +2939,22 @@ class BaseResearchTrackerApp extends FormApplication {
       if (typeof actor._id === "string" && actor._id) return `Actor.${actor._id}`;
       return "";
     };
+
+    const registerAllowedActor = (actor) => {
+      if (!actor) return;
+      const uuid = ensureUuid(actor);
+      if (uuid) allowedActorIds.add(uuid);
+      const id = typeof actor.id === "string" && actor.id ? actor.id : null;
+      if (id) allowedActorIds.add(id);
+      const legacyId = typeof actor._id === "string" && actor._id ? actor._id : null;
+      if (legacyId) allowedActorIds.add(legacyId);
+      const actorUuid = typeof actor.uuid === "string" && actor.uuid ? actor.uuid : null;
+      if (actorUuid) allowedActorIds.add(actorUuid);
+    };
+
+    for (const actor of partyActors) {
+      registerAllowedActor(actor);
+    }
 
     const getTokenData = (token) => {
       if (!token) return { tokenUuid: "", tokenImg: "" };
@@ -2988,9 +3007,19 @@ class BaseResearchTrackerApp extends FormApplication {
       }
     };
 
-    for (const actor of this._getPartyActors()) {
+    for (const actor of partyActors) {
       addActor(actor);
     }
+
+    const isActorAllowed = (actor) => {
+      if (!actor) return false;
+      const uuid = ensureUuid(actor);
+      if (uuid && allowedActorIds.has(uuid)) return true;
+      if (typeof actor.uuid === "string" && allowedActorIds.has(actor.uuid)) return true;
+      if (typeof actor.id === "string" && allowedActorIds.has(actor.id)) return true;
+      if (typeof actor._id === "string" && allowedActorIds.has(actor._id)) return true;
+      return false;
+    };
 
     const collectFromScene = (scene) => {
       if (!scene) return;
@@ -2999,6 +3028,7 @@ class BaseResearchTrackerApp extends FormApplication {
         : scene.tokens?.contents ?? [];
       for (const token of tokens) {
         const actor = token?.actor ?? (typeof token.getActor === "function" ? token.getActor() : null);
+        if (!isActorAllowed(actor)) continue;
         addActor(actor, token);
       }
     };
