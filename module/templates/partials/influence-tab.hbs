@@ -241,6 +241,27 @@
                 </section>
               {{/if}}
 
+              {{#if npc.hasBackground}}
+                <section class="influence-npc__background">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.BackgroundHeader"}}</h4>
+                  <div class="influence-npc__background-text">{{{npc.backgroundHtml}}}</div>
+                </section>
+              {{/if}}
+
+              {{#if npc.hasAppearance}}
+                <section class="influence-npc__appearance">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.AppearanceHeader"}}</h4>
+                  <div class="influence-npc__appearance-text">{{{npc.appearanceHtml}}}</div>
+                </section>
+              {{/if}}
+
+              {{#if npc.hasPersonality}}
+                <section class="influence-npc__personality">
+                  <h4>{{localize "PF2E.PointsTracker.Influence.PersonalityHeader"}}</h4>
+                  <div class="influence-npc__personality-text">{{{npc.personalityHtml}}}</div>
+                </section>
+              {{/if}}
+
               {{#if npc.hasDiscoveryChecks}}
                 <section class="influence-npc__discovery">
                   <h4>{{localize "PF2E.PointsTracker.Influence.DiscoveryChecksHeader"}}</h4>
