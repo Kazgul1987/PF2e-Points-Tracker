@@ -263,6 +263,7 @@ function normalizeNpc(data = {}) {
       biography?.personality
     ),
     isCollapsed: Boolean(data.isCollapsed),
+    isLogCollapsed: Boolean(data.isLogCollapsed),
     createdAt: Number.isFinite(Number(data.createdAt)) ? Number(data.createdAt) : Date.now(),
     updatedAt: Number.isFinite(Number(data.updatedAt)) ? Number(data.updatedAt) : Date.now(),
   };

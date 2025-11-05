@@ -3570,6 +3570,10 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     this._activeTab = renderOptions?.activeTab ?? "research";
     this.options.activeTab = this._activeTab;
     this._initializedTabs = new Set();
+    this._collapsedInfluenceLogs = {
+      session: false,
+      npcs: new Map(),
+    };
   }
 
   static get defaultOptions() {
@@ -4383,6 +4387,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
   }
 
   async _prepareInfluenceData({ isGM }) {
+    this._ensureInfluenceLogState();
     if (!this.influenceTracker) {
       return {
         isGM,
@@ -4395,6 +4400,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     const npcsRaw = this.influenceTracker.getNpcs();
     const npcLookup = new Map();
+    const seenNpcIds = new Set();
     const slugifySkill = (value) => {
       if (!value) return "";
       if (foundry?.utils?.slugify) {
@@ -4446,6 +4452,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const npcs = [];
     for (const npc of npcsRaw) {
       npcLookup.set(npc.id, npc);
+      if (npc?.id) {
+        seenNpcIds.add(npc.id);
+      }
       const rawThresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
       const highestThresholdPoints = rawThresholds.reduce(
         (max, threshold) =>
@@ -4569,6 +4578,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           userName: entry.userName ?? "",
         }));
 
+      const isLogCollapsed = Boolean(npc.isLogCollapsed);
+      if (npc.id) {
+        this._collapsedInfluenceLogs.npcs.set(npc.id, isLogCollapsed);
+      }
+
       const npcData = {
         id: npc.id,
         name: npc.name,
@@ -4621,8 +4635,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         canIncrease: maxInfluence === 0 || currentInfluence < maxInfluence,
         canDecrease: currentInfluence > 0,
         isCollapsed,
+        isLogCollapsed,
       };
       npcs.push(npcData);
+    }
+
+    for (const storedId of Array.from(this._collapsedInfluenceLogs.npcs.keys())) {
+      if (!seenNpcIds.has(storedId)) {
+        this._collapsedInfluenceLogs.npcs.delete(storedId);
+      }
     }
 
     const logEntries = this.influenceTracker
@@ -4656,6 +4677,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         };
       });
 
+    const isSessionLogCollapsed = Boolean(this._collapsedInfluenceLogs.session);
+
     return {
       isGM,
       hasTracker: true,
@@ -4664,6 +4687,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       hasNpcs: npcs.length > 0,
       canCreate: isGM,
       hasLog: logEntries.length > 0,
+      isSessionLogCollapsed,
     };
   }
 
@@ -4685,6 +4709,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='toggle-influence-npc']")
       .off("click")
       .on("click", (event) => this._onToggleInfluenceNpc(event));
+
+    panel
+      .find("[data-action='toggle-influence-npc-log']")
+      .off("click")
+      .on("click", (event) => this._onToggleInfluenceNpcLog(event));
 
     panel
       .find("[data-action='edit-influence-npc']")
@@ -4745,6 +4774,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='add-influence-log-entry']")
       .off("click")
       .on("click", (event) => this._onAddInfluenceLogEntry(event));
+
+    panel
+      .find("[data-action='toggle-influence-session-log']")
+      .off("click")
+      .on("click", (event) => this._onToggleInfluenceSessionLog(event));
 
     panel
       .find("[data-action='edit-influence-log-entry']")
@@ -4813,6 +4847,111 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     await this.influenceTracker.updateNpc(npcId, { isCollapsed });
     this.render();
+  }
+
+  /** @private */
+  async _onToggleInfluenceNpcLog(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const logSection = button.closest("[data-influence-npc-log]");
+    if (!logSection) return;
+
+    const npcId = logSection.dataset.npcId;
+    if (!npcId) return;
+
+    const body = logSection.querySelector("[data-influence-npc-log-body]");
+    if (!body) return;
+
+    const shouldCollapse = !body.classList.contains("is-collapsed");
+    body.classList.toggle("is-collapsed", shouldCollapse);
+    this._applyInfluenceLogToggleButtonState(button, shouldCollapse);
+
+    this._ensureInfluenceLogState();
+    this._collapsedInfluenceLogs.npcs.set(npcId, shouldCollapse);
+
+    try {
+      await this.influenceTracker.updateNpc(npcId, { isLogCollapsed: shouldCollapse });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  /** @private */
+  _onToggleInfluenceSessionLog(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const logSection = button.closest("[data-influence-session-log]");
+    if (!logSection) return;
+
+    const body = logSection.querySelector("[data-influence-session-log-body]");
+    if (!body) return;
+
+    const shouldCollapse = !body.classList.contains("is-collapsed");
+    body.classList.toggle("is-collapsed", shouldCollapse);
+    this._applyInfluenceLogToggleButtonState(button, shouldCollapse);
+
+    this._ensureInfluenceLogState();
+    this._collapsedInfluenceLogs.session = shouldCollapse;
+  }
+
+  /** @private */
+  _applyInfluenceLogToggleButtonState(button, isCollapsed) {
+    if (!button) return;
+
+    const icon = button.querySelector("[data-toggle-icon]");
+    if (icon) {
+      icon.classList.toggle("fa-angle-down", isCollapsed);
+      icon.classList.toggle("fa-angle-up", !isCollapsed);
+    }
+
+    const labelElement = button.querySelector("[data-label]");
+    const expandedLabel = button.dataset.labelExpanded ?? "";
+    const collapsedLabel = button.dataset.labelCollapsed ?? "";
+    const labelText = isCollapsed ? collapsedLabel : expandedLabel;
+
+    if (labelElement) {
+      labelElement.textContent = labelText;
+    }
+
+    if (labelText) {
+      button.setAttribute("aria-label", labelText);
+      button.setAttribute("title", labelText);
+    } else {
+      button.removeAttribute("aria-label");
+      button.removeAttribute("title");
+    }
+
+    button.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+  }
+
+  /** @private */
+  _ensureInfluenceLogState() {
+    if (!this._collapsedInfluenceLogs || typeof this._collapsedInfluenceLogs !== "object") {
+      this._collapsedInfluenceLogs = { session: false, npcs: new Map() };
+      return;
+    }
+
+    if (this._collapsedInfluenceLogs.npcs instanceof Map) {
+      // no-op
+    } else if (Array.isArray(this._collapsedInfluenceLogs.npcs)) {
+      this._collapsedInfluenceLogs.npcs = new Map(this._collapsedInfluenceLogs.npcs);
+    } else if (
+      this._collapsedInfluenceLogs.npcs &&
+      typeof this._collapsedInfluenceLogs.npcs === "object"
+    ) {
+      this._collapsedInfluenceLogs.npcs = new Map(
+        Object.entries(this._collapsedInfluenceLogs.npcs)
+      );
+    } else {
+      this._collapsedInfluenceLogs.npcs = new Map();
+    }
+
+    if (typeof this._collapsedInfluenceLogs.session !== "boolean") {
+      this._collapsedInfluenceLogs.session = Boolean(this._collapsedInfluenceLogs.session);
+    }
   }
 
   async _onEditInfluenceNpc(event) {
