@@ -4465,10 +4465,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             Math.min(100, Math.round((progressPercentRaw + Number.EPSILON) * 100) / 100)
           )
         : 0;
-      const baseDc = Number.isFinite(npc.baseDc) ? Number(npc.baseDc) : null;
-      const baseDcLabel = baseDc !== null
-        ? game.i18n.format("PF2E.PointsTracker.Influence.BaseDCLabel", { dc: baseDc })
-        : game.i18n.localize("PF2E.PointsTracker.Influence.BaseDCMissing");
       const traits = Array.isArray(npc.traits)
         ? npc.traits
             .map((trait) => (typeof trait === "string" ? trait.trim() : ""))
@@ -4585,8 +4581,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             ? game.i18n.format("PF2E.PointsTracker.Influence.MaxInfluence", { value: maxInfluence })
             : game.i18n.localize("PF2E.PointsTracker.Influence.MaxInfluenceUnlimited"),
         progressPercent,
-        baseDc,
-        baseDcLabel,
         traits,
         traitsLabel,
         hasTraits: traits.length > 0,
@@ -5009,7 +5003,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const currentInfluenceDefault = Number.isFinite(initial.currentInfluence)
       ? Math.max(0, Number(initial.currentInfluence))
       : 0;
-    const baseDcDefault = Number.isFinite(initial.baseDc) ? Number(initial.baseDc) : "";
     const traitsDefault = Array.isArray(initial.traits)
       ? initial.traits.join(", ")
       : typeof initial.traits === "string"
@@ -5079,10 +5072,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         <div class="form-group form-group--split">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.MaxInfluenceLabel")}</label>
           <input type="number" name="maxInfluence" min="0" step="1" value="${escapeAttribute(maxInfluenceDefault)}">
-        </div>
-        <div class="form-group form-group--split">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.BaseDC")}</label>
-          <input type="number" name="baseDc" min="0" step="1" value="${escapeAttribute(baseDcDefault)}">
         </div>
         <div class="influence-skill-editor" data-skill-editor>
           <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Influence.SkillHint")}</p>
@@ -5173,7 +5162,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               }
               const currentInfluenceValue = Number(formData.get("currentInfluence"));
               const maxInfluenceValue = Number(formData.get("maxInfluence"));
-              const baseDcValue = Number(formData.get("baseDc"));
               const traitsRaw = String(formData.get("traits") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
@@ -5263,7 +5251,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 maxInfluence: Number.isFinite(maxInfluenceValue)
                   ? Math.max(0, maxInfluenceValue)
                   : 0,
-                baseDc: Number.isFinite(baseDcValue) ? Math.max(0, baseDcValue) : null,
                 traits: traitsRaw,
                 discoveryChecks,
                 discoveryNotes,

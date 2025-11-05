@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 4,
+  version: 5,
   npcs: [],
   log: [],
 };
@@ -177,7 +177,6 @@ function normalizeNpc(data = {}) {
 
   const currentInfluenceRaw = Number(data.currentInfluence ?? data.influence ?? 0);
   const maxInfluenceRaw = Number(data.maxInfluence ?? data.target ?? data.maximum ?? 0);
-  const baseDcRaw = Number(data.baseDc ?? data.baseDC ?? data.base ?? data.dc ?? null);
   const rawImg = (() => {
     if (typeof data?.img === "string") return data.img;
     if (typeof data?.image === "string") return data.image;
@@ -203,7 +202,6 @@ function normalizeNpc(data = {}) {
     name,
     currentInfluence: Number.isFinite(currentInfluenceRaw) ? Number(currentInfluenceRaw) : 0,
     maxInfluence: Number.isFinite(maxInfluenceRaw) ? Math.max(Number(maxInfluenceRaw), 0) : 0,
-    baseDc: Number.isFinite(baseDcRaw) ? Number(baseDcRaw) : null,
     img,
     imageUuid,
     skillDcs: normalizeSkillEntries(data.skillDcs ?? data.skills ?? []),
@@ -353,7 +351,6 @@ export class InfluenceTracker {
         imageUuid: npc.imageUuid ?? "",
         currentInfluence: npc.currentInfluence,
         maxInfluence: npc.maxInfluence,
-        baseDc: npc.baseDc,
         skillDcs: npc.skillDcs.map((entry) => ({ id: entry.id, skill: entry.skill, dc: entry.dc })),
         thresholds: npc.thresholds.map((threshold) => ({
           id: threshold.id,
@@ -531,6 +528,20 @@ export class InfluenceTracker {
         return clone;
       });
       migrated.version = 4;
+    }
+
+    if (migrated.version < 5) {
+      migrated.npcs = migrated.npcs.map((npc) => {
+        const clone = { ...npc };
+        if (Object.prototype.hasOwnProperty.call(clone, "baseDc")) {
+          delete clone.baseDc;
+        }
+        if (Object.prototype.hasOwnProperty.call(clone, "baseDC")) {
+          delete clone.baseDC;
+        }
+        return clone;
+      });
+      migrated.version = 5;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {
