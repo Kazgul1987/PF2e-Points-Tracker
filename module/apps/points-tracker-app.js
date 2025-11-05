@@ -4544,6 +4544,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const influenceNotes =
         typeof npc.influenceNotes === "string" ? npc.influenceNotes.trim() : "";
       const influenceNotesHtml = influenceNotes ? await this._enrichText(influenceNotes) : "";
+      const background = typeof npc.background === "string" ? npc.background.trim() : "";
+      const backgroundHtml = background ? await this._enrichText(background) : "";
+      const appearance = typeof npc.appearance === "string" ? npc.appearance.trim() : "";
+      const appearanceHtml = appearance ? await this._enrichText(appearance) : "";
+      const personality = typeof npc.personality === "string" ? npc.personality.trim() : "";
+      const personalityHtml = personality ? await this._enrichText(personality) : "";
       const penalty = npc.penalty ?? "";
       const penaltyHtml = escapeHtml(penalty).replace(/\n/g, "<br />");
       const notes = npc.notes ?? "";
@@ -4611,6 +4617,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         influenceNotes,
         influenceNotesHtml,
         hasInfluenceNotes: Boolean(influenceNotesHtml),
+        background,
+        backgroundHtml,
+        hasBackground: Boolean(backgroundHtml),
+        appearance,
+        appearanceHtml,
+        hasAppearance: Boolean(appearanceHtml),
+        personality,
+        personalityHtml,
+        hasPersonality: Boolean(personalityHtml),
         penalty,
         penaltyHtml,
         notes,
@@ -5012,6 +5027,21 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       ? initial.traits
       : "";
     const traitsPlaceholder = game.i18n.localize("PF2E.PointsTracker.Influence.TraitsPlaceholder");
+    const backgroundDefault =
+      typeof initial.background === "string" ? initial.background : "";
+    const backgroundPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.BackgroundPlaceholder"
+    );
+    const appearanceDefault =
+      typeof initial.appearance === "string" ? initial.appearance : "";
+    const appearancePlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.AppearancePlaceholder"
+    );
+    const personalityDefault =
+      typeof initial.personality === "string" ? initial.personality : "";
+    const personalityPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.PersonalityPlaceholder"
+    );
     const skillOptions = this._getPf2eSkillOptions();
     const existingSkillRows = Array.isArray(initial.skillDcs) ? initial.skillDcs : [];
     const npcSkillRows = existingSkillRows.concat(new Array(3).fill(null));
@@ -5077,6 +5107,18 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.TraitsLabel")}</label>
           <input type="text" name="traits" value="${escapeAttribute(traitsDefault)}" placeholder="${escapeAttribute(traitsPlaceholder)}">
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.BackgroundLabel")}</label>
+          <textarea name="background" rows="3" placeholder="${escapeAttribute(backgroundPlaceholder)}">${escapeHtml(backgroundDefault)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.AppearanceLabel")}</label>
+          <textarea name="appearance" rows="3" placeholder="${escapeAttribute(appearancePlaceholder)}">${escapeHtml(appearanceDefault)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.PersonalityLabel")}</label>
+          <textarea name="personality" rows="3" placeholder="${escapeAttribute(personalityPlaceholder)}">${escapeHtml(personalityDefault)}</textarea>
         </div>
         <div class="influence-check-editor" data-discovery-check-editor>
           <h4>${game.i18n.localize("PF2E.PointsTracker.Influence.DiscoveryChecksLabel")}</h4>
@@ -5146,6 +5188,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               const traitsRaw = String(formData.get("traits") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
+              const background = String(formData.get("background") ?? "").trim();
+              const appearance = String(formData.get("appearance") ?? "").trim();
+              const personality = String(formData.get("personality") ?? "").trim();
               const discoveryNotes = String(formData.get("discoveryNotes") ?? "").trim();
               const influenceNotes = String(formData.get("influenceNotes") ?? "").trim();
               const ids = formData.getAll("skillId[]");
@@ -5237,6 +5282,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 influenceNotes,
                 penalty,
                 notes,
+                background,
+                appearance,
+                personality,
                 skillDcs,
               };
               resolve(payload);

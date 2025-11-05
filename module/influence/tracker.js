@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 3,
+  version: 4,
   npcs: [],
   log: [],
 };
@@ -28,6 +28,16 @@ function createId() {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).slice(2, 10);
+}
+
+function pickString(...candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return "";
 }
 
 function normalizeSkillEntries(raw) {
@@ -185,6 +195,9 @@ function normalizeNpc(data = {}) {
   })();
   const imageUuid = typeof rawImageUuid === "string" ? rawImageUuid.trim() : "";
 
+  const biography = data && typeof data === "object" && typeof data.biography === "object"
+    ? data.biography
+    : {};
   const npc = {
     id,
     name,
@@ -230,6 +243,27 @@ function normalizeNpc(data = {}) {
     })(),
     penalty: typeof data.penalty === "string" ? data.penalty.trim() : "",
     notes: typeof data.notes === "string" ? data.notes.trim() : "",
+    background: pickString(
+      data.background,
+      data.backstory,
+      data.history,
+      data.bio,
+      biography?.background
+    ),
+    appearance: pickString(
+      data.appearance,
+      data.description,
+      data.look,
+      data.visual,
+      biography?.appearance
+    ),
+    personality: pickString(
+      data.personality,
+      data.behavior,
+      data.attitude,
+      data.mannerisms,
+      biography?.personality
+    ),
     isCollapsed: Boolean(data.isCollapsed),
     createdAt: Number.isFinite(Number(data.createdAt)) ? Number(data.createdAt) : Date.now(),
     updatedAt: Number.isFinite(Number(data.updatedAt)) ? Number(data.updatedAt) : Date.now(),
@@ -348,6 +382,9 @@ export class InfluenceTracker {
         influenceNotes: npc.influenceNotes ?? "",
         penalty: npc.penalty ?? "",
         notes: npc.notes ?? "",
+        background: npc.background ?? "",
+        appearance: npc.appearance ?? "",
+        personality: npc.personality ?? "",
         isCollapsed: npc.isCollapsed ?? false,
         createdAt: npc.createdAt ?? Date.now(),
         updatedAt: npc.updatedAt ?? Date.now(),
@@ -457,6 +494,43 @@ export class InfluenceTracker {
         };
       });
       migrated.version = 3;
+    }
+
+    if (migrated.version < 4) {
+      migrated.npcs = migrated.npcs.map((npc) => {
+        const clone = { ...npc };
+        const biography =
+          clone && typeof clone === "object" && typeof clone.biography === "object"
+            ? clone.biography
+            : {};
+
+        clone.background = pickString(
+          clone.background,
+          clone.backstory,
+          clone.history,
+          clone.bio,
+          biography?.background
+        );
+
+        clone.appearance = pickString(
+          clone.appearance,
+          clone.description,
+          clone.look,
+          clone.visual,
+          biography?.appearance
+        );
+
+        clone.personality = pickString(
+          clone.personality,
+          clone.behavior,
+          clone.attitude,
+          clone.mannerisms,
+          biography?.personality
+        );
+
+        return clone;
+      });
+      migrated.version = 4;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {
