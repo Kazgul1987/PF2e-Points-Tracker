@@ -4189,6 +4189,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
     };
+    const skillOptions = this._getPf2eSkillOptions();
 
     const npcs = [];
     for (const npc of npcsRaw) {
@@ -4212,7 +4213,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const skillDcsRaw = Array.isArray(npc.skillDcs) ? npc.skillDcs : [];
       const skillDcs = await Promise.all(
         skillDcsRaw.map(async (entry) => {
-          const skill = typeof entry.skill === "string" ? entry.skill.trim() : "";
+          const rawSkill = typeof entry.skill === "string" ? entry.skill : "";
+          const skill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+          const fallbackSkill = typeof rawSkill === "string" ? rawSkill.trim() : "";
           const dc = Number.isFinite(entry.dc) ? Number(entry.dc) : null;
           const label = (() => {
             const parts = [];
@@ -4226,7 +4229,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             }
             return parts.join(" • ") || skill;
           })();
-          const slug = slugifySkill(skill);
+          const slug = slugifySkill(skill || fallbackSkill);
           const inlineParts = [];
           if (slug) {
             inlineParts.push(`type:${slug}`);
@@ -4677,6 +4680,13 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       "PF2E.PointsTracker.Influence.InfluenceChecksPlaceholder"
     );
 
+    const skillOptions = this._getPf2eSkillOptions();
+    const existingSkillRows = Array.isArray(initial.skillDcs) ? initial.skillDcs : [];
+    const npcSkillRows = existingSkillRows.concat(new Array(3).fill(null));
+    const skillFields = npcSkillRows
+      .map((entry) => this._renderInfluenceSkillRow(entry, skillOptions))
+      .join("");
+
     const template = `
       <form class="flexcol points-tracker-dialog">
         <div class="form-group">
@@ -4694,6 +4704,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         <div class="form-group form-group--split">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.BaseDC")}</label>
           <input type="number" name="baseDc" min="0" step="1" value="${escapeAttribute(baseDcDefault)}">
+        </div>
+        <div class="influence-skill-editor" data-skill-editor>
+          <p class="notes">${game.i18n.localize("PF2E.PointsTracker.Influence.SkillHint")}</p>
+          <div data-skill-rows>
+            ${skillFields}
+          </div>
+          <button type="button" class="add-skill-row" data-action="add-skill-row">
+            ${game.i18n.localize("PF2E.PointsTracker.Influence.AddSkillRow")}
+          </button>
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.TraitsLabel")}</label>
@@ -4749,6 +4768,24 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               const influenceChecks = String(formData.get("influenceChecks") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
+              const ids = formData.getAll("skillId[]");
+              const skills = formData.getAll("skillName[]");
+              const dcs = formData.getAll("skillDc[]");
+
+              const skillDcs = [];
+              const count = Math.max(ids.length, skills.length, dcs.length);
+              for (let index = 0; index < count; index += 1) {
+                const rawSkill = typeof skills[index] === "string" ? skills[index] : "";
+                const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+                const dcRaw = Number(dcs[index]);
+                const hasSkill = Boolean(normalizedSkill);
+                const hasDc = Number.isFinite(dcRaw);
+                if (!hasSkill && !hasDc) continue;
+
+                let id = String(ids[index] ?? "").trim();
+                if (!id) id = this._generateId();
+                skillDcs.push({ id, skill: normalizedSkill, dc: hasDc ? Number(dcRaw) : null });
+              }
 
               const payload = {
                 name,
@@ -4764,6 +4801,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 influenceChecks,
                 penalty,
                 notes,
+                skillDcs,
               };
               resolve(payload);
             },
@@ -4774,6 +4812,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             callback: () => resolve(null),
           },
         },
+        render: (html) => {
+          this._initializeInfluenceSkillEditor(html[0], skillOptions);
+        },
         default: "confirm",
         close: () => resolve(null),
       });
@@ -4781,16 +4822,53 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     });
   }
 
-  _renderInfluenceSkillRow(entry = {}) {
+  _renderInfluenceSkillRow(entry = {}, skillOptions = []) {
     const id = entry?.id ?? "";
-    const skill = entry?.skill ?? "";
+    const rawSkill = typeof entry?.skill === "string" ? entry.skill : "";
+    const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+    const selectValue = this._getInfluenceSkillSelectValue(rawSkill, skillOptions);
     const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
+    const hasSkillOptions = Array.isArray(skillOptions) && skillOptions.length > 0;
+
+    let skillField = `<input type="text" name="skillName[]" value="${escapeAttribute(normalizedSkill)}">`;
+    if (hasSkillOptions) {
+      const datalistId = id
+        ? `influence-skill-options-${id}`
+        : `influence-skill-options-${this._generateId()}`;
+      const placeholderSelected = selectValue ? "" : " selected";
+      const optionsMarkup = skillOptions
+        .map((option) => {
+          const isSelected = option.value === selectValue;
+          const selectedAttr = isSelected ? " selected" : "";
+          return `<option value="${escapeAttribute(option.value)}"${selectedAttr}>${escapeHtml(option.label)}</option>`;
+        })
+        .join("");
+      const isKnownSkill = skillOptions.some((option) => option.value === selectValue);
+      const customOption = !isKnownSkill && normalizedSkill
+        ? `<option value="${escapeAttribute(selectValue)}" selected>${escapeHtml(normalizedSkill)}</option>`
+        : "";
+      skillField = `
+        <select name="skillName[]" data-has-skill-options="true" data-datalist-id="${escapeAttribute(
+          datalistId
+        )}">
+          <option value=""${placeholderSelected}></option>
+          ${optionsMarkup}
+          ${customOption}
+        </select>
+        <datalist id="${escapeAttribute(datalistId)}">
+          ${skillOptions
+            .map((option) => `<option value="${escapeAttribute(option.label)}"></option>`)
+            .join("")}
+        </datalist>
+      `;
+    }
+
     return `
       <div class="influence-skill-row" data-skill-row>
         <input type="hidden" name="skillId[]" value="${escapeAttribute(id)}">
-        <div class="form-group">
+        <div class="form-group" data-has-skill-select="${hasSkillOptions}">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillName")}</label>
-          <input type="text" name="skillName[]" value="${escapeAttribute(skill)}">
+          ${skillField}
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillDC")}</label>
@@ -4800,11 +4878,101 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     `;
   }
 
+  _getPf2eSkillOptions() {
+    if (typeof CONFIG === "undefined") return [];
+    const configSkills = CONFIG?.PF2E?.skills;
+    if (!configSkills || typeof configSkills !== "object") return [];
+
+    const options = [];
+    const seenValues = new Set();
+    for (const [key, value] of Object.entries(configSkills)) {
+      const rawValue = typeof key === "string" ? key.trim() : "";
+      const localizedLabelRaw = typeof value === "string"
+        ? (game?.i18n?.localize ? game.i18n.localize(value).trim() : value.trim())
+        : "";
+      const fallbackLabel = typeof value === "string" ? value.trim() : "";
+      const optionValue = (rawValue || localizedLabelRaw || fallbackLabel).trim();
+      if (!optionValue) continue;
+      const optionLabel = (localizedLabelRaw || fallbackLabel || optionValue).trim();
+      if (seenValues.has(optionValue)) continue;
+      seenValues.add(optionValue);
+      options.push({ value: optionValue, label: optionLabel });
+    }
+
+    const locale = game?.i18n?.lang ?? undefined;
+    options.sort((left, right) => left.label.localeCompare(right.label, locale));
+    return options;
+  }
+
+  _normalizeInfluenceSkillValue(value, skillOptions) {
+    const raw = typeof value === "string" ? value.trim() : "";
+    if (!raw) return "";
+    const options = Array.isArray(skillOptions) ? skillOptions : [];
+    const lower = raw.toLowerCase();
+    const matchByValue = options.find((option) => {
+      if (option.value === raw) return true;
+      return typeof option.value === "string" && option.value.toLowerCase() === lower;
+    });
+    if (matchByValue) return matchByValue.label.trim();
+    const matchByLabel = options.find((option) => {
+      if (option.label === raw) return true;
+      return typeof option.label === "string" && option.label.toLowerCase() === lower;
+    });
+    if (matchByLabel) return matchByLabel.label.trim();
+    return raw;
+  }
+
+  _getInfluenceSkillSelectValue(skill, skillOptions) {
+    const raw = typeof skill === "string" ? skill.trim() : "";
+    if (!raw) return "";
+    const options = Array.isArray(skillOptions) ? skillOptions : [];
+    const lower = raw.toLowerCase();
+    const matchByValue = options.find((option) => {
+      if (option.value === raw) return true;
+      return typeof option.value === "string" && option.value.toLowerCase() === lower;
+    });
+    if (matchByValue) return matchByValue.value;
+    const matchByLabel = options.find((option) => {
+      if (option.label === raw) return true;
+      return typeof option.label === "string" && option.label.toLowerCase() === lower;
+    });
+    if (matchByLabel) return matchByLabel.value;
+    return raw;
+  }
+
+  _initializeInfluenceSkillEditor(root, skillOptions) {
+    if (!(root instanceof HTMLElement)) return;
+    const rowsContainer = root.querySelector('[data-skill-rows]');
+    if (!rowsContainer) return;
+    const addButtons = Array.from(root.querySelectorAll('[data-action="add-skill-row"]'));
+    if (!addButtons.length) return;
+
+    const handleAddRow = () => {
+      const template = document.createElement("template");
+      template.innerHTML = this._renderInfluenceSkillRow({ id: this._generateId() }, skillOptions).trim();
+      const newRow = template.content.firstElementChild;
+      if (!newRow) return;
+      rowsContainer.append(newRow);
+      const selectField = newRow.querySelector('select[name="skillName[]"]');
+      if (selectField instanceof HTMLSelectElement) {
+        selectField.focus();
+        return;
+      }
+      const inputField = newRow.querySelector('input[name="skillName[]"]');
+      if (inputField instanceof HTMLInputElement) inputField.focus();
+    };
+
+    for (const button of addButtons) {
+      button.addEventListener("click", handleAddRow);
+    }
+  }
+
   async _promptInfluenceSkillsDialog({ npc }) {
     const existing = Array.isArray(npc?.skillDcs) ? npc.skillDcs : [];
     const rows = existing.concat(new Array(3).fill(null));
+    const skillOptions = this._getPf2eSkillOptions();
 
-    const fields = rows.map((entry) => this._renderInfluenceSkillRow(entry)).join("");
+    const fields = rows.map((entry) => this._renderInfluenceSkillRow(entry, skillOptions)).join("");
 
     const template = `
       <form class="flexcol points-tracker-dialog">
@@ -4831,35 +4999,24 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         const dcs = formData.getAll("skillDc[]");
 
         const entries = [];
-        for (let index = 0; index < skills.length; index += 1) {
-          const skill = String(skills[index] ?? "").trim();
+        const count = Math.max(ids.length, skills.length, dcs.length);
+        for (let index = 0; index < count; index += 1) {
+          const normalizedSkill = this._normalizeInfluenceSkillValue(skills[index], skillOptions);
           const dcRaw = Number(dcs[index]);
-          const hasSkill = Boolean(skill);
+          const hasSkill = Boolean(normalizedSkill);
           const hasDc = Number.isFinite(dcRaw);
           if (!hasSkill && !hasDc) continue;
 
           let id = String(ids[index] ?? "").trim();
           if (!id) id = this._generateId();
-          entries.push({ id, skill, dc: hasDc ? Number(dcRaw) : null });
+          entries.push({ id, skill: normalizedSkill, dc: hasDc ? Number(dcRaw) : null });
         }
 
         return entries;
       },
       rejectClose: false,
       render: (html) => {
-        const addButton = html[0].querySelector('[data-action="add-skill-row"]');
-        const rowsContainer = html[0].querySelector('[data-skill-rows]');
-        if (!(addButton && rowsContainer)) return;
-
-        addButton.addEventListener("click", () => {
-          const template = document.createElement("template");
-          template.innerHTML = this._renderInfluenceSkillRow({ id: this._generateId() }).trim();
-          const newRow = template.content.firstElementChild;
-          if (!newRow) return;
-          rowsContainer.append(newRow);
-          const nameField = newRow.querySelector('input[name="skillName[]"]');
-          if (nameField instanceof HTMLInputElement) nameField.focus();
-        });
+        this._initializeInfluenceSkillEditor(html[0], skillOptions);
       },
     });
 
