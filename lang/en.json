@@ -226,9 +226,6 @@
         "MaxInfluenceLabel": "Maximum Influence",
         "MaxInfluence": "Maximum Influence: {value}",
         "MaxInfluenceUnlimited": "No maximum",
-        "BaseDC": "Base DC",
-        "BaseDCLabel": "Base DC: {dc}",
-        "BaseDCMissing": "No base DC set",
         "TraitsLabel": "Traits",
         "TraitsHeader": "Traits",
         "TraitsPlaceholder": "Diplomacy, Noble, ...",
@@ -310,8 +307,7 @@
         "NoNpcs": "No NPCs have been added yet.",
         "Disabled": "The influence tracker is not available.",
         "AddNpc": "Add NPC",
-        "PanelDescription": "Track NPC influence, skill DCs, and reveal thresholds.",
-        "BaseDCMissingShort": "—"
+        "PanelDescription": "Track NPC influence, skill DCs, and reveal thresholds."
       },
       "Reputation": {
         "Title": "Reputation",
