@@ -1,3 +1,4 @@
+import { InfluenceImportExport } from "../influence/importer.js";
 import { ResearchImportExport } from "../research/importer.js";
 import { RESEARCH_UPDATE_HOOK } from "../research/tracker.js";
 
@@ -4671,6 +4672,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (!panel.length) return;
 
     panel
+      .find("[data-action='import-influence-npcs']")
+      .off("click")
+      .on("click", (event) => this._onImportInfluenceNpcs(event));
+
+    panel
       .find("[data-action='create-influence-npc']")
       .off("click")
       .on("click", (event) => this._onCreateInfluenceNpc(event));
@@ -4751,6 +4757,31 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .on("click", (event) => this._onDeleteInfluenceLogEntry(event));
 
     this._bindInfluencePortraitDropzones(panel[0] ?? panel);
+  }
+
+  async _onImportInfluenceNpcs(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcs = await InfluenceImportExport.promptImport();
+    if (!Array.isArray(npcs) || !npcs.length) return;
+
+    let created = 0;
+    for (const npcData of npcs) {
+      try {
+        const result = await this.influenceTracker.createNpc(npcData);
+        if (result) created += 1;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (created > 0) {
+      ui.notifications?.info?.(
+        game.i18n.format("PF2E.PointsTracker.Influence.ImportSuccess", { count: created })
+      );
+      this.render();
+    }
   }
 
   async _onCreateInfluenceNpc(event) {

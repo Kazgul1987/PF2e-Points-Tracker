@@ -5,6 +5,10 @@
         {{localize "PF2E.PointsTracker.Influence.PanelTitle"}}
       </h2>
       {{#if canCreate}}
+        <button type="button" class="points-tracker__button" data-action="import-influence-npcs">
+          <i class="fas fa-file-import" aria-hidden="true"></i>
+          {{localize "PF2E.PointsTracker.Influence.Import"}}
+        </button>
         <button type="button" class="points-tracker__button" data-action="create-influence-npc">
           <i class="fas fa-plus" aria-hidden="true"></i>
           {{localize "PF2E.PointsTracker.Influence.CreateNpc"}}
