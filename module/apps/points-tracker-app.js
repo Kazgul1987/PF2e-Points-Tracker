@@ -4194,12 +4194,26 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const npcs = [];
     for (const npc of npcsRaw) {
       npcLookup.set(npc.id, npc);
+      const rawThresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
+      const highestThresholdPoints = rawThresholds.reduce(
+        (max, threshold) =>
+          Math.max(max, Number.isFinite(threshold?.points) ? Number(threshold.points) : 0),
+        0
+      );
       const maxInfluence = Number.isFinite(npc.maxInfluence) ? Number(npc.maxInfluence) : 0;
       const currentInfluence = Number.isFinite(npc.currentInfluence)
         ? Math.max(0, Number(npc.currentInfluence))
         : 0;
-      const percent = maxInfluence > 0 ? Math.min((currentInfluence / maxInfluence) * 100, 100) : 0;
-      const progressPercent = Math.max(0, Math.min(100, Number(percent.toFixed(2))));
+      const markerReference = maxInfluence > 0
+        ? maxInfluence
+        : Math.max(highestThresholdPoints, currentInfluence);
+      const progressPercentRaw = markerReference > 0 ? (currentInfluence / markerReference) * 100 : 0;
+      const progressPercent = markerReference > 0
+        ? Math.max(
+            0,
+            Math.min(100, Math.round((progressPercentRaw + Number.EPSILON) * 100) / 100)
+          )
+        : 0;
       const baseDc = Number.isFinite(npc.baseDc) ? Number(npc.baseDc) : null;
       const baseDcLabel = baseDc !== null
         ? game.i18n.format("PF2E.PointsTracker.Influence.BaseDCLabel", { dc: baseDc })
@@ -4248,8 +4262,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         })
       );
       const thresholds = [];
-      if (Array.isArray(npc.thresholds)) {
-        for (const threshold of npc.thresholds) {
+      if (rawThresholds.length > 0) {
+        for (const threshold of rawThresholds) {
           const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
           const isUnlocked = currentInfluence >= points;
           const revealedAt = Number.isFinite(threshold.revealedAt)
@@ -4262,6 +4276,13 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           const playerTextHtml = playerText ? await this._enrichText(playerText) : "";
           const rewardHtml = reward ? await this._enrichText(reward) : "";
           const hasPlayerContent = Boolean(playerTextHtml || rewardHtml);
+          const markerPercentRaw = markerReference > 0 ? (points / markerReference) * 100 : 0;
+          const markerPercent = markerReference > 0
+            ? Math.max(
+                0,
+                Math.min(100, Math.round((markerPercentRaw + Number.EPSILON) * 100) / 100)
+              )
+            : 0;
           thresholds.push({
             id: threshold.id,
             points,
@@ -4283,6 +4304,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
             hasPlayerText: Boolean(playerTextHtml),
             hasGmText: Boolean(gmTextHtml),
             hasReward: Boolean(rewardHtml),
+            markerPercent,
           });
         }
       }

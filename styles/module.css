@@ -1435,15 +1435,71 @@
   position: relative;
   width: 100%;
   height: 0.75rem;
+}
+
+.influence-npc__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8e44ad, #5e60ce);
+}
+
+.influence-npc__progress-track {
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
-.influence-npc__progress-fill {
+.influence-npc__progress-markers {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #8e44ad, #5e60ce);
+  z-index: 2;
+}
+
+.influence-npc__progress-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  color: rgba(233, 196, 106, 0.9);
+  background: rgba(233, 196, 106, 0.45);
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  cursor: help;
+  outline: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.influence-npc__progress-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.1rem);
+  transform: translateX(-50%);
+  width: 2px;
+  height: 0.45rem;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.influence-npc__progress-marker.is-unlocked {
+  color: rgba(244, 162, 97, 0.95);
+  background: rgba(244, 162, 97, 0.55);
+}
+
+.influence-npc__progress-marker.is-revealed {
+  color: #2a9d8f;
+  background: rgba(42, 157, 143, 0.65);
+}
+
+.influence-npc__progress-marker:hover,
+.influence-npc__progress-marker:focus-visible {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
 .influence-npc__labels {
