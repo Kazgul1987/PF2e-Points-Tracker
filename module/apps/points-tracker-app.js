@@ -5272,42 +5272,25 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const id = entry?.id ?? "";
     const rawSkill = typeof entry?.skill === "string" ? entry.skill : "";
     const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
-    const selectValue = this._getInfluenceSkillSelectValue(rawSkill, skillOptions);
     const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
     const hasSkillOptions = Array.isArray(skillOptions) && skillOptions.length > 0;
 
-    let skillField = `<input type="text" name="skillName[]" value="${escapeAttribute(normalizedSkill)}">`;
-    if (hasSkillOptions) {
-      const datalistId = id
+    const datalistId = hasSkillOptions
+      ? id
         ? `influence-skill-options-${id}`
-        : `influence-skill-options-${this._generateId()}`;
-      const placeholderSelected = selectValue ? "" : " selected";
-      const optionsMarkup = skillOptions
-        .map((option) => {
-          const isSelected = option.value === selectValue;
-          const selectedAttr = isSelected ? " selected" : "";
-          return `<option value="${escapeAttribute(option.value)}"${selectedAttr}>${escapeHtml(option.label)}</option>`;
-        })
-        .join("");
-      const isKnownSkill = skillOptions.some((option) => option.value === selectValue);
-      const customOption = !isKnownSkill && normalizedSkill
-        ? `<option value="${escapeAttribute(selectValue)}" selected>${escapeHtml(normalizedSkill)}</option>`
-        : "";
-      skillField = `
-        <select name="skillName[]" data-has-skill-options="true" data-datalist-id="${escapeAttribute(
-          datalistId
-        )}">
-          <option value=""${placeholderSelected}></option>
-          ${optionsMarkup}
-          ${customOption}
-        </select>
-        <datalist id="${escapeAttribute(datalistId)}">
-          ${skillOptions
-            .map((option) => `<option value="${escapeAttribute(option.label)}"></option>`)
-            .join("")}
-        </datalist>
-      `;
-    }
+        : `influence-skill-options-${this._generateId()}`
+      : "";
+    const listAttribute = hasSkillOptions ? ` list="${escapeAttribute(datalistId)}"` : "";
+    const skillTitle = game.i18n.localize("PF2E.PointsTracker.Influence.SkillInputTooltip");
+    const skillField = `
+      <input type="text" name="skillName[]" value="${escapeAttribute(normalizedSkill)}"${listAttribute}
+        title="${escapeAttribute(skillTitle)}">
+      ${hasSkillOptions
+        ? `<datalist id="${escapeAttribute(datalistId)}">${this._renderInfluenceSkillDatalistOptions(
+            skillOptions
+          )}</datalist>`
+        : ""}
+    `.trim();
 
     return `
       <div class="influence-skill-row" data-skill-row>
@@ -5336,43 +5319,25 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const id = typeof entry?.id === "string" ? entry.id : "";
     const rawSkill = typeof entry?.skill === "string" ? entry.skill : "";
     const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
-    const selectValue = this._getInfluenceSkillSelectValue(rawSkill, skillOptions);
     const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
     const hasSkillOptions = Array.isArray(skillOptions) && skillOptions.length > 0;
 
-    const datalistId = id
-      ? `${datalistPrefix}-${id}`
-      : `${datalistPrefix}-${this._generateId()}`;
-
-    let skillField = `<input type="text" name="${skillFieldName}" value="${escapeAttribute(normalizedSkill)}">`;
-    if (hasSkillOptions) {
-      const placeholderSelected = selectValue ? "" : " selected";
-      const optionsMarkup = skillOptions
-        .map((option) => {
-          const isSelected = option.value === selectValue;
-          const selectedAttr = isSelected ? " selected" : "";
-          return `<option value="${escapeAttribute(option.value)}"${selectedAttr}>${escapeHtml(option.label)}</option>`;
-        })
-        .join("");
-      const isKnownSkill = skillOptions.some((option) => option.value === selectValue);
-      const customOption = !isKnownSkill && normalizedSkill
-        ? `<option value="${escapeAttribute(selectValue)}" selected>${escapeHtml(normalizedSkill)}</option>`
-        : "";
-      skillField = `
-        <select name="${skillFieldName}" data-has-skill-options="true" data-datalist-id="${escapeAttribute(
-          datalistId
-        )}">
-          <option value=""${placeholderSelected}></option>
-          ${optionsMarkup}
-          ${customOption}
-        </select>
-        <datalist id="${escapeAttribute(datalistId)}">
-          ${skillOptions
-            .map((option) => `<option value="${escapeAttribute(option.label)}"></option>`)
-            .join("")}
-        </datalist>
-      `;
-    }
+    const datalistId = hasSkillOptions
+      ? id
+        ? `${datalistPrefix}-${id}`
+        : `${datalistPrefix}-${this._generateId()}`
+      : "";
+    const listAttribute = hasSkillOptions ? ` list="${escapeAttribute(datalistId)}"` : "";
+    const skillTitle = game.i18n.localize("PF2E.PointsTracker.Influence.SkillInputTooltip");
+    const skillField = `
+      <input type="text" name="${skillFieldName}" value="${escapeAttribute(normalizedSkill)}"${listAttribute}
+        title="${escapeAttribute(skillTitle)}">
+      ${hasSkillOptions
+        ? `<datalist id="${escapeAttribute(datalistId)}">${this._renderInfluenceSkillDatalistOptions(
+            skillOptions
+          )}</datalist>`
+        : ""}
+    `.trim();
 
     const rowAttributeMarkup = rowAttribute ? ` ${rowAttribute}` : "";
     return `
@@ -5410,6 +5375,26 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     });
   }
 
+  _renderInfluenceSkillDatalistOptions(skillOptions = []) {
+    if (!Array.isArray(skillOptions) || !skillOptions.length) return "";
+    const seen = new Set();
+    const options = [];
+    for (const option of skillOptions) {
+      const label = typeof option?.label === "string" ? option.label.trim() : "";
+      const value = typeof option?.value === "string" ? option.value.trim() : "";
+      const candidates = [];
+      if (label) candidates.push(label);
+      if (value && value !== label) candidates.push(value);
+      for (const candidate of candidates) {
+        const key = candidate.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        options.push(`<option value="${escapeAttribute(candidate)}"></option>`);
+      }
+    }
+    return options.join("");
+  }
+
   _getPf2eSkillOptions() {
     if (typeof CONFIG === "undefined") return [];
     const configSkills = CONFIG?.PF2E?.skills;
@@ -5437,38 +5422,28 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
   }
 
   _normalizeInfluenceSkillValue(value, skillOptions) {
-    const raw = typeof value === "string" ? value.trim() : "";
+    const clean = (text) => (typeof text === "string" ? text.trim().replace(/\s+/g, " ") : "");
+    const raw = clean(value);
     if (!raw) return "";
     const options = Array.isArray(skillOptions) ? skillOptions : [];
     const lower = raw.toLowerCase();
     const matchByValue = options.find((option) => {
-      if (option.value === raw) return true;
-      return typeof option.value === "string" && option.value.toLowerCase() === lower;
+      const optionValue = clean(option?.value);
+      if (!optionValue) return false;
+      if (optionValue === raw) return true;
+      return optionValue.toLowerCase() === lower;
     });
-    if (matchByValue) return matchByValue.label.trim();
+    if (matchByValue) {
+      const label = clean(matchByValue.label);
+      return label || clean(matchByValue.value) || raw;
+    }
     const matchByLabel = options.find((option) => {
-      if (option.label === raw) return true;
-      return typeof option.label === "string" && option.label.toLowerCase() === lower;
+      const optionLabel = clean(option?.label);
+      if (!optionLabel) return false;
+      if (optionLabel === raw) return true;
+      return optionLabel.toLowerCase() === lower;
     });
-    if (matchByLabel) return matchByLabel.label.trim();
-    return raw;
-  }
-
-  _getInfluenceSkillSelectValue(skill, skillOptions) {
-    const raw = typeof skill === "string" ? skill.trim() : "";
-    if (!raw) return "";
-    const options = Array.isArray(skillOptions) ? skillOptions : [];
-    const lower = raw.toLowerCase();
-    const matchByValue = options.find((option) => {
-      if (option.value === raw) return true;
-      return typeof option.value === "string" && option.value.toLowerCase() === lower;
-    });
-    if (matchByValue) return matchByValue.value;
-    const matchByLabel = options.find((option) => {
-      if (option.label === raw) return true;
-      return typeof option.label === "string" && option.label.toLowerCase() === lower;
-    });
-    if (matchByLabel) return matchByLabel.value;
+    if (matchByLabel) return clean(matchByLabel.label);
     return raw;
   }
 
@@ -5485,11 +5460,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const newRow = template.content.firstElementChild;
       if (!newRow) return;
       rowsContainer.append(newRow);
-      const selectField = newRow.querySelector('select[name="skillName[]"]');
-      if (selectField instanceof HTMLSelectElement) {
-        selectField.focus();
-        return;
-      }
       const inputField = newRow.querySelector('input[name="skillName[]"]');
       if (inputField instanceof HTMLInputElement) inputField.focus();
     };
@@ -5512,11 +5482,6 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const newRow = template.content.firstElementChild;
       if (!newRow) return;
       rowsContainer.append(newRow);
-      const selectField = newRow.querySelector("select");
-      if (selectField instanceof HTMLSelectElement) {
-        selectField.focus();
-        return;
-      }
       const inputField = newRow.querySelector('input[type="text"]');
       if (inputField instanceof HTMLInputElement) inputField.focus();
     };
