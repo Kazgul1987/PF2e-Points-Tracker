@@ -121,26 +121,54 @@
                         </div>
                         {{#if ../../isGM}}
                           <div class="influence-npc__threshold-actions">
-                            <button type="button" data-action="toggle-influence-threshold">
-                              {{#if threshold.isRevealed}}
-                                {{localize "PF2E.PointsTracker.Influence.HideThreshold"}}
-                              {{else}}
-                                {{localize "PF2E.PointsTracker.Influence.RevealThreshold"}}
-                              {{/if}}
+                            <button
+                              type="button"
+                              data-action="reveal-influence-threshold"
+                              {{#unless threshold.canReveal}}disabled{{/unless}}
+                            >
+                              {{localize "PF2E.PointsTracker.Influence.RevealThreshold"}}
                             </button>
+                            {{#if threshold.canResend}}
+                              <button type="button" data-action="resend-influence-threshold">
+                                {{localize "PF2E.PointsTracker.Influence.ThresholdResend"}}
+                              </button>
+                            {{/if}}
+                            {{#if threshold.canHide}}
+                              <button type="button" data-action="hide-influence-threshold">
+                                {{localize "PF2E.PointsTracker.Influence.HideThreshold"}}
+                              </button>
+                            {{/if}}
                           </div>
-                        {{/if}}
-                        {{#if threshold.gmText}}
-                          <p class="influence-npc__threshold-gm">{{threshold.gmText}}</p>
-                        {{/if}}
-                        {{#if threshold.playerText}}
-                          <p class="influence-npc__threshold-player">{{threshold.playerText}}</p>
-                        {{/if}}
-                        {{#if threshold.reward}}
-                          <p class="influence-npc__threshold-reward">
-                            <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdRewardHeading"}}</strong>
-                            {{threshold.reward}}
-                          </p>
+                          {{#if threshold.hasPlayerText}}
+                            <div class="influence-npc__threshold-player">
+                              <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdPlayerText"}}</strong>
+                              {{{threshold.playerTextHtml}}}
+                            </div>
+                          {{/if}}
+                          {{#if threshold.hasGmText}}
+                            <div class="influence-npc__threshold-gm">
+                              <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdGmText"}}</strong>
+                              {{{threshold.gmTextHtml}}}
+                            </div>
+                          {{/if}}
+                          {{#if threshold.hasReward}}
+                            <div class="influence-npc__threshold-reward">
+                              <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdRewardHeading"}}</strong>
+                              {{{threshold.rewardHtml}}}
+                            </div>
+                          {{/if}}
+                        {{else}}
+                          {{#if threshold.showToPlayers}}
+                            {{#if threshold.hasPlayerText}}
+                              <div class="influence-npc__threshold-player">{{{threshold.playerTextHtml}}}</div>
+                            {{/if}}
+                            {{#if threshold.hasReward}}
+                              <div class="influence-npc__threshold-reward">
+                                <strong>{{localize "PF2E.PointsTracker.Influence.ThresholdRewardHeading"}}</strong>
+                                {{{threshold.rewardHtml}}}
+                              </div>
+                            {{/if}}
+                          {{/if}}
                         {{/if}}
                       </li>
                     {{/each}}

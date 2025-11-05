@@ -1507,6 +1507,9 @@
 .influence-npc__threshold-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
 }
 
 .influence-npc__threshold-actions button {
