@@ -4418,18 +4418,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           const skill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
           const fallbackSkill = typeof rawSkill === "string" ? rawSkill.trim() : "";
           const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : null;
-          const label = (() => {
-            const parts = [];
-            if (skill) parts.push(skill);
-            if (dc !== null) {
-              parts.push(
-                game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
-                  dc,
-                })
-              );
-            }
-            return parts.join(" • ") || skill || fallbackSkill;
-          })();
+          const label = skill || fallbackSkill;
           const slug = slugifySkill(skill || fallbackSkill);
           const inlineParts = [];
           if (slug) {
@@ -4438,7 +4427,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           }
           const displayText = label || skill || fallbackSkill;
           const inlineText = inlineParts.length && displayText
-            ? `@Check[${inlineParts.join("|")}]${displayText}`
+            ? `@Check[${inlineParts.join("|")}]{${displayText}}`
             : "";
           const inlineHtml = inlineText ? await this._enrichText(inlineText) : "";
           return {
