@@ -4541,6 +4541,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const notesHtml = escapeHtml(notes).replace(/\n/g, "<br />");
       const updatedAt = Number.isFinite(npc.updatedAt) ? Number(npc.updatedAt) : null;
       const updatedAtFormatted = updatedAt ? new Date(updatedAt).toLocaleString() : null;
+      const isCollapsed = Boolean(npc.isCollapsed);
 
       const npcLog = this.influenceTracker
         .getNpcLog(npc.id)
@@ -4605,6 +4606,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         hasLogEntries: npcLog.length > 0,
         canIncrease: maxInfluence === 0 || currentInfluence < maxInfluence,
         canDecrease: currentInfluence > 0,
+        isCollapsed,
       };
       npcs.push(npcData);
     }
@@ -4659,6 +4661,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='create-influence-npc']")
       .off("click")
       .on("click", (event) => this._onCreateInfluenceNpc(event));
+
+    panel
+      .find("[data-action='toggle-influence-npc']")
+      .off("click")
+      .on("click", (event) => this._onToggleInfluenceNpc(event));
 
     panel
       .find("[data-action='edit-influence-npc']")
@@ -4744,6 +4751,23 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (!result) return;
 
     await this.influenceTracker.createNpc(result);
+    this.render();
+  }
+
+  async _onToggleInfluenceNpc(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const isCollapsed = !Boolean(npc.isCollapsed);
+
+    await this.influenceTracker.updateNpc(npcId, { isCollapsed });
     this.render();
   }
 

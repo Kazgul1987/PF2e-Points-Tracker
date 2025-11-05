@@ -275,6 +275,8 @@
         "EditLogEntry": "Edit Log Entry",
         "DeleteLogEntry": "Delete Log Entry",
         "DeleteLogConfirm": "Are you sure you want to remove this log entry?",
+        "ExpandDetails": "Show NPC details",
+        "CollapseDetails": "Hide NPC details",
         "LogNpc": "Associated NPC",
         "LogNoNpc": "None",
         "LogTypeLabel": "Entry Type",
