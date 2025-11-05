@@ -61,7 +61,23 @@
                   {{/if}}
                 </div>
                 <div class="influence-npc__progress-bar" role="progressbar" aria-valuenow="{{npc.progressPercent}}" aria-valuemin="0" aria-valuemax="100">
-                  <div class="influence-npc__progress-fill" style="width: {{npc.progressPercent}}%;"></div>
+                  <div class="influence-npc__progress-track">
+                    <div class="influence-npc__progress-fill" style="width: {{npc.progressPercent}}%;"></div>
+                  </div>
+                  {{#if npc.hasThresholds}}
+                    <div class="influence-npc__progress-markers">
+                      {{#each npc.thresholds as |threshold|}}
+                        <span
+                          class="influence-npc__progress-marker{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}"
+                          style="left: {{threshold.markerPercent}}%;"
+                          title="{{threshold.pointsLabel}}"
+                          aria-label="{{threshold.pointsLabel}}"
+                          role="img"
+                          tabindex="0"
+                        ></span>
+                      {{/each}}
+                    </div>
+                  {{/if}}
                 </div>
                 <div class="influence-npc__labels">
                   <span class="influence-npc__label">{{npc.maxInfluenceLabel}}</span>
