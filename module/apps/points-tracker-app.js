@@ -1794,6 +1794,48 @@ class BaseResearchTrackerApp extends FormApplication {
     });
   }
 
+  _bindInfluencePortraitDropzones(html) {
+    const root = html instanceof HTMLElement ? html : html?.[0] ?? html;
+    if (!root || !game.user?.isGM) return;
+    const zones = root.querySelectorAll?.("[data-influence-portrait]");
+    if (!zones?.length) return;
+
+    zones.forEach((zone) => {
+      if (!(zone instanceof HTMLElement)) return;
+      const isInteractive = zone.dataset.dropzone === "influence-portrait";
+      if (isInteractive) {
+        zone.addEventListener("dragenter", (event) => {
+          event.preventDefault();
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "copy";
+          }
+          this._setDropzoneState(zone, true);
+        });
+        zone.addEventListener("dragleave", (event) => {
+          const related = event.relatedTarget;
+          if (!zone.contains(related)) {
+            this._setDropzoneState(zone, false);
+          }
+        });
+        zone.addEventListener("drop", (event) => {
+          this._setDropzoneState(zone, false);
+          this._onDropInfluencePortrait(event);
+        });
+        zone.addEventListener("keydown", (event) => {
+          if (event.defaultPrevented) return;
+          const key = event.key;
+          if (key !== "Enter" && key !== " ") return;
+          event.preventDefault();
+          this._onSelectInfluencePortrait(event);
+        });
+      }
+    });
+  }
+
   async _onDropTopicPortrait(event) {
     event.preventDefault();
 
@@ -1871,7 +1913,84 @@ class BaseResearchTrackerApp extends FormApplication {
     await this._setTopicPortrait(topicId, portrait);
   }
 
-  async _resolveTopicPortrait(payload) {
+  async _onDropInfluencePortrait(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM) return;
+
+    const zone = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event.target instanceof HTMLElement
+      ? event.target.closest?.("[data-influence-portrait]")
+      : null;
+    if (!zone) return;
+
+    const npcId = zone.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+
+    const dataTransfer = event?.dataTransfer ?? event?.originalEvent?.dataTransfer;
+    let dropPayload = null;
+
+    const parsePayload = (raw) => {
+      if (!raw) return null;
+      if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+          try {
+            return JSON.parse(trimmed);
+          } catch (error) {
+            console.error(error);
+          }
+        }
+        return trimmed;
+      }
+      if (typeof raw === "object") return raw;
+      return null;
+    };
+
+    if (dataTransfer) {
+      const types = Array.from(dataTransfer.types ?? []);
+      const orderedTypes = ["text/plain", "text/json", "application/json"];
+      for (const type of orderedTypes) {
+        if (!types.includes(type)) continue;
+        try {
+          const raw = dataTransfer.getData(type);
+          const parsed = parsePayload(raw);
+          if (parsed) {
+            dropPayload = parsed;
+            break;
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      if (!dropPayload && types.includes("text/uri-list")) {
+        try {
+          const raw = dataTransfer.getData("text/uri-list");
+          const firstLine = typeof raw === "string" ? raw.split(/\r?\n/)[0] : raw;
+          const parsed = parsePayload(firstLine);
+          if (parsed) dropPayload = parsed;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+
+    if (!dropPayload && dataTransfer?.files?.length) {
+      const file = dataTransfer.files[0];
+      const path = file?.path ?? file?.name;
+      if (path) dropPayload = path;
+    }
+
+    const portrait = await this._resolvePortrait(dropPayload);
+    if (!portrait || !portrait.img) return;
+
+    await this._setInfluencePortrait(npcId, portrait);
+  }
+
+  async _resolvePortrait(payload) {
     const trim = (value) => (typeof value === "string" ? value.trim() : "");
 
     if (!payload) return null;
@@ -2047,6 +2166,10 @@ class BaseResearchTrackerApp extends FormApplication {
     return { img, imageUuid };
   }
 
+  async _resolveTopicPortrait(payload) {
+    return this._resolvePortrait(payload);
+  }
+
   async _onSelectTopicPortrait(event) {
     event.preventDefault();
 
@@ -2141,6 +2264,103 @@ class BaseResearchTrackerApp extends FormApplication {
     };
 
     await this.tracker.updateTopic(topicId, update);
+    this.render(false);
+  }
+
+  async _onSelectInfluencePortrait(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM || !this.influenceTracker) return;
+
+    const element = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event.target instanceof HTMLElement
+      ? event.target.closest?.("[data-influence-portrait]")
+      : null;
+    if (!element) return;
+
+    const npcId = element.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+
+    const npc = this.influenceTracker.getNpc(npcId);
+    const current = npc?.img ?? "";
+
+    if (typeof FilePicker?.pick === "function") {
+      try {
+        const result = await FilePicker.pick({ type: "image", current: current || undefined });
+        const path = typeof result === "string" ? result : typeof result?.path === "string" ? result.path : "";
+        if (path) {
+          await this._setInfluencePortrait(npcId, { img: path, imageUuid: "" });
+        }
+        return;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    let browseTarget = current ?? "";
+    if (typeof FilePicker?.browse === "function") {
+      try {
+        const response = await FilePicker.browse("image", browseTarget || "", { wildcard: true });
+        if (response?.target) {
+          browseTarget = response.target;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    try {
+      const picker = new FilePicker({
+        type: "image",
+        current: browseTarget || current || undefined,
+        callback: async (path) => {
+          if (!path) return;
+          await this._setInfluencePortrait(npcId, { img: path, imageUuid: "" });
+        },
+      });
+      if (typeof picker.render === "function") {
+        picker.render(true);
+      } else if (typeof picker.browse === "function") {
+        picker.browse();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async _onClearInfluencePortrait(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!game.user?.isGM || !this.influenceTracker) return;
+
+    const button = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!button) return;
+
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+
+    await this._setInfluencePortrait(npcId, null);
+  }
+
+  async _setInfluencePortrait(npcId, portrait) {
+    if (!npcId || !this.influenceTracker) return;
+
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const img = typeof portrait?.img === "string" ? portrait.img.trim() : "";
+    const imageUuid = typeof portrait?.imageUuid === "string" ? portrait.imageUuid.trim() : "";
+
+    if ((npc.img ?? "") === img && (npc.imageUuid ?? "") === imageUuid) return;
+
+    const update = {
+      img,
+      imageUuid,
+    };
+
+    await this.influenceTracker.updateNpc(npcId, update);
     this.render(false);
   }
 
@@ -4350,6 +4570,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const npcData = {
         id: npc.id,
         name: npc.name,
+        img: npc.img ?? "",
+        imageUuid: npc.imageUuid ?? "",
+        hasPortrait: Boolean(npc.img),
         currentInfluence,
         maxInfluence,
         maxInfluenceLabel:
@@ -4483,6 +4706,16 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .on("click", (event) => this._onHideInfluenceThreshold(event));
 
     panel
+      .find("[data-action='select-influence-portrait']")
+      .off("click")
+      .on("click", (event) => this._onSelectInfluencePortrait(event));
+
+    panel
+      .find("[data-action='clear-influence-portrait']")
+      .off("click")
+      .on("click", (event) => this._onClearInfluencePortrait(event));
+
+    panel
       .find("[data-action='add-influence-log-entry']")
       .off("click")
       .on("click", (event) => this._onAddInfluenceLogEntry(event));
@@ -4496,6 +4729,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='delete-influence-log-entry']")
       .off("click")
       .on("click", (event) => this._onDeleteInfluenceLogEntry(event));
+
+    this._bindInfluencePortraitDropzones(panel[0] ?? panel);
   }
 
   async _onCreateInfluenceNpc(event) {

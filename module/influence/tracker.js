@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 1,
+  version: 2,
   npcs: [],
   log: [],
 };
@@ -168,6 +168,22 @@ function normalizeNpc(data = {}) {
   const currentInfluenceRaw = Number(data.currentInfluence ?? data.influence ?? 0);
   const maxInfluenceRaw = Number(data.maxInfluence ?? data.target ?? data.maximum ?? 0);
   const baseDcRaw = Number(data.baseDc ?? data.baseDC ?? data.base ?? data.dc ?? null);
+  const rawImg = (() => {
+    if (typeof data?.img === "string") return data.img;
+    if (typeof data?.image === "string") return data.image;
+    if (typeof data?.portrait === "string") return data.portrait;
+    if (typeof data?.thumbnail === "string") return data.thumbnail;
+    return "";
+  })();
+  const img = typeof rawImg === "string" ? rawImg.trim() : "";
+  const rawImageUuid = (() => {
+    if (typeof data?.imageUuid === "string") return data.imageUuid;
+    if (typeof data?.imageUUID === "string") return data.imageUUID;
+    if (typeof data?.imgUuid === "string") return data.imgUuid;
+    if (typeof data?.portraitUuid === "string") return data.portraitUuid;
+    return "";
+  })();
+  const imageUuid = typeof rawImageUuid === "string" ? rawImageUuid.trim() : "";
 
   const npc = {
     id,
@@ -175,6 +191,8 @@ function normalizeNpc(data = {}) {
     currentInfluence: Number.isFinite(currentInfluenceRaw) ? Number(currentInfluenceRaw) : 0,
     maxInfluence: Number.isFinite(maxInfluenceRaw) ? Math.max(Number(maxInfluenceRaw), 0) : 0,
     baseDc: Number.isFinite(baseDcRaw) ? Number(baseDcRaw) : null,
+    img,
+    imageUuid,
     skillDcs: normalizeSkillEntries(data.skillDcs ?? data.skills ?? []),
     thresholds: normalizeThresholds(data.thresholds ?? []),
     traits: normalizeTraits(data.traits ?? data.trait ?? []),
@@ -269,6 +287,8 @@ export class InfluenceTracker {
       npcs: this.getNpcs().map((npc) => ({
         id: npc.id,
         name: npc.name,
+        img: npc.img ?? "",
+        imageUuid: npc.imageUuid ?? "",
         currentInfluence: npc.currentInfluence,
         maxInfluence: npc.maxInfluence,
         baseDc: npc.baseDc,
@@ -317,13 +337,43 @@ export class InfluenceTracker {
     }
 
     const migrated = {
-      version: version > 0 ? version : DEFAULT_STATE.version,
-      npcs: Array.isArray(source.npcs) ? source.npcs : [],
+      version: version > 0 ? version : 1,
+      npcs: Array.isArray(source.npcs) ? source.npcs.map((npc) => ({ ...npc })) : [],
       log: Array.isArray(source.log) ? source.log : [],
     };
 
     if (!Number.isFinite(migrated.version) || migrated.version < 1) {
       migrated.version = 1;
+    }
+
+    if (migrated.version < 2) {
+      migrated.npcs = migrated.npcs.map((npc) => {
+        const clone = { ...npc };
+        const rawImg = (() => {
+          if (typeof clone?.img === "string") return clone.img;
+          if (typeof clone?.image === "string") return clone.image;
+          if (typeof clone?.portrait === "string") return clone.portrait;
+          if (typeof clone?.thumbnail === "string") return clone.thumbnail;
+          return "";
+        })();
+        const rawImageUuid = (() => {
+          if (typeof clone?.imageUuid === "string") return clone.imageUuid;
+          if (typeof clone?.imageUUID === "string") return clone.imageUUID;
+          if (typeof clone?.imgUuid === "string") return clone.imgUuid;
+          if (typeof clone?.portraitUuid === "string") return clone.portraitUuid;
+          return "";
+        })();
+        return {
+          ...clone,
+          img: typeof rawImg === "string" ? rawImg.trim() : "",
+          imageUuid: typeof rawImageUuid === "string" ? rawImageUuid.trim() : "",
+        };
+      });
+      migrated.version = 2;
+    }
+
+    if (migrated.version < DEFAULT_STATE.version) {
+      migrated.version = DEFAULT_STATE.version;
     }
 
     return migrated;
