@@ -396,6 +396,8 @@ export class InfluenceTracker {
 
     await this._saveState();
 
+    await this._autoRevealThresholds(npcId);
+
     if (notify && game?.i18n?.localize) {
       ui.notifications?.info(
         game.i18n.format("PF2E.PointsTracker.Influence.AdjustmentNotification", {
@@ -417,6 +419,170 @@ export class InfluenceTracker {
     if (delta === 0) return;
 
     await this.adjustInfluence(npcId, delta, { reason, note, notify });
+  }
+
+  async sendThresholdReveal(npcId, thresholdId, { resend = false } = {}) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return;
+
+    const thresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
+    const threshold = thresholds.find((entry) => entry.id === thresholdId);
+    if (!threshold) return;
+
+    const revealedAtRaw = Number(threshold.revealedAt);
+    const isRevealed = Number.isFinite(revealedAtRaw) && revealedAtRaw !== null;
+
+    if (!isRevealed) {
+      threshold.revealedAt = Date.now();
+      this.npcs.set(npcId, normalizeNpc(npc));
+      await this._saveState();
+    }
+
+    const normalizedNpc = this.getNpc(npcId) ?? normalizeNpc(npc);
+    const normalizedThreshold = normalizedNpc?.thresholds?.find((entry) => entry.id === thresholdId);
+
+    if (!isRevealed) {
+      const message =
+        game?.i18n?.format?.("PF2E.PointsTracker.Influence.ThresholdRevealLog", {
+          name: normalizedNpc?.name ?? npc.name ?? "",
+          points: normalizedThreshold?.points ?? threshold.points ?? 0,
+        }) ??
+        `Unlocked reveal at ${normalizedThreshold?.points ?? threshold.points ?? 0} influence for ${
+          normalizedNpc?.name ?? npc.name ?? ""
+        }.`;
+
+      await this.addLogEntry({
+        npcId,
+        reason: message,
+        note: normalizedThreshold?.reward ?? threshold.reward ?? "",
+        type: "info",
+      });
+    }
+
+    await this._notifyThresholdReveal(normalizedNpc, normalizedThreshold ?? threshold, {
+      resend: resend && isRevealed,
+    });
+  }
+
+  async _autoRevealThresholds(npcId) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return;
+
+    const current = Number.isFinite(npc.currentInfluence) ? Number(npc.currentInfluence) : 0;
+    const thresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
+
+    const pending = thresholds.filter((threshold) => {
+      const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
+      const revealedAtRaw = Number(threshold.revealedAt);
+      const isRevealed = Number.isFinite(revealedAtRaw) && revealedAtRaw !== null;
+      return !isRevealed && current >= points;
+    });
+
+    if (!pending.length) return;
+
+    const timestamp = Date.now();
+    pending.forEach((threshold) => {
+      threshold.revealedAt = timestamp;
+    });
+
+    this.npcs.set(npcId, normalizeNpc(npc));
+    await this._saveState();
+
+    const normalizedNpc = this.getNpc(npcId) ?? normalizeNpc(npc);
+
+    for (const threshold of pending) {
+      const normalizedThreshold = normalizedNpc?.thresholds?.find((entry) => entry.id === threshold.id);
+
+      await this._notifyThresholdReveal(normalizedNpc, normalizedThreshold ?? threshold, {
+        resend: false,
+      });
+
+      const message =
+        game?.i18n?.format?.("PF2E.PointsTracker.Influence.ThresholdRevealLog", {
+          name: normalizedNpc?.name ?? npc.name ?? "",
+          points: normalizedThreshold?.points ?? threshold.points ?? 0,
+        }) ??
+        `Unlocked reveal at ${normalizedThreshold?.points ?? threshold.points ?? 0} influence for ${
+          normalizedNpc?.name ?? npc.name ?? ""
+        }.`;
+
+      await this.addLogEntry({
+        npcId,
+        reason: message,
+        note: normalizedThreshold?.reward ?? threshold.reward ?? "",
+        type: "info",
+      });
+    }
+  }
+
+  async _notifyThresholdReveal(npc, threshold, { resend = false } = {}) {
+    if (!npc || !threshold) return;
+    if (!game?.users) return;
+
+    const headerText =
+      game?.i18n?.format?.("PF2E.PointsTracker.Influence.ThresholdRevealMessageHeader", {
+        name: npc.name ?? "",
+        points: threshold.points ?? 0,
+      }) ?? `${npc.name ?? ""} - ${threshold.points ?? 0} Influence`;
+
+    const playerRecipients = game.users.filter((user) => !user.isGM).map((user) => user.id);
+    const gmRecipients = ChatMessage?.getWhisperRecipients
+      ? ChatMessage.getWhisperRecipients("GM").map((user) => user.id)
+      : [];
+
+    const playerText = typeof threshold.playerText === "string" ? threshold.playerText.trim() : "";
+    const gmText = typeof threshold.gmText === "string" ? threshold.gmText.trim() : "";
+    const rewardText = typeof threshold.reward === "string" ? threshold.reward.trim() : "";
+    const rewardLabel =
+      game?.i18n?.localize?.("PF2E.PointsTracker.Influence.ThresholdRewardHeading") ?? "Reward:";
+
+    const enrichedPlayer = playerText ? await this._enrichText(playerText) : "";
+    const enrichedGm = gmText ? await this._enrichText(gmText) : "";
+    const enrichedReward = rewardText ? await this._enrichText(rewardText) : "";
+    const rewardBlock = enrichedReward ? `<p><strong>${rewardLabel}</strong></p>${enrichedReward}` : "";
+
+    const playerParts = [];
+    if (enrichedPlayer) playerParts.push(enrichedPlayer);
+    if (rewardBlock) playerParts.push(rewardBlock);
+
+    if (playerParts.length) {
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: npc.name },
+        content: `<div class="pf2e-influence-reveal pf2e-influence-reveal--player"><p><strong>${headerText}</strong></p>${playerParts.join(
+          ""
+        )}</div>`,
+        whisper: playerRecipients.length ? playerRecipients : undefined,
+      });
+    }
+
+    const gmParts = [];
+    if (enrichedGm) gmParts.push(enrichedGm);
+    if (rewardBlock) gmParts.push(rewardBlock);
+
+    if (gmRecipients.length && gmParts.length) {
+      await ChatMessage?.create?.({
+        user: game.user?.id,
+        speaker: { alias: npc.name },
+        content: `<div class="pf2e-influence-reveal pf2e-influence-reveal--gm"><p><strong>${headerText}</strong></p>${gmParts.join(
+          ""
+        )}</div>`,
+        whisper: gmRecipients,
+      });
+    }
+  }
+
+  async _enrichText(text) {
+    if (!text) return "";
+    if (globalThis.TextEditor?.enrichHTML) {
+      try {
+        const enriched = await TextEditor.enrichHTML(text, { async: true });
+        if (typeof enriched === "string") return enriched;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    return text;
   }
 
   getLog() {

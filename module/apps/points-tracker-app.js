@@ -4247,29 +4247,45 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           };
         })
       );
-      const thresholds = Array.isArray(npc.thresholds)
-        ? npc.thresholds.map((threshold) => {
-            const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
-            const isUnlocked = currentInfluence >= points;
-            const revealedAt = Number.isFinite(threshold.revealedAt)
-              ? Number(threshold.revealedAt)
-              : null;
-            return {
-              id: threshold.id,
-              points,
-              gmText: threshold.gmText ?? "",
-              playerText: threshold.playerText ?? "",
-              reward: threshold.reward ?? "",
-              isUnlocked,
-              isRevealed: revealedAt !== null,
-              revealedAt,
-              revealedAtFormatted: revealedAt ? new Date(revealedAt).toLocaleString() : null,
-              pointsLabel: game.i18n.format("PF2E.PointsTracker.Influence.ThresholdPoints", {
-                points,
-              }),
-            };
-          })
-        : [];
+      const thresholds = [];
+      if (Array.isArray(npc.thresholds)) {
+        for (const threshold of npc.thresholds) {
+          const points = Number.isFinite(threshold.points) ? Number(threshold.points) : 0;
+          const isUnlocked = currentInfluence >= points;
+          const revealedAt = Number.isFinite(threshold.revealedAt)
+            ? Number(threshold.revealedAt)
+            : null;
+          const gmText = typeof threshold.gmText === "string" ? threshold.gmText.trim() : "";
+          const playerText = typeof threshold.playerText === "string" ? threshold.playerText.trim() : "";
+          const reward = typeof threshold.reward === "string" ? threshold.reward.trim() : "";
+          const gmTextHtml = gmText ? await this._enrichText(gmText) : "";
+          const playerTextHtml = playerText ? await this._enrichText(playerText) : "";
+          const rewardHtml = reward ? await this._enrichText(reward) : "";
+          const hasPlayerContent = Boolean(playerTextHtml || rewardHtml);
+          thresholds.push({
+            id: threshold.id,
+            points,
+            gmText,
+            gmTextHtml,
+            playerText,
+            playerTextHtml,
+            reward,
+            rewardHtml,
+            isUnlocked,
+            isRevealed: revealedAt !== null,
+            revealedAt,
+            revealedAtFormatted: revealedAt ? new Date(revealedAt).toLocaleString() : null,
+            pointsLabel: game.i18n.format("PF2E.PointsTracker.Influence.ThresholdPoints", { points }),
+            canReveal: isUnlocked && revealedAt === null,
+            canResend: revealedAt !== null && Boolean(gmTextHtml || playerTextHtml || rewardHtml),
+            canHide: revealedAt !== null,
+            showToPlayers: isUnlocked && revealedAt !== null && hasPlayerContent,
+            hasPlayerText: Boolean(playerTextHtml),
+            hasGmText: Boolean(gmTextHtml),
+            hasReward: Boolean(rewardHtml),
+          });
+        }
+      }
 
       const discoveryChecks =
         typeof npc.discoveryChecks === "string" ? npc.discoveryChecks.trim() : "";
@@ -4430,9 +4446,19 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .on("click", (event) => this._onManageInfluenceThresholds(event));
 
     panel
-      .find("[data-action='toggle-influence-threshold']")
+      .find("[data-action='reveal-influence-threshold']")
       .off("click")
-      .on("click", (event) => this._onToggleInfluenceThreshold(event));
+      .on("click", (event) => this._onRevealInfluenceThreshold(event));
+
+    panel
+      .find("[data-action='resend-influence-threshold']")
+      .off("click")
+      .on("click", (event) => this._onResendInfluenceThreshold(event));
+
+    panel
+      .find("[data-action='hide-influence-threshold']")
+      .off("click")
+      .on("click", (event) => this._onHideInfluenceThreshold(event));
 
     panel
       .find("[data-action='add-influence-log-entry']")
@@ -4571,7 +4597,33 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     this.render();
   }
 
-  async _onToggleInfluenceThreshold(event) {
+  async _onRevealInfluenceThreshold(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    const thresholdId = button.closest("[data-threshold-id]")?.dataset.thresholdId;
+    if (!npcId || !thresholdId) return;
+
+    await this.influenceTracker.sendThresholdReveal(npcId, thresholdId, { resend: false });
+    this.render();
+  }
+
+  async _onResendInfluenceThreshold(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const button = event.currentTarget;
+    const npcId = button.closest("[data-npc-id]")?.dataset.npcId;
+    const thresholdId = button.closest("[data-threshold-id]")?.dataset.thresholdId;
+    if (!npcId || !thresholdId) return;
+
+    await this.influenceTracker.sendThresholdReveal(npcId, thresholdId, { resend: true });
+    this.render();
+  }
+
+  async _onHideInfluenceThreshold(event) {
     event.preventDefault();
     if (!this.influenceTracker) return;
 
@@ -4583,14 +4635,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (!npc) return;
 
     const thresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
-    const updated = thresholds.map((threshold) => {
-      if (threshold.id !== thresholdId) return threshold;
-      const isRevealed = Number.isFinite(threshold.revealedAt) && threshold.revealedAt !== null;
-      return {
-        ...threshold,
-        revealedAt: isRevealed ? null : Date.now(),
-      };
-    });
+    const updated = thresholds.map((threshold) =>
+      threshold.id === thresholdId ? { ...threshold, revealedAt: null } : threshold
+    );
 
     await this.influenceTracker.updateNpc(npcId, { thresholds: updated });
     this.render();
