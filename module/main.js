@@ -4,6 +4,7 @@ import { createAwarenessTracker } from "./awareness/awareness-tracker.js";
 import { createChaseTracker } from "./chase/tracker.js";
 import { createInfluenceTracker } from "./influence/tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
+import { InfluenceImportExport } from "./influence/importer.js";
 import { ResearchImportExport } from "./research/importer.js";
 import { registerResearchAutoUpdates } from "./research/auto-update.js";
 
@@ -34,6 +35,23 @@ const influenceTracker = createInfluenceTracker({
   moduleId: MODULE_ID,
   settingKey: INFLUENCE_SETTING_KEY,
 });
+
+async function importInfluenceNpcsFromDialog() {
+  const npcs = await InfluenceImportExport.promptImport();
+  if (!Array.isArray(npcs) || !npcs.length) return [];
+
+  const created = [];
+  for (const npcData of npcs) {
+    try {
+      const result = await influenceTracker.createNpc(npcData);
+      if (result) created.push(result);
+    } catch (error) {
+      console.error(`${MODULE_ID} | Failed to import influence NPC.`, error);
+    }
+  }
+
+  return created;
+}
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing PF2e Points Tracker module.`);
@@ -73,6 +91,15 @@ Hooks.once("init", () => {
         }),
       importResearchTopics: () => ResearchImportExport.promptImport(researchTracker),
       exportResearchTopics: () => ResearchImportExport.exportTopics(researchTracker),
+      importInfluenceNpcs: async () => {
+        const created = await importInfluenceNpcsFromDialog();
+        if (created.length) {
+          ui.notifications?.info?.(
+            game.i18n.format("PF2E.PointsTracker.Influence.ImportSuccess", { count: created.length })
+          );
+        }
+        return created;
+      },
     });
   }
 });
@@ -112,6 +139,15 @@ Hooks.once("ready", async () => {
       }),
     import: () => ResearchImportExport.promptImport(researchTracker),
     export: () => ResearchImportExport.exportTopics(researchTracker),
+    importInfluenceNpcs: async () => {
+      const created = await importInfluenceNpcsFromDialog();
+      if (created.length) {
+        ui.notifications?.info?.(
+          game.i18n.format("PF2E.PointsTracker.Influence.ImportSuccess", { count: created.length })
+        );
+      }
+      return created;
+    },
   };
 
   console.log(`${MODULE_ID} | PF2e Points Tracker global API registered.`);
