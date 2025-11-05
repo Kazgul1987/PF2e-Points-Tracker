@@ -1523,6 +1523,10 @@
   gap: 1rem;
 }
 
+.influence-npc__body.is-collapsed {
+  display: none;
+}
+
 .influence-npc__progress {
   display: flex;
   flex-direction: column;

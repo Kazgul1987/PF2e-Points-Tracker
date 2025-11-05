@@ -69,6 +69,19 @@
                 </div>
               </div>
               <div class="influence-npc__actions">
+                <button
+                  type="button"
+                  data-action="toggle-influence-npc"
+                  aria-expanded="{{#unless npc.isCollapsed}}true{{else}}false{{/unless}}"
+                >
+                  {{#if npc.isCollapsed}}
+                    <i class="fas fa-angle-down" aria-hidden="true"></i>
+                    {{localize "PF2E.PointsTracker.Influence.ExpandDetails"}}
+                  {{else}}
+                    <i class="fas fa-angle-up" aria-hidden="true"></i>
+                    {{localize "PF2E.PointsTracker.Influence.CollapseDetails"}}
+                  {{/if}}
+                </button>
                 <button type="button" data-action="edit-influence-npc">
                   <i class="fas fa-edit" aria-hidden="true"></i>
                   {{localize "PF2E.PointsTracker.Influence.Edit"}}
@@ -88,53 +101,53 @@
               </div>
             </header>
 
-            <div class="influence-npc__body">
-              <section class="influence-npc__progress" aria-label="{{localize "PF2E.PointsTracker.Influence.Progress"}}">
-                <div class="influence-npc__progress-top">
-                  <span class="influence-npc__value">{{npc.currentInfluence}}</span>
-                  {{#if npc.maxInfluence}}
-                    <span class="influence-npc__max">/ {{npc.maxInfluence}}</span>
-                  {{/if}}
+            <section class="influence-npc__progress" aria-label="{{localize "PF2E.PointsTracker.Influence.Progress"}}">
+              <div class="influence-npc__progress-top">
+                <span class="influence-npc__value">{{npc.currentInfluence}}</span>
+                {{#if npc.maxInfluence}}
+                  <span class="influence-npc__max">/ {{npc.maxInfluence}}</span>
+                {{/if}}
+              </div>
+              <div class="influence-npc__progress-bar" role="progressbar" aria-valuenow="{{npc.progressPercent}}" aria-valuemin="0" aria-valuemax="100">
+                <div class="influence-npc__progress-track">
+                  <div class="influence-npc__progress-fill" style="width: {{npc.progressPercent}}%;"></div>
                 </div>
-                <div class="influence-npc__progress-bar" role="progressbar" aria-valuenow="{{npc.progressPercent}}" aria-valuemin="0" aria-valuemax="100">
-                  <div class="influence-npc__progress-track">
-                    <div class="influence-npc__progress-fill" style="width: {{npc.progressPercent}}%;"></div>
+                {{#if npc.hasThresholds}}
+                  <div class="influence-npc__progress-markers">
+                    {{#each npc.thresholds as |threshold|}}
+                      <span
+                        class="influence-npc__progress-marker{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}"
+                        style="left: {{threshold.markerPercent}}%;"
+                        title="{{threshold.pointsLabel}}"
+                        aria-label="{{threshold.pointsLabel}}"
+                        role="img"
+                        tabindex="0"
+                      ></span>
+                    {{/each}}
                   </div>
-                  {{#if npc.hasThresholds}}
-                    <div class="influence-npc__progress-markers">
-                      {{#each npc.thresholds as |threshold|}}
-                        <span
-                          class="influence-npc__progress-marker{{#if threshold.isUnlocked}} is-unlocked{{/if}}{{#if threshold.isRevealed}} is-revealed{{/if}}"
-                          style="left: {{threshold.markerPercent}}%;"
-                          title="{{threshold.pointsLabel}}"
-                          aria-label="{{threshold.pointsLabel}}"
-                          role="img"
-                          tabindex="0"
-                        ></span>
-                      {{/each}}
-                    </div>
-                  {{/if}}
-                </div>
-                <div class="influence-npc__labels">
-                  <span class="influence-npc__label">{{npc.maxInfluenceLabel}}</span>
-                  <span class="influence-npc__label">{{npc.baseDcLabel}}</span>
-                </div>
-                <div class="influence-npc__buttons">
-                  <button type="button" data-action="adjust-influence" data-delta="-1" {{#unless npc.canDecrease}}disabled{{/unless}}>
-                    -1
-                  </button>
-                  <button type="button" data-action="adjust-influence" data-delta="1" {{#unless npc.canIncrease}}disabled{{/unless}}>
-                    +1
-                  </button>
-                  <button type="button" data-action="adjust-influence" data-delta="2" {{#unless npc.canIncrease}}disabled{{/unless}}>
-                    +2
-                  </button>
-                  <button type="button" data-action="set-influence">
-                    {{localize "PF2E.PointsTracker.Influence.Set"}}
-                  </button>
-                </div>
-              </section>
+                {{/if}}
+              </div>
+              <div class="influence-npc__labels">
+                <span class="influence-npc__label">{{npc.maxInfluenceLabel}}</span>
+                <span class="influence-npc__label">{{npc.baseDcLabel}}</span>
+              </div>
+              <div class="influence-npc__buttons">
+                <button type="button" data-action="adjust-influence" data-delta="-1" {{#unless npc.canDecrease}}disabled{{/unless}}>
+                  -1
+                </button>
+                <button type="button" data-action="adjust-influence" data-delta="1" {{#unless npc.canIncrease}}disabled{{/unless}}>
+                  +1
+                </button>
+                <button type="button" data-action="adjust-influence" data-delta="2" {{#unless npc.canIncrease}}disabled{{/unless}}>
+                  +2
+                </button>
+                <button type="button" data-action="set-influence">
+                  {{localize "PF2E.PointsTracker.Influence.Set"}}
+                </button>
+              </div>
+            </section>
 
+            <div class="influence-npc__body{{#if npc.isCollapsed}} is-collapsed{{/if}}">
               {{#if npc.hasSkillDcs}}
                 <section class="influence-npc__skills">
                   <h4>{{localize "PF2E.PointsTracker.Influence.SkillHeader"}}</h4>
