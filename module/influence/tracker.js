@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 2,
+  version: 3,
   npcs: [],
   log: [],
 };
@@ -196,10 +196,38 @@ function normalizeNpc(data = {}) {
     skillDcs: normalizeSkillEntries(data.skillDcs ?? data.skills ?? []),
     thresholds: normalizeThresholds(data.thresholds ?? []),
     traits: normalizeTraits(data.traits ?? data.trait ?? []),
-    discoveryChecks:
-      typeof data.discoveryChecks === "string" ? data.discoveryChecks.trim() : "",
-    influenceChecks:
-      typeof data.influenceChecks === "string" ? data.influenceChecks.trim() : "",
+    discoveryChecks: (() => {
+      if (typeof data.discoveryChecks === "string") return [];
+      return normalizeSkillEntries(data.discoveryChecks ?? []);
+    })(),
+    discoveryNotes: (() => {
+      const legacy =
+        typeof data.discoveryChecks === "string" ? data.discoveryChecks.trim() : "";
+      const explicit = typeof data.discoveryNotes === "string" ? data.discoveryNotes.trim() : "";
+      const structured =
+        data.discoveryChecks && typeof data.discoveryChecks === "object"
+          ? typeof data.discoveryChecks.notes === "string"
+            ? data.discoveryChecks.notes.trim()
+            : ""
+          : "";
+      return explicit || legacy || structured || "";
+    })(),
+    influenceChecks: (() => {
+      if (typeof data.influenceChecks === "string") return [];
+      return normalizeSkillEntries(data.influenceChecks ?? []);
+    })(),
+    influenceNotes: (() => {
+      const legacy =
+        typeof data.influenceChecks === "string" ? data.influenceChecks.trim() : "";
+      const explicit = typeof data.influenceNotes === "string" ? data.influenceNotes.trim() : "";
+      const structured =
+        data.influenceChecks && typeof data.influenceChecks === "object"
+          ? typeof data.influenceChecks.notes === "string"
+            ? data.influenceChecks.notes.trim()
+            : ""
+          : "";
+      return explicit || legacy || structured || "";
+    })(),
     penalty: typeof data.penalty === "string" ? data.penalty.trim() : "",
     notes: typeof data.notes === "string" ? data.notes.trim() : "",
     isCollapsed: Boolean(data.isCollapsed),
@@ -302,8 +330,22 @@ export class InfluenceTracker {
           revealedAt: threshold.revealedAt ?? null,
         })),
         traits: Array.isArray(npc.traits) ? npc.traits : [],
-        discoveryChecks: npc.discoveryChecks ?? "",
-        influenceChecks: npc.influenceChecks ?? "",
+        discoveryChecks: Array.isArray(npc.discoveryChecks)
+          ? npc.discoveryChecks.map((entry) => ({
+              id: entry.id,
+              skill: typeof entry.skill === "string" ? entry.skill : "",
+              dc: Number.isFinite(entry.dc) ? Number(entry.dc) : null,
+            }))
+          : [],
+        discoveryNotes: npc.discoveryNotes ?? "",
+        influenceChecks: Array.isArray(npc.influenceChecks)
+          ? npc.influenceChecks.map((entry) => ({
+              id: entry.id,
+              skill: typeof entry.skill === "string" ? entry.skill : "",
+              dc: Number.isFinite(entry.dc) ? Number(entry.dc) : null,
+            }))
+          : [],
+        influenceNotes: npc.influenceNotes ?? "",
         penalty: npc.penalty ?? "",
         notes: npc.notes ?? "",
         isCollapsed: npc.isCollapsed ?? false,
@@ -370,6 +412,51 @@ export class InfluenceTracker {
         };
       });
       migrated.version = 2;
+    }
+
+    if (migrated.version < 3) {
+      migrated.npcs = migrated.npcs.map((npc) => {
+        const clone = { ...npc };
+
+        const discoveryNotesExplicit =
+          typeof clone.discoveryNotes === "string" ? clone.discoveryNotes.trim() : "";
+        const discoveryLegacy =
+          typeof clone.discoveryChecks === "string" ? clone.discoveryChecks.trim() : "";
+        const discoveryStructuredNotes =
+          clone.discoveryChecks && typeof clone.discoveryChecks === "object"
+            ? typeof clone.discoveryChecks.notes === "string"
+              ? clone.discoveryChecks.notes.trim()
+              : ""
+            : "";
+        const discoveryChecks = normalizeSkillEntries(
+          typeof clone.discoveryChecks === "string" ? [] : clone.discoveryChecks ?? []
+        );
+
+        const influenceNotesExplicit =
+          typeof clone.influenceNotes === "string" ? clone.influenceNotes.trim() : "";
+        const influenceLegacy =
+          typeof clone.influenceChecks === "string" ? clone.influenceChecks.trim() : "";
+        const influenceStructuredNotes =
+          clone.influenceChecks && typeof clone.influenceChecks === "object"
+            ? typeof clone.influenceChecks.notes === "string"
+              ? clone.influenceChecks.notes.trim()
+              : ""
+            : "";
+        const influenceChecks = normalizeSkillEntries(
+          typeof clone.influenceChecks === "string" ? [] : clone.influenceChecks ?? []
+        );
+
+        return {
+          ...clone,
+          discoveryChecks,
+          discoveryNotes:
+            discoveryNotesExplicit || discoveryLegacy || discoveryStructuredNotes || "",
+          influenceChecks,
+          influenceNotes:
+            influenceNotesExplicit || influenceLegacy || influenceStructuredNotes || "",
+        };
+      });
+      migrated.version = 3;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {

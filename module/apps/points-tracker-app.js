@@ -4410,6 +4410,48 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         .replace(/^-+|-+$/g, "");
     };
     const skillOptions = this._getPf2eSkillOptions();
+    const formatCheckEntries = async (entries) => {
+      const list = Array.isArray(entries) ? entries : [];
+      const results = await Promise.all(
+        list.map(async (entry) => {
+          const rawSkill = typeof entry?.skill === "string" ? entry.skill : "";
+          const skill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+          const fallbackSkill = typeof rawSkill === "string" ? rawSkill.trim() : "";
+          const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : null;
+          const label = (() => {
+            const parts = [];
+            if (skill) parts.push(skill);
+            if (dc !== null) {
+              parts.push(
+                game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
+                  dc,
+                })
+              );
+            }
+            return parts.join(" • ") || skill || fallbackSkill;
+          })();
+          const slug = slugifySkill(skill || fallbackSkill);
+          const inlineParts = [];
+          if (slug) {
+            inlineParts.push(`type:${slug}`);
+            if (dc !== null) inlineParts.push(`dc:${dc}`);
+          }
+          const displayText = label || skill || fallbackSkill;
+          const inlineText = inlineParts.length && displayText
+            ? `@Check[${inlineParts.join("|")}]${displayText}`
+            : "";
+          const inlineHtml = inlineText ? await this._enrichText(inlineText) : "";
+          return {
+            id: typeof entry?.id === "string" && entry.id.trim() ? entry.id.trim() : this._generateId(),
+            skill,
+            dc,
+            label,
+            inlineHtml: inlineHtml || null,
+          };
+        })
+      );
+      return results.filter((entry) => entry.skill || entry.dc !== null || entry.label);
+    };
 
     const npcs = [];
     for (const npc of npcsRaw) {
@@ -4445,42 +4487,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         : [];
       const traitsLabel = traits.join(", ");
       const skillDcsRaw = Array.isArray(npc.skillDcs) ? npc.skillDcs : [];
-      const skillDcs = await Promise.all(
-        skillDcsRaw.map(async (entry) => {
-          const rawSkill = typeof entry.skill === "string" ? entry.skill : "";
-          const skill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
-          const fallbackSkill = typeof rawSkill === "string" ? rawSkill.trim() : "";
-          const dc = Number.isFinite(entry.dc) ? Number(entry.dc) : null;
-          const label = (() => {
-            const parts = [];
-            if (skill) parts.push(skill);
-            if (dc !== null) {
-              parts.push(
-                game.i18n.format("PF2E.PointsTracker.Influence.SkillDCValue", {
-                  dc,
-                })
-              );
-            }
-            return parts.join(" • ") || skill;
-          })();
-          const slug = slugifySkill(skill || fallbackSkill);
-          const inlineParts = [];
-          if (slug) {
-            inlineParts.push(`type:${slug}`);
-            if (dc !== null) inlineParts.push(`dc:${dc}`);
-          }
-          const displayText = label || skill;
-          const inlineText = inlineParts.length && displayText ? `@Check[${inlineParts.join("|")}]${displayText}` : "";
-          const inlineHtml = inlineText ? await this._enrichText(inlineText) : "";
-          return {
-            id: entry.id,
-            skill,
-            dc,
-            label,
-            inlineHtml: inlineHtml || null,
-          };
-        })
-      );
+      const skillDcs = await formatCheckEntries(skillDcsRaw);
       const thresholds = [];
       if (rawThresholds.length > 0) {
         for (const threshold of rawThresholds) {
@@ -4529,12 +4536,14 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         }
       }
 
-      const discoveryChecks =
-        typeof npc.discoveryChecks === "string" ? npc.discoveryChecks.trim() : "";
-      const discoveryChecksHtml = escapeHtml(discoveryChecks).replace(/\n/g, "<br />");
-      const influenceChecks =
-        typeof npc.influenceChecks === "string" ? npc.influenceChecks.trim() : "";
-      const influenceChecksHtml = escapeHtml(influenceChecks).replace(/\n/g, "<br />");
+      const discoveryChecks = await formatCheckEntries(npc.discoveryChecks);
+      const discoveryNotes =
+        typeof npc.discoveryNotes === "string" ? npc.discoveryNotes.trim() : "";
+      const discoveryNotesHtml = discoveryNotes ? await this._enrichText(discoveryNotes) : "";
+      const influenceChecks = await formatCheckEntries(npc.influenceChecks);
+      const influenceNotes =
+        typeof npc.influenceNotes === "string" ? npc.influenceNotes.trim() : "";
+      const influenceNotesHtml = influenceNotes ? await this._enrichText(influenceNotes) : "";
       const penalty = npc.penalty ?? "";
       const penaltyHtml = escapeHtml(penalty).replace(/\n/g, "<br />");
       const notes = npc.notes ?? "";
@@ -4591,11 +4600,17 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         thresholds,
         hasThresholds: thresholds.length > 0,
         discoveryChecks,
-        discoveryChecksHtml,
-        hasDiscoveryChecks: Boolean(discoveryChecks),
+        hasDiscoveryChecks: discoveryChecks.length > 0 || Boolean(discoveryNotesHtml),
+        hasDiscoveryCheckList: discoveryChecks.length > 0,
+        discoveryNotes,
+        discoveryNotesHtml,
+        hasDiscoveryNotes: Boolean(discoveryNotesHtml),
         influenceChecks,
-        influenceChecksHtml,
-        hasInfluenceChecks: Boolean(influenceChecks),
+        hasInfluenceChecks: influenceChecks.length > 0 || Boolean(influenceNotesHtml),
+        hasInfluenceCheckList: influenceChecks.length > 0,
+        influenceNotes,
+        influenceNotesHtml,
+        hasInfluenceNotes: Boolean(influenceNotesHtml),
         penalty,
         penaltyHtml,
         notes,
@@ -4997,23 +5012,40 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       ? initial.traits
       : "";
     const traitsPlaceholder = game.i18n.localize("PF2E.PointsTracker.Influence.TraitsPlaceholder");
-    const discoveryChecksDefault =
-      typeof initial.discoveryChecks === "string" ? initial.discoveryChecks : "";
-    const influenceChecksDefault =
-      typeof initial.influenceChecks === "string" ? initial.influenceChecks : "";
-    const discoveryChecksPlaceholder = game.i18n.localize(
-      "PF2E.PointsTracker.Influence.DiscoveryChecksPlaceholder"
-    );
-    const influenceChecksPlaceholder = game.i18n.localize(
-      "PF2E.PointsTracker.Influence.InfluenceChecksPlaceholder"
-    );
-
     const skillOptions = this._getPf2eSkillOptions();
     const existingSkillRows = Array.isArray(initial.skillDcs) ? initial.skillDcs : [];
     const npcSkillRows = existingSkillRows.concat(new Array(3).fill(null));
     const skillFields = npcSkillRows
       .map((entry) => this._renderInfluenceSkillRow(entry, skillOptions))
       .join("");
+    const discoveryCheckRows = (Array.isArray(initial.discoveryChecks) ? initial.discoveryChecks : []).concat(
+      new Array(3).fill(null)
+    );
+    const discoveryCheckFields = discoveryCheckRows
+      .map((entry) => this._renderDiscoveryCheckRow(entry, skillOptions))
+      .join("");
+    const discoveryNotesDefault =
+      typeof initial.discoveryNotes === "string" ? initial.discoveryNotes : "";
+    const discoveryChecksHint = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.DiscoveryChecksPlaceholder"
+    );
+    const discoveryNotesPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.DiscoveryNotesPlaceholder"
+    );
+    const influenceCheckRows = (Array.isArray(initial.influenceChecks) ? initial.influenceChecks : []).concat(
+      new Array(3).fill(null)
+    );
+    const influenceCheckFields = influenceCheckRows
+      .map((entry) => this._renderInfluenceCheckRow(entry, skillOptions))
+      .join("");
+    const influenceNotesDefault =
+      typeof initial.influenceNotes === "string" ? initial.influenceNotes : "";
+    const influenceChecksHint = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.InfluenceChecksPlaceholder"
+    );
+    const influenceNotesPlaceholder = game.i18n.localize(
+      "PF2E.PointsTracker.Influence.InfluenceNotesPlaceholder"
+    );
 
     const template = `
       <form class="flexcol points-tracker-dialog">
@@ -5046,13 +5078,33 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.TraitsLabel")}</label>
           <input type="text" name="traits" value="${escapeAttribute(traitsDefault)}" placeholder="${escapeAttribute(traitsPlaceholder)}">
         </div>
-        <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.DiscoveryChecksLabel")}</label>
-          <textarea name="discoveryChecks" rows="3" placeholder="${escapeAttribute(discoveryChecksPlaceholder)}">${escapeHtml(discoveryChecksDefault)}</textarea>
+        <div class="influence-check-editor" data-discovery-check-editor>
+          <h4>${game.i18n.localize("PF2E.PointsTracker.Influence.DiscoveryChecksLabel")}</h4>
+          <p class="notes">${escapeHtml(discoveryChecksHint)}</p>
+          <div data-discovery-check-rows>
+            ${discoveryCheckFields}
+          </div>
+          <button type="button" class="add-check-row" data-action="add-discovery-check-row">
+            ${game.i18n.localize("PF2E.PointsTracker.Influence.AddCheckRow")}
+          </button>
         </div>
         <div class="form-group">
-          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.InfluenceChecksLabel")}</label>
-          <textarea name="influenceChecks" rows="3" placeholder="${escapeAttribute(influenceChecksPlaceholder)}">${escapeHtml(influenceChecksDefault)}</textarea>
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.DiscoveryNotesLabel")}</label>
+          <textarea name="discoveryNotes" rows="3" placeholder="${escapeAttribute(discoveryNotesPlaceholder)}">${escapeHtml(discoveryNotesDefault)}</textarea>
+        </div>
+        <div class="influence-check-editor" data-influence-check-editor>
+          <h4>${game.i18n.localize("PF2E.PointsTracker.Influence.InfluenceChecksLabel")}</h4>
+          <p class="notes">${escapeHtml(influenceChecksHint)}</p>
+          <div data-influence-check-rows>
+            ${influenceCheckFields}
+          </div>
+          <button type="button" class="add-check-row" data-action="add-influence-check-row">
+            ${game.i18n.localize("PF2E.PointsTracker.Influence.AddCheckRow")}
+          </button>
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.InfluenceNotesLabel")}</label>
+          <textarea name="influenceNotes" rows="3" placeholder="${escapeAttribute(influenceNotesPlaceholder)}">${escapeHtml(influenceNotesDefault)}</textarea>
         </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Influence.PenaltyText")}</label>
@@ -5092,13 +5144,19 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
               const maxInfluenceValue = Number(formData.get("maxInfluence"));
               const baseDcValue = Number(formData.get("baseDc"));
               const traitsRaw = String(formData.get("traits") ?? "").trim();
-              const discoveryChecks = String(formData.get("discoveryChecks") ?? "").trim();
-              const influenceChecks = String(formData.get("influenceChecks") ?? "").trim();
               const penalty = String(formData.get("penalty") ?? "").trim();
               const notes = String(formData.get("notes") ?? "").trim();
+              const discoveryNotes = String(formData.get("discoveryNotes") ?? "").trim();
+              const influenceNotes = String(formData.get("influenceNotes") ?? "").trim();
               const ids = formData.getAll("skillId[]");
               const skills = formData.getAll("skillName[]");
               const dcs = formData.getAll("skillDc[]");
+              const discoveryIds = formData.getAll("discoveryCheckId[]");
+              const discoverySkills = formData.getAll("discoveryCheckSkill[]");
+              const discoveryDcs = formData.getAll("discoveryCheckDc[]");
+              const influenceIds = formData.getAll("influenceCheckId[]");
+              const influenceSkills = formData.getAll("influenceCheckSkill[]");
+              const influenceDcs = formData.getAll("influenceCheckDc[]");
 
               const skillDcs = [];
               const count = Math.max(ids.length, skills.length, dcs.length);
@@ -5115,6 +5173,54 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 skillDcs.push({ id, skill: normalizedSkill, dc: hasDc ? Number(dcRaw) : null });
               }
 
+              const discoveryChecks = [];
+              const discoveryCount = Math.max(
+                discoveryIds.length,
+                discoverySkills.length,
+                discoveryDcs.length
+              );
+              for (let index = 0; index < discoveryCount; index += 1) {
+                const rawSkill =
+                  typeof discoverySkills[index] === "string" ? discoverySkills[index] : "";
+                const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+                const dcRaw = Number(discoveryDcs[index]);
+                const hasSkill = Boolean(normalizedSkill);
+                const hasDc = Number.isFinite(dcRaw);
+                if (!hasSkill && !hasDc) continue;
+
+                let id = String(discoveryIds[index] ?? "").trim();
+                if (!id) id = this._generateId();
+                discoveryChecks.push({
+                  id,
+                  skill: normalizedSkill,
+                  dc: hasDc ? Number(dcRaw) : null,
+                });
+              }
+
+              const influenceChecks = [];
+              const influenceCount = Math.max(
+                influenceIds.length,
+                influenceSkills.length,
+                influenceDcs.length
+              );
+              for (let index = 0; index < influenceCount; index += 1) {
+                const rawSkill =
+                  typeof influenceSkills[index] === "string" ? influenceSkills[index] : "";
+                const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+                const dcRaw = Number(influenceDcs[index]);
+                const hasSkill = Boolean(normalizedSkill);
+                const hasDc = Number.isFinite(dcRaw);
+                if (!hasSkill && !hasDc) continue;
+
+                let id = String(influenceIds[index] ?? "").trim();
+                if (!id) id = this._generateId();
+                influenceChecks.push({
+                  id,
+                  skill: normalizedSkill,
+                  dc: hasDc ? Number(dcRaw) : null,
+                });
+              }
+
               const payload = {
                 name,
                 currentInfluence: Number.isFinite(currentInfluenceValue)
@@ -5126,7 +5232,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
                 baseDc: Number.isFinite(baseDcValue) ? Math.max(0, baseDcValue) : null,
                 traits: traitsRaw,
                 discoveryChecks,
+                discoveryNotes,
                 influenceChecks,
+                influenceNotes,
                 penalty,
                 notes,
                 skillDcs,
@@ -5142,6 +5250,16 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         },
         render: (html) => {
           this._initializeInfluenceSkillEditor(html[0], skillOptions);
+          this._initializeInfluenceCheckList(html[0], {
+            containerSelector: "[data-discovery-check-rows]",
+            buttonSelector: "[data-action='add-discovery-check-row']",
+            renderRow: (entry) => this._renderDiscoveryCheckRow(entry, skillOptions),
+          });
+          this._initializeInfluenceCheckList(html[0], {
+            containerSelector: "[data-influence-check-rows]",
+            buttonSelector: "[data-action='add-influence-check-row']",
+            renderRow: (entry) => this._renderInfluenceCheckRow(entry, skillOptions),
+          });
         },
         default: "confirm",
         close: () => resolve(null),
@@ -5204,6 +5322,92 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         </div>
       </div>
     `;
+  }
+
+  _renderInfluenceCheckEditorRow(entry = {}, skillOptions = [], config = {}) {
+    const {
+      idFieldName = "checkId[]",
+      skillFieldName = "checkSkill[]",
+      dcFieldName = "checkDc[]",
+      rowAttribute = "data-check-row",
+      datalistPrefix = "influence-check-options",
+    } = config;
+
+    const id = typeof entry?.id === "string" ? entry.id : "";
+    const rawSkill = typeof entry?.skill === "string" ? entry.skill : "";
+    const normalizedSkill = this._normalizeInfluenceSkillValue(rawSkill, skillOptions);
+    const selectValue = this._getInfluenceSkillSelectValue(rawSkill, skillOptions);
+    const dc = Number.isFinite(entry?.dc) ? Number(entry.dc) : "";
+    const hasSkillOptions = Array.isArray(skillOptions) && skillOptions.length > 0;
+
+    const datalistId = id
+      ? `${datalistPrefix}-${id}`
+      : `${datalistPrefix}-${this._generateId()}`;
+
+    let skillField = `<input type="text" name="${skillFieldName}" value="${escapeAttribute(normalizedSkill)}">`;
+    if (hasSkillOptions) {
+      const placeholderSelected = selectValue ? "" : " selected";
+      const optionsMarkup = skillOptions
+        .map((option) => {
+          const isSelected = option.value === selectValue;
+          const selectedAttr = isSelected ? " selected" : "";
+          return `<option value="${escapeAttribute(option.value)}"${selectedAttr}>${escapeHtml(option.label)}</option>`;
+        })
+        .join("");
+      const isKnownSkill = skillOptions.some((option) => option.value === selectValue);
+      const customOption = !isKnownSkill && normalizedSkill
+        ? `<option value="${escapeAttribute(selectValue)}" selected>${escapeHtml(normalizedSkill)}</option>`
+        : "";
+      skillField = `
+        <select name="${skillFieldName}" data-has-skill-options="true" data-datalist-id="${escapeAttribute(
+          datalistId
+        )}">
+          <option value=""${placeholderSelected}></option>
+          ${optionsMarkup}
+          ${customOption}
+        </select>
+        <datalist id="${escapeAttribute(datalistId)}">
+          ${skillOptions
+            .map((option) => `<option value="${escapeAttribute(option.label)}"></option>`)
+            .join("")}
+        </datalist>
+      `;
+    }
+
+    const rowAttributeMarkup = rowAttribute ? ` ${rowAttribute}` : "";
+    return `
+      <div class="influence-check-row"${rowAttributeMarkup}>
+        <input type="hidden" name="${idFieldName}" value="${escapeAttribute(id)}">
+        <div class="form-group" data-has-skill-select="${hasSkillOptions}">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillName")}</label>
+          ${skillField}
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Influence.SkillDC")}</label>
+          <input type="number" name="${dcFieldName}" min="0" step="1" value="${escapeAttribute(dc)}">
+        </div>
+      </div>
+    `;
+  }
+
+  _renderDiscoveryCheckRow(entry = {}, skillOptions = []) {
+    return this._renderInfluenceCheckEditorRow(entry, skillOptions, {
+      idFieldName: "discoveryCheckId[]",
+      skillFieldName: "discoveryCheckSkill[]",
+      dcFieldName: "discoveryCheckDc[]",
+      rowAttribute: "data-discovery-check-row",
+      datalistPrefix: "influence-discovery-options",
+    });
+  }
+
+  _renderInfluenceCheckRow(entry = {}, skillOptions = []) {
+    return this._renderInfluenceCheckEditorRow(entry, skillOptions, {
+      idFieldName: "influenceCheckId[]",
+      skillFieldName: "influenceCheckSkill[]",
+      dcFieldName: "influenceCheckDc[]",
+      rowAttribute: "data-influence-check-row",
+      datalistPrefix: "influence-influence-options",
+    });
   }
 
   _getPf2eSkillOptions() {
@@ -5287,6 +5491,33 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         return;
       }
       const inputField = newRow.querySelector('input[name="skillName[]"]');
+      if (inputField instanceof HTMLInputElement) inputField.focus();
+    };
+
+    for (const button of addButtons) {
+      button.addEventListener("click", handleAddRow);
+    }
+  }
+
+  _initializeInfluenceCheckList(root, { containerSelector, buttonSelector, renderRow }) {
+    if (!(root instanceof HTMLElement)) return;
+    const rowsContainer = root.querySelector(containerSelector);
+    if (!rowsContainer) return;
+    const addButtons = Array.from(root.querySelectorAll(buttonSelector));
+    if (!addButtons.length) return;
+
+    const handleAddRow = () => {
+      const template = document.createElement("template");
+      template.innerHTML = renderRow({ id: this._generateId() }).trim();
+      const newRow = template.content.firstElementChild;
+      if (!newRow) return;
+      rowsContainer.append(newRow);
+      const selectField = newRow.querySelector("select");
+      if (selectField instanceof HTMLSelectElement) {
+        selectField.focus();
+        return;
+      }
+      const inputField = newRow.querySelector('input[type="text"]');
       if (inputField instanceof HTMLInputElement) inputField.focus();
     };
 
