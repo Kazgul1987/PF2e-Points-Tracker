@@ -94,6 +94,23 @@
                   <i class="fas fa-list" aria-hidden="true"></i>
                   {{localize "PF2E.PointsTracker.Influence.ManageSkills"}}
                 </button>
+                {{#if ../isGM}}
+                  <button
+                    type="button"
+                    data-action="toggle-influence-visibility"
+                    title="{{localize 'PF2E.PointsTracker.Influence.InfluenceVisibilityHelp'}}"
+                  >
+                    <i
+                      class="fas {{#if npc.showInfluenceSkillsToPlayers}}fa-eye{{else}}fa-eye-slash{{/if}}"
+                      aria-hidden="true"
+                    ></i>
+                    {{#if npc.showInfluenceSkillsToPlayers}}
+                      {{localize "PF2E.PointsTracker.Influence.HideInfluenceFromPlayers"}}
+                    {{else}}
+                      {{localize "PF2E.PointsTracker.Influence.ShowInfluenceToPlayers"}}
+                    {{/if}}
+                  </button>
+                {{/if}}
                 <button type="button" data-action="manage-influence-thresholds">
                   <i class="fas fa-flag" aria-hidden="true"></i>
                   {{localize "PF2E.PointsTracker.Influence.ManageThresholds"}}

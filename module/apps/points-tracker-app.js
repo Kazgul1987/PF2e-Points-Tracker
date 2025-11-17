@@ -4455,6 +4455,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       if (npc?.id) {
         seenNpcIds.add(npc.id);
       }
+      const showInfluenceSkillsToPlayers =
+        typeof npc.showInfluenceSkillsToPlayers === "boolean" ? npc.showInfluenceSkillsToPlayers : true;
       const rawThresholds = Array.isArray(npc.thresholds) ? npc.thresholds : [];
       const highestThresholdPoints = rawThresholds.reduce(
         (max, threshold) =>
@@ -4535,9 +4537,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const discoveryNotes =
         typeof npc.discoveryNotes === "string" ? npc.discoveryNotes.trim() : "";
       const discoveryNotesHtml = discoveryNotes ? await this._enrichText(discoveryNotes) : "";
-      const influenceChecks = await formatCheckEntries(npc.influenceChecks);
-      const influenceNotes =
-        typeof npc.influenceNotes === "string" ? npc.influenceNotes.trim() : "";
+      const canShowInfluenceDetails = isGM || showInfluenceSkillsToPlayers;
+      const influenceChecks = canShowInfluenceDetails
+        ? await formatCheckEntries(npc.influenceChecks)
+        : [];
+      const influenceNotes = canShowInfluenceDetails
+        ? typeof npc.influenceNotes === "string"
+          ? npc.influenceNotes.trim()
+          : ""
+        : "";
       const influenceNotesHtml = influenceNotes ? await this._enrichText(influenceNotes) : "";
       const background = typeof npc.background === "string" ? npc.background.trim() : "";
       const backgroundHtml = background ? await this._enrichText(background) : "";
@@ -4615,6 +4623,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         influenceNotes,
         influenceNotesHtml,
         hasInfluenceNotes: Boolean(influenceNotesHtml),
+        showInfluenceSkillsToPlayers,
         background,
         backgroundHtml,
         hasBackground: Boolean(backgroundHtml),
@@ -4739,6 +4748,11 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='manage-influence-skills']")
       .off("click")
       .on("click", (event) => this._onManageInfluenceSkills(event));
+
+    panel
+      .find("[data-action='toggle-influence-visibility']")
+      .off("click")
+      .on("click", (event) => this._onToggleInfluenceVisibility(event));
 
     panel
       .find("[data-action='manage-influence-thresholds']")
@@ -5042,6 +5056,26 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (!result) return;
 
     await this.influenceTracker.updateNpc(npcId, { skillDcs: result });
+    this.render();
+  }
+
+  async _onToggleInfluenceVisibility(event) {
+    event.preventDefault();
+    if (!this.influenceTracker) return;
+
+    const npcId = event.currentTarget.closest("[data-npc-id]")?.dataset.npcId;
+    if (!npcId) return;
+    const npc = this.influenceTracker.getNpc(npcId);
+    if (!npc) return;
+
+    const currentVisibility =
+      typeof npc.showInfluenceSkillsToPlayers === "boolean"
+        ? npc.showInfluenceSkillsToPlayers
+        : true;
+
+    await this.influenceTracker.updateNpc(npcId, {
+      showInfluenceSkillsToPlayers: !currentVisibility,
+    });
     this.render();
   }
 
