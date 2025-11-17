@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 5,
+  version: 6,
   npcs: [],
   log: [],
 };
@@ -197,6 +197,10 @@ function normalizeNpc(data = {}) {
   const biography = data && typeof data === "object" && typeof data.biography === "object"
     ? data.biography
     : {};
+  const showInfluenceSkillsToPlayers =
+    typeof data.showInfluenceSkillsToPlayers === "boolean"
+      ? data.showInfluenceSkillsToPlayers
+      : true;
   const npc = {
     id,
     name,
@@ -266,6 +270,7 @@ function normalizeNpc(data = {}) {
     isLogCollapsed: Boolean(data.isLogCollapsed),
     createdAt: Number.isFinite(Number(data.createdAt)) ? Number(data.createdAt) : Date.now(),
     updatedAt: Number.isFinite(Number(data.updatedAt)) ? Number(data.updatedAt) : Date.now(),
+    showInfluenceSkillsToPlayers,
   };
 
   return npc;
@@ -386,6 +391,10 @@ export class InfluenceTracker {
         isCollapsed: npc.isCollapsed ?? false,
         createdAt: npc.createdAt ?? Date.now(),
         updatedAt: npc.updatedAt ?? Date.now(),
+        showInfluenceSkillsToPlayers:
+          typeof npc.showInfluenceSkillsToPlayers === "boolean"
+            ? npc.showInfluenceSkillsToPlayers
+            : true,
       })),
       log: this.getLog().map((entry) => ({
         id: entry.id,
@@ -543,6 +552,17 @@ export class InfluenceTracker {
         return clone;
       });
       migrated.version = 5;
+    }
+
+    if (migrated.version < 6) {
+      migrated.npcs = migrated.npcs.map((npc) => {
+        const clone = { ...npc };
+        if (typeof clone.showInfluenceSkillsToPlayers !== "boolean") {
+          clone.showInfluenceSkillsToPlayers = true;
+        }
+        return clone;
+      });
+      migrated.version = 6;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {

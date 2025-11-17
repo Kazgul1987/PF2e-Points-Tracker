@@ -170,6 +170,11 @@ function sanitizeNpc(entry) {
     fallback: 0,
   });
 
+  const showInfluenceSkillsToPlayers =
+    typeof entry.showInfluenceSkillsToPlayers === "boolean"
+      ? entry.showInfluenceSkillsToPlayers
+      : true;
+
   const img = pickString(entry.img, entry.image, entry.portrait, entry.thumbnail);
   const imageUuid = pickString(
     entry.imageUuid,
@@ -236,6 +241,8 @@ function sanitizeNpc(entry) {
 
   const thresholds = sanitizeThresholds(entry.thresholds ?? entry.reveals ?? entry.rewards);
   if (thresholds.length) npc.thresholds = thresholds;
+
+  npc.showInfluenceSkillsToPlayers = showInfluenceSkillsToPlayers;
 
   if (Object.prototype.hasOwnProperty.call(entry, "isCollapsed")) {
     npc.isCollapsed = Boolean(entry.isCollapsed);
