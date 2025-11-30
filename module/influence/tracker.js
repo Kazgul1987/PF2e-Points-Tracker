@@ -1,7 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
-  version: 6,
+  version: 7,
   npcs: [],
   log: [],
 };
@@ -164,6 +164,100 @@ function normalizeTraits(raw) {
   return normalized;
 }
 
+function normalizeAssignedActors(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+    ? Array.isArray(raw.entries)
+      ? raw.entries
+      : [raw]
+    : typeof raw === "string"
+    ? [raw]
+    : [];
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const entry of list) {
+    if (entry === null || entry === undefined) continue;
+
+    let uuid = "";
+    let name = "";
+    let tokenUuid = "";
+    let tokenImg = "";
+    let actorImg = "";
+    let actorTokenImg = "";
+    let img = "";
+
+    if (typeof entry === "string") {
+      uuid = entry.trim();
+    } else if (typeof entry === "object") {
+      uuid = (() => {
+        if (typeof entry.uuid === "string" && entry.uuid.trim()) return entry.uuid.trim();
+        if (typeof entry.id === "string" && entry.id.trim()) return entry.id.trim();
+        if (typeof entry.actorUuid === "string" && entry.actorUuid.trim()) return entry.actorUuid.trim();
+        if (typeof entry.actorId === "string" && entry.actorId.trim()) return entry.actorId.trim();
+        return "";
+      })();
+
+      name = (() => {
+        if (typeof entry.name === "string" && entry.name.trim()) return entry.name.trim();
+        if (typeof entry.actorName === "string" && entry.actorName.trim()) return entry.actorName.trim();
+        return "";
+      })();
+
+      tokenUuid = (() => {
+        if (typeof entry.tokenUuid === "string" && entry.tokenUuid.trim()) return entry.tokenUuid.trim();
+        if (typeof entry.tokenUUID === "string" && entry.tokenUUID.trim()) return entry.tokenUUID.trim();
+        if (typeof entry.tokenId === "string" && entry.tokenId.trim()) return entry.tokenId.trim();
+        return "";
+      })();
+
+      tokenImg = (() => {
+        if (typeof entry.tokenImg === "string" && entry.tokenImg.trim()) return entry.tokenImg.trim();
+        if (typeof entry.tokenImage === "string" && entry.tokenImage.trim()) return entry.tokenImage.trim();
+        if (typeof entry.imgToken === "string" && entry.imgToken.trim()) return entry.imgToken.trim();
+        return "";
+      })();
+
+      actorImg = (() => {
+        if (typeof entry.actorImg === "string" && entry.actorImg.trim()) return entry.actorImg.trim();
+        if (typeof entry.actorImage === "string" && entry.actorImage.trim()) return entry.actorImage.trim();
+        if (typeof entry.imgActor === "string" && entry.imgActor.trim()) return entry.imgActor.trim();
+        if (typeof entry.actorTokenImg === "string" && entry.actorTokenImg.trim()) return entry.actorTokenImg.trim();
+        return "";
+      })();
+
+      actorTokenImg =
+        typeof entry.actorTokenImg === "string" && entry.actorTokenImg.trim()
+          ? entry.actorTokenImg.trim()
+          : "";
+
+      img = (() => {
+        if (typeof entry.img === "string" && entry.img.trim()) return entry.img.trim();
+        if (typeof entry.image === "string" && entry.image.trim()) return entry.image.trim();
+        return "";
+      })();
+    }
+
+    if (!uuid) continue;
+    if (seen.has(uuid)) continue;
+    seen.add(uuid);
+
+    const assignment = { uuid };
+    if (name) assignment.name = name;
+    if (tokenUuid) assignment.tokenUuid = tokenUuid;
+    if (tokenImg) assignment.tokenImg = tokenImg;
+    if (actorImg) assignment.actorImg = actorImg;
+    if (actorTokenImg) assignment.actorTokenImg = actorTokenImg;
+    if (img) assignment.img = img;
+
+    normalized.push(assignment);
+  }
+
+  return normalized;
+}
+
 function normalizeNpc(data = {}) {
   const id = typeof data.id === "string" && data.id.trim() ? data.id.trim() : createId();
   const name = (() => {
@@ -271,6 +365,7 @@ function normalizeNpc(data = {}) {
     createdAt: Number.isFinite(Number(data.createdAt)) ? Number(data.createdAt) : Date.now(),
     updatedAt: Number.isFinite(Number(data.updatedAt)) ? Number(data.updatedAt) : Date.now(),
     showInfluenceSkillsToPlayers,
+    assignedActors: normalizeAssignedActors(data.assignedActors ?? []),
   };
 
   return npc;
@@ -395,6 +490,7 @@ export class InfluenceTracker {
           typeof npc.showInfluenceSkillsToPlayers === "boolean"
             ? npc.showInfluenceSkillsToPlayers
             : true,
+        assignedActors: normalizeAssignedActors(npc.assignedActors ?? []),
       })),
       log: this.getLog().map((entry) => ({
         id: entry.id,
@@ -563,6 +659,14 @@ export class InfluenceTracker {
         return clone;
       });
       migrated.version = 6;
+    }
+
+    if (migrated.version < 7) {
+      migrated.npcs = migrated.npcs.map((npc) => ({
+        ...npc,
+        assignedActors: normalizeAssignedActors(npc.assignedActors ?? []),
+      }));
+      migrated.version = 7;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {
