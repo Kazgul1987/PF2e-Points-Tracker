@@ -168,6 +168,60 @@
             </section>
 
             <div class="influence-npc__body{{#if npc.isCollapsed}} is-collapsed{{/if}}">
+              <div class="influence-npc__assignments" data-npc-id="{{npc.id}}">
+                <span class="influence-npc__assignment-label">
+                  {{localize "PF2E.PointsTracker.Influence.AssignmentsLabel"}}
+                </span>
+                <div
+                  class="research-location__dropzone{{#unless npc.hasAssignedActors}} is-empty{{/unless}}"
+                  data-dropzone="influence-assignment"
+                  tabindex="0"
+                >
+                  {{#if npc.hasAssignedActors}}
+                    <ul class="research-location__assignment-list">
+                      {{#each npc.assignedActors as |assigned|}}
+                        <li
+                          class="research-location__assignment{{#unless assigned.isActive}} is-inactive{{/unless}}"
+                          data-actor-uuid="{{assigned.uuid}}"
+                          data-actor-name="{{assigned.name}}"
+                        >
+                          {{#if assigned.img}}
+                            <img
+                              class="research-location__assignment-portrait"
+                              src="{{assigned.img}}"
+                              alt="{{assigned.name}}"
+                            />
+                          {{/if}}
+                          <span class="research-location__assignment-name">{{assigned.name}}</span>
+                          {{#unless assigned.isActive}}
+                            <span class="research-location__assignment-note">
+                              {{localize "PF2E.PointsTracker.Influence.AssignmentInactive"}}
+                            </span>
+                          {{/unless}}
+                          <button
+                            type="button"
+                            class="research-location__assignment-remove"
+                            data-action="remove-assigned-actor"
+                            data-actor-uuid="{{assigned.uuid}}"
+                            aria-label="{{localize 'PF2E.PointsTracker.Influence.AssignmentsRemove'}}"
+                            title="{{localize 'PF2E.PointsTracker.Influence.AssignmentsRemove'}}"
+                          >
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </li>
+                      {{/each}}
+                    </ul>
+                  {{else}}
+                    <p class="research-location__assignment-empty">
+                      {{localize "PF2E.PointsTracker.Influence.AssignmentsEmpty"}}
+                    </p>
+                    <p class="research-location__assignment-empty">
+                      {{localize "PF2E.PointsTracker.Influence.AssignmentsHint"}}
+                    </p>
+                  {{/if}}
+                </div>
+              </div>
+
               {{#if npc.hasSkillDcs}}
                 <section class="influence-npc__skills">
                   <h4>{{localize "PF2E.PointsTracker.Influence.SkillHeader"}}</h4>

@@ -2380,6 +2380,7 @@ class BaseResearchTrackerApp extends FormApplication {
 
     const configs = [
       { containerSelector: ".research-topic", dropSelector: "[data-dropzone='location']" },
+      { containerSelector: ".influence-npc", dropSelector: "[data-dropzone='influence-assignment']" },
     ];
     if (this.chaseTracker) {
       configs.push({
@@ -2734,10 +2735,12 @@ class BaseResearchTrackerApp extends FormApplication {
     const chaseEventId = dropZone.closest("[data-chase-event-id]")?.dataset.chaseEventId;
     const obstacleId = dropZone.closest("[data-obstacle-id]")?.dataset.obstacleId;
     const opportunityId = dropZone.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    const npcId = dropZone.closest("[data-npc-id]")?.dataset.npcId;
 
     const hasResearchContext = Boolean(topicId && locationId);
     const hasChaseContext = Boolean(chaseEventId && (obstacleId || opportunityId));
-    if (!hasResearchContext && !hasChaseContext) return;
+    const hasInfluenceContext = Boolean(npcId && dropZone.dataset.dropzone === "influence-assignment");
+    if (!hasResearchContext && !hasChaseContext && !hasInfluenceContext) return;
 
     const isActorDrag =
       data?.type === "pf2e-research-participant" ||
@@ -2897,6 +2900,21 @@ class BaseResearchTrackerApp extends FormApplication {
       return;
     }
 
+    if (hasInfluenceContext && this.influenceTracker) {
+      const npc = this.influenceTracker.getNpc(npcId);
+      if (!npc) return;
+
+      const normalized = this._normalizeAssignedActors(npc.assignedActors);
+      if (normalized.some((entry) => entry.uuid === actorUuid)) {
+        return;
+      }
+
+      const newAssignments = [...normalized, newAssignment];
+      await this.influenceTracker.updateNpc(npcId, { assignedActors: newAssignments });
+      this.render();
+      return;
+    }
+
     if (hasChaseContext && this.chaseTracker) {
       const eventData = this.chaseTracker.getEvent(chaseEventId);
       if (!eventData) return;
@@ -2947,6 +2965,7 @@ class BaseResearchTrackerApp extends FormApplication {
     const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
     const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
     const opportunityId = button?.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    const npcId = button?.closest("[data-npc-id]")?.dataset.npcId;
     if (!actorUuid) return;
 
     if (topicId && locationId) {
@@ -2961,6 +2980,19 @@ class BaseResearchTrackerApp extends FormApplication {
       await this.tracker.updateLocation(topicId, locationId, {
         assignedActors: filtered,
       });
+      this.render();
+      return;
+    }
+
+    if (npcId && this.influenceTracker) {
+      const npc = this.influenceTracker.getNpc(npcId);
+      if (!npc) return;
+
+      const normalized = this._normalizeAssignedActors(npc.assignedActors);
+      const filtered = normalized.filter((entry) => entry.uuid !== actorUuid);
+      if (filtered.length === normalized.length) return;
+
+      await this.influenceTracker.updateNpc(npcId, { assignedActors: filtered });
       this.render();
       return;
     }
@@ -4399,6 +4431,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     }
 
     const npcsRaw = this.influenceTracker.getNpcs();
+    const actorLookup = new Map();
+    const partyActors = this._getPartyActors();
+    for (const actor of partyActors) {
+      if (!actor) continue;
+      const entry = { actor, name: actor.name ?? "", img: actor.img ?? actor.data?.img ?? "" };
+      if (typeof actor.uuid === "string" && actor.uuid) actorLookup.set(actor.uuid, entry);
+      if (typeof actor.id === "string" && actor.id) actorLookup.set(actor.id, entry);
+      if (typeof actor._id === "string" && actor._id) actorLookup.set(actor._id, entry);
+    }
     const npcLookup = new Map();
     const seenNpcIds = new Set();
     const slugifySkill = (value) => {
@@ -4560,6 +4601,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const updatedAt = Number.isFinite(npc.updatedAt) ? Number(npc.updatedAt) : null;
       const updatedAtFormatted = updatedAt ? new Date(updatedAt).toLocaleString() : null;
       const isCollapsed = Boolean(npc.isCollapsed);
+      const assignedActors = this._mapAssignedActors(npc.assignedActors, actorLookup);
 
       const npcLog = this.influenceTracker
         .getNpcLog(npc.id)
@@ -4639,6 +4681,8 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         notesHtml,
         updatedAt,
         updatedAtFormatted,
+        assignedActors,
+        hasAssignedActors: assignedActors.length > 0,
         logEntries: npcLog,
         hasLogEntries: npcLog.length > 0,
         canIncrease: maxInfluence === 0 || currentInfluence < maxInfluence,
