@@ -461,7 +461,7 @@ export class InfluenceTracker {
   }
 
   async _saveState() {
-    if (!this._initialized || !game?.settings?.set) return;
+    if (!this._initialized) return;
 
     const payload = {
       version: this.version ?? DEFAULT_STATE.version,
@@ -525,6 +525,9 @@ export class InfluenceTracker {
         timestamp: entry.timestamp,
       })),
     };
+
+    const canPersistState = game?.user?.isGM && typeof game?.settings?.set === "function";
+    if (!canPersistState) return;
 
     await game.settings.set(this.moduleId, this.settingKey, payload);
   }
