@@ -3607,6 +3607,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       session: false,
       npcs: new Map(),
     };
+    this._localInfluenceNpcState = new Map();
   }
 
   static get defaultOptions() {
@@ -4601,7 +4602,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const notesHtml = escapeHtml(notes).replace(/\n/g, "<br />");
       const updatedAt = Number.isFinite(npc.updatedAt) ? Number(npc.updatedAt) : null;
       const updatedAtFormatted = updatedAt ? new Date(updatedAt).toLocaleString() : null;
-      const isCollapsed = Boolean(npc.isCollapsed);
+      const localState = this._getInfluenceNpcState(npc.id);
+      const localCollapse = typeof localState.isCollapsed === "boolean" ? localState.isCollapsed : null;
+      const isCollapsed = localCollapse !== null ? localCollapse : Boolean(npc.isCollapsed);
       const assignedActors = this._mapAssignedActors(npc.assignedActors, actorLookup);
 
       const npcLog = this.influenceTracker
@@ -4629,8 +4632,15 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
           userName: entry.userName ?? "",
         }));
 
-      const isLogCollapsed = Boolean(npc.isLogCollapsed);
-      if (npc.id) {
+      const logCollapseFromStore = this._collapsedInfluenceLogs.npcs.get(npc.id);
+      const localLogCollapse =
+        typeof localState.isLogCollapsed === "boolean"
+          ? localState.isLogCollapsed
+          : typeof logCollapseFromStore === "boolean"
+          ? logCollapseFromStore
+          : null;
+      const isLogCollapsed = localLogCollapse !== null ? localLogCollapse : Boolean(npc.isLogCollapsed);
+      if (npc.id && typeof isLogCollapsed === "boolean") {
         this._collapsedInfluenceLogs.npcs.set(npc.id, isLogCollapsed);
       }
 
@@ -4902,9 +4912,18 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const npc = this.influenceTracker.getNpc(npcId);
     if (!npc) return;
 
-    const isCollapsed = !Boolean(npc.isCollapsed);
+    const currentState = this._getInfluenceNpcState(npcId);
+    const isCollapsed = !(
+      typeof currentState.isCollapsed === "boolean" ? currentState.isCollapsed : Boolean(npc.isCollapsed)
+    );
 
-    await this.influenceTracker.updateNpc(npcId, { isCollapsed });
+    this._setInfluenceNpcState(npcId, { isCollapsed });
+
+    try {
+      await this.influenceTracker.updateNpc(npcId, { isCollapsed });
+    } catch (error) {
+      console.error(error);
+    }
     this.render();
   }
 
@@ -4929,6 +4948,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     this._ensureInfluenceLogState();
     this._collapsedInfluenceLogs.npcs.set(npcId, shouldCollapse);
+    this._setInfluenceNpcState(npcId, { isLogCollapsed: shouldCollapse });
 
     try {
       await this.influenceTracker.updateNpc(npcId, { isLogCollapsed: shouldCollapse });
@@ -5011,6 +5031,31 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (typeof this._collapsedInfluenceLogs.session !== "boolean") {
       this._collapsedInfluenceLogs.session = Boolean(this._collapsedInfluenceLogs.session);
     }
+  }
+
+  _ensureInfluenceNpcState() {
+    if (this._localInfluenceNpcState instanceof Map) return;
+
+    if (Array.isArray(this._localInfluenceNpcState)) {
+      this._localInfluenceNpcState = new Map(this._localInfluenceNpcState);
+    } else if (this._localInfluenceNpcState && typeof this._localInfluenceNpcState === "object") {
+      this._localInfluenceNpcState = new Map(Object.entries(this._localInfluenceNpcState));
+    } else {
+      this._localInfluenceNpcState = new Map();
+    }
+  }
+
+  _getInfluenceNpcState(npcId) {
+    this._ensureInfluenceNpcState();
+    if (!npcId) return {};
+    return this._localInfluenceNpcState.get(npcId) ?? {};
+  }
+
+  _setInfluenceNpcState(npcId, updates = {}) {
+    if (!npcId || !updates || typeof updates !== "object") return;
+    this._ensureInfluenceNpcState();
+    const existing = this._localInfluenceNpcState.get(npcId) ?? {};
+    this._localInfluenceNpcState.set(npcId, { ...existing, ...updates });
   }
 
   async _onEditInfluenceNpc(event) {
