@@ -6,7 +6,6 @@ import { createInfluenceTracker } from "./influence/tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
 import { InfluenceImportExport } from "./influence/importer.js";
 import { ResearchImportExport } from "./research/importer.js";
-import { registerResearchAutoUpdates } from "./research/auto-update.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const RESEARCH_SETTING_KEY = "research-tracker-state";
@@ -119,8 +118,6 @@ Hooks.once("ready", async () => {
   }
 
   console.log(`${MODULE_ID} | PF2e Points Tracker initialized successfully.`);
-
-  registerResearchAutoUpdates(researchTracker);
 
   game.pf2ePointsTracker = {
     tracker: researchTracker,
