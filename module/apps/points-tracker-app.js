@@ -1,4 +1,5 @@
 import { InfluenceImportExport } from "../influence/importer.js";
+import { INFLUENCE_UPDATE_HOOK } from "../influence/tracker.js";
 import { ResearchImportExport } from "../research/importer.js";
 import { RESEARCH_UPDATE_HOOK } from "../research/tracker.js";
 
@@ -6380,12 +6381,15 @@ export class ResearchTrackerApp extends PointsTrackerApp {
 }
 
 if (Hooks?.on) {
-  Hooks.on(RESEARCH_UPDATE_HOOK, () => {
+  const rerenderTrackers = () => {
     const instances = [PointsTrackerApp._instance, ResearchTrackerApp._instance];
     for (const instance of instances) {
       if (instance?.rendered) {
         instance.render(false);
       }
     }
-  });
+  };
+
+  Hooks.on(RESEARCH_UPDATE_HOOK, rerenderTrackers);
+  Hooks.on(INFLUENCE_UPDATE_HOOK, rerenderTrackers);
 }

@@ -1,5 +1,7 @@
 import { localizeWithFallback } from "../utils/localize.js";
 
+export const INFLUENCE_UPDATE_HOOK = "pf2ePointsTrackerInfluenceUpdated";
+
 const DEFAULT_STATE = {
   version: 7,
   npcs: [],
@@ -420,6 +422,9 @@ export class InfluenceTracker {
       config: false,
       type: Object,
       default: duplicateData(DEFAULT_STATE),
+      onChange: (value) => {
+        this._applyState(value);
+      },
     });
   }
 
@@ -427,17 +432,32 @@ export class InfluenceTracker {
     if (!game?.settings?.get) return;
 
     const stored = duplicateData(game.settings.get(this.moduleId, this.settingKey) ?? DEFAULT_STATE);
-    const migrated = this._migrateState(stored);
+    this._applyState(stored);
+    this._initialized = true;
+  }
+
+  _applyState(rawState) {
+    const migrated = this._migrateState(duplicateData(rawState ?? DEFAULT_STATE));
 
     this.version = migrated.version ?? DEFAULT_STATE.version;
 
-    this.npcs = new Collection(migrated.npcs.map((npc) => [npc.id, normalizeNpc(npc)]));
-    this.log = migrated.log
-      .map((entry) => normalizeLogEntry(entry))
-      .filter((entry) => entry !== null)
-      .sort((a, b) => a.timestamp - b.timestamp);
+    const normalizedNpcs = Array.isArray(migrated.npcs)
+      ? migrated.npcs.map((npc) => normalizeNpc(npc))
+      : [];
+    this.npcs = new Collection(normalizedNpcs.map((npc) => [npc.id, npc]));
 
-    this._initialized = true;
+    this.log = Array.isArray(migrated.log)
+      ? migrated.log
+          .map((entry) => normalizeLogEntry(entry))
+          .filter((entry) => entry !== null)
+          .sort((a, b) => a.timestamp - b.timestamp)
+      : [];
+
+    Hooks?.callAll?.(INFLUENCE_UPDATE_HOOK, {
+      tracker: this,
+      npcs: this.getNpcs(),
+      log: this.getLog(),
+    });
   }
 
   async _saveState() {
