@@ -380,11 +380,13 @@
                 </section>
               {{/if}}
 
-              {{#if npc.penalty}}
-                <section class="influence-npc__penalty">
-                  <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>
-                  <div class="influence-npc__penalty-text">{{{npc.penaltyHtml}}}</div>
-                </section>
+              {{#if ../isGM}}
+                {{#if npc.penalty}}
+                  <section class="influence-npc__penalty">
+                    <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>
+                    <div class="influence-npc__penalty-text">{{{npc.penaltyHtml}}}</div>
+                  </section>
+                {{/if}}
               {{/if}}
 
               {{#if npc.notes}}
