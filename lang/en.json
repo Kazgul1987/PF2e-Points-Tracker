@@ -382,6 +382,24 @@
       "Victory": {
         "Title": "Victory",
         "DefaultName": "New Victory Entry",
+        "CreateEntry": "Add Victory Entry",
+        "Create": "Create",
+        "Save": "Save",
+        "EntryName": "Entry Name",
+        "MinValue": "Minimum Value",
+        "MaxValue": "Maximum Value (0 for no max)",
+        "CurrentValue": "Current Victory",
+        "Notes": "Notes",
+        "AdjustIncrease": "Increase victory",
+        "AdjustDecrease": "Decrease victory",
+        "EditEntry": "Edit Victory Entry",
+        "DeleteEntry": "Delete Victory Entry",
+        "DeleteConfirm": "Are you sure you want to delete {name}?",
+        "Empty": "No victory entries have been recorded yet.",
+        "ValueLabel": "{current} Victory (Range {min}–{max})",
+        "LastUpdated": "Updated {timestamp}",
+        "NameRequired": "Enter a name for the victory entry before saving.",
+        "NoMax": "No maximum",
         "ChangeNotification": "Victory for {name} is now {current}."
       }
     }

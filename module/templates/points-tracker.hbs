@@ -32,6 +32,16 @@
       <i class="fas fa-users" aria-hidden="true"></i>
       {{localize "PF2E.PointsTracker.Reputation.Title"}}
     </button>
+    {{#if victory.hasAccess}}
+      <button
+        type="button"
+        class="points-tracker__tab{{#if isVictoryActive}} is-active{{/if}}"
+        data-tab="victory"
+      >
+        <i class="fas fa-flag-checkered" aria-hidden="true"></i>
+        {{localize "PF2E.PointsTracker.Victory.Title"}}
+      </button>
+    {{/if}}
     {{#if awareness.hasAccess}}
       <button
         type="button"
@@ -69,6 +79,14 @@
     >
       {{> "modules/pf2e-points-tracker/module/templates/partials/reputation-tab.hbs" reputation}}
     </section>
+    {{#if victory.hasAccess}}
+      <section
+        class="points-tracker__panel{{#if isVictoryActive}} is-active{{/if}}"
+        data-tab-panel="victory"
+      >
+        {{> "modules/pf2e-points-tracker/module/templates/partials/victory-tab.hbs" victory}}
+      </section>
+    {{/if}}
     {{#if awareness.hasAccess}}
       <section
         class="points-tracker__panel{{#if isAwarenessActive}} is-active{{/if}}"

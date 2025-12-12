@@ -3570,6 +3570,7 @@ class BaseResearchTrackerApp extends FormApplication {
 const POINTS_TRACKER_PARTIALS = [
   `modules/${MODULE_ID}/module/templates/partials/research-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/reputation-tab.hbs`,
+  `modules/${MODULE_ID}/module/templates/partials/victory-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/awareness-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/chase-tab.hbs`,
   `modules/${MODULE_ID}/module/templates/partials/influence-tab.hbs`,
@@ -3634,13 +3635,21 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     researchTracker = null,
     reputationTracker = null,
     awarenessTracker = null,
+    victoryTracker = null,
     chaseTracker = null,
     influenceTracker = null,
     activeTab = null,
   } = {}) {
     if (!this._instance) {
       this._instance = new this(
-        { researchTracker, reputationTracker, awarenessTracker, chaseTracker, influenceTracker },
+        {
+          researchTracker,
+          reputationTracker,
+          awarenessTracker,
+          victoryTracker,
+          chaseTracker,
+          influenceTracker,
+        },
         { activeTab: activeTab ?? "research" }
       );
     } else {
@@ -3653,6 +3662,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       }
       if (awarenessTracker) {
         this._instance.awarenessTracker = awarenessTracker;
+      }
+      if (victoryTracker) {
+        this._instance.victoryTracker = victoryTracker;
       }
       if (chaseTracker) {
         this._instance.chaseTracker = chaseTracker;
@@ -3673,6 +3685,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (candidate === "awareness" && !this._canAccessAwareness()) {
       return "research";
     }
+    if (candidate === "victory" && !this._canAccessVictory()) {
+      return "research";
+    }
     if (candidate === "influence" && !this.influenceTracker) {
       return "research";
     }
@@ -3683,6 +3698,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     const allowedTabs = new Set(["research", "reputation", "chase"]);
     if (this._canAccessAwareness()) {
       allowedTabs.add("awareness");
+    }
+    if (this._canAccessVictory()) {
+      allowedTabs.add("victory");
     }
     if (this.influenceTracker) {
       allowedTabs.add("influence");
@@ -3695,6 +3713,10 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
   _canAccessAwareness() {
     const isGM = game.user?.isGM ?? false;
     return Boolean(isGM && this.awarenessTracker);
+  }
+
+  _canAccessVictory() {
+    return Boolean(this.victoryTracker);
   }
 
   async getData(options) {
@@ -3713,6 +3735,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     const reputationData = this._prepareReputationData({ isGM });
     const awarenessData = this._prepareAwarenessData({ isGM });
+    const victoryData = this._prepareVictoryData({ isGM });
     const chaseData = this._prepareChaseData({ isGM });
     const influenceData = await this._prepareInfluenceData({ isGM });
 
@@ -3721,12 +3744,14 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       activeTab,
       isResearchActive: activeTab === "research",
       isReputationActive: activeTab === "reputation",
+      isVictoryActive: activeTab === "victory",
       isAwarenessActive: activeTab === "awareness",
       isChaseActive: activeTab === "chase",
       isInfluenceActive: activeTab === "influence",
       isGM,
       research: researchData,
       reputation: reputationData,
+      victory: victoryData,
       awareness: awarenessData,
       chase: chaseData,
       influence: influenceData,
@@ -3749,6 +3774,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this.activeTab === "awareness") {
       this._initializeAwarenessTab(html);
     }
+    if (this.activeTab === "victory") {
+      this._initializeVictoryTab(html);
+    }
     if (this.activeTab === "chase") {
       this._initializeChaseTab(html);
     }
@@ -3761,6 +3789,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     }
     if (this._canAccessAwareness()) {
       this._activateAwarenessListeners(html);
+    }
+    if (this._canAccessVictory()) {
+      this._activateVictoryListeners(html);
     }
     if (this.chaseTracker) {
       this._activateChaseListeners(html);
@@ -3778,6 +3809,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         event.preventDefault();
         const tab = event.currentTarget?.dataset.tab;
         if (tab === "awareness" && !this._canAccessAwareness()) return;
+        if (tab === "victory" && !this._canAccessVictory()) return;
         if (tab === "influence" && !this.influenceTracker) return;
         if (!tab || tab === this.activeTab) return;
         this.activeTab = tab;
@@ -3787,6 +3819,9 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         }
         if (tab === "awareness") {
           this._initializeAwarenessTab(html);
+        }
+        if (tab === "victory") {
+          this._initializeVictoryTab(html);
         }
         if (tab === "chase") {
           this._initializeChaseTab(html);
@@ -3832,6 +3867,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     if (this._initializedTabs.has("awareness")) return;
     this._initializedTabs.add("awareness");
     html.find("[data-tab-panel='awareness']").attr("data-initialized", "true");
+  }
+
+  _initializeVictoryTab(html) {
+    if (this._initializedTabs.has("victory")) return;
+    this._initializedTabs.add("victory");
+    html.find("[data-tab-panel='victory']").attr("data-initialized", "true");
   }
 
   _initializeChaseTab(html) {
@@ -3885,6 +3926,28 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       .find("[data-action='delete']")
       .off("click")
       .on("click", (event) => this._onDeleteAwarenessEntry(event));
+  }
+
+  _activateVictoryListeners(html) {
+    const panel = html.find("[data-tab-panel='victory']");
+    if (!panel.length) return;
+
+    panel
+      .find("[data-action='create-victory-entry']")
+      .off("click")
+      .on("click", (event) => this._onCreateVictoryEntry(event));
+    panel
+      .find("[data-action='adjust-victory']")
+      .off("click")
+      .on("click", (event) => this._onAdjustVictoryEntry(event));
+    panel
+      .find("[data-action='edit-victory']")
+      .off("click")
+      .on("click", (event) => this._onEditVictoryEntry(event));
+    panel
+      .find("[data-action='delete-victory']")
+      .off("click")
+      .on("click", (event) => this._onDeleteVictoryEntry(event));
   }
 
   _activateChaseListeners(html) {
@@ -4337,6 +4400,56 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         categoryLabel: game.i18n.localize(categoryKey),
         canIncrease: current < normalizedTarget,
         canDecrease: current > 0,
+      };
+    });
+
+    return {
+      isGM,
+      hasTracker,
+      hasAccess,
+      entries,
+    };
+  }
+
+  _prepareVictoryData({ isGM }) {
+    const hasTracker = Boolean(this.victoryTracker);
+    const hasAccess = Boolean(hasTracker);
+
+    if (!hasAccess) {
+      return {
+        isGM,
+        hasTracker,
+        hasAccess,
+        entries: [],
+      };
+    }
+
+    const entries = this.victoryTracker.getEntries().map((entry) => {
+      const minValue = Number.isFinite(entry.minValue) ? Number(entry.minValue) : 0;
+      const rawMaxValue = Number(entry.maxValue);
+      const maxValue = Number.isFinite(rawMaxValue) && rawMaxValue > 0 ? Math.max(rawMaxValue, minValue) : 0;
+      let current = Number.isFinite(entry.current) ? Number(entry.current) : 0;
+      if (current < minValue) current = minValue;
+      if (maxValue && current > maxValue) current = maxValue;
+
+      const progressPercent = maxValue > minValue
+        ? Math.max(0, Math.min(100, Number(((current - minValue) / (maxValue - minValue)) * 100)))
+        : Math.max(0, Math.min(100, Number(entry.progressPercent ?? 0)));
+      const updatedAtFormatted = Number.isFinite(entry.updatedAt)
+        ? new Date(entry.updatedAt).toLocaleString()
+        : null;
+      const maxLabel = maxValue || game.i18n.localize("PF2E.PointsTracker.Victory.NoMax");
+
+      return {
+        ...entry,
+        minValue,
+        maxValue,
+        current,
+        progressPercent,
+        updatedAtFormatted,
+        maxLabel,
+        canIncrease: maxValue ? current < maxValue : true,
+        canDecrease: current > minValue,
       };
     });
 
@@ -6323,6 +6436,173 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
 
     await this.awarenessTracker.adjustAwareness(entryId, delta, { notify: false });
     this.render();
+  }
+
+  async _onCreateVictoryEntry(event) {
+    event.preventDefault();
+    if (!this.victoryTracker) return;
+
+    const result = await this._promptVictoryDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Victory.CreateEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Victory.Create"),
+    });
+    if (!result) return;
+
+    await this.victoryTracker.createEntry(result);
+    this.render();
+  }
+
+  async _onEditVictoryEntry(event) {
+    event.preventDefault();
+    if (!this.victoryTracker) return;
+
+    const entryId = event.currentTarget.closest("[data-victory-id]")?.dataset.victoryId;
+    if (!entryId) return;
+
+    const entry = this.victoryTracker.getEntry(entryId);
+    if (!entry) return;
+
+    const result = await this._promptVictoryDialog({
+      title: game.i18n.localize("PF2E.PointsTracker.Victory.EditEntry"),
+      label: game.i18n.localize("PF2E.PointsTracker.Victory.Save"),
+      initial: entry,
+    });
+    if (!result) return;
+
+    await this.victoryTracker.updateEntry(entryId, result);
+    this.render();
+  }
+
+  async _onDeleteVictoryEntry(event) {
+    event.preventDefault();
+    if (!this.victoryTracker) return;
+
+    const entryId = event.currentTarget.closest("[data-victory-id]")?.dataset.victoryId;
+    if (!entryId) return;
+
+    const entry = this.victoryTracker.getEntry(entryId);
+    if (!entry) return;
+
+    const confirmed = await Dialog.confirm({
+      title: game.i18n.localize("PF2E.PointsTracker.Victory.DeleteEntry"),
+      content: `<p>${game.i18n.format("PF2E.PointsTracker.Victory.DeleteConfirm", {
+        name: escapeHtml(entry.name),
+      })}</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false,
+    });
+    if (!confirmed) return;
+
+    await this.victoryTracker.deleteEntry(entryId);
+    this.render();
+  }
+
+  async _onAdjustVictoryEntry(event) {
+    event.preventDefault();
+    if (!this.victoryTracker) return;
+
+    const button = event.currentTarget;
+    const entryId = button.closest("[data-victory-id]")?.dataset.victoryId;
+    if (!entryId) return;
+    const delta = Number(button.dataset.delta ?? 0);
+    if (!Number.isFinite(delta) || delta === 0) return;
+
+    await this.victoryTracker.adjustVictory(entryId, delta, { notify: false });
+    this.render();
+  }
+
+  async _promptVictoryDialog({ title, label, initial = {} }) {
+    const defaultMin = Number.isFinite(initial.minValue) ? Math.max(0, Math.floor(initial.minValue)) : 0;
+    const defaultMaxRaw = Number(initial.maxValue);
+    const defaultMax = Number.isFinite(defaultMaxRaw) && defaultMaxRaw > 0
+      ? Math.max(Math.floor(defaultMaxRaw), defaultMin)
+      : 0;
+    const defaultCurrentRaw = Number(initial.current);
+    let defaultCurrent = Number.isFinite(defaultCurrentRaw) ? Math.floor(defaultCurrentRaw) : defaultMin;
+    if (defaultCurrent < defaultMin) defaultCurrent = defaultMin;
+    if (defaultMax && defaultCurrent > defaultMax) defaultCurrent = defaultMax;
+
+    const template = `
+      <form class="flexcol points-tracker-dialog">
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Victory.EntryName")}</label>
+          <input type="text" name="name" value="${escapeAttribute(initial.name ?? "")}" required />
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Victory.MinValue")}</label>
+          <input type="number" name="minValue" min="0" step="1" value="${escapeAttribute(defaultMin)}" />
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Victory.MaxValue")}</label>
+          <input type="number" name="maxValue" min="0" step="1" value="${escapeAttribute(defaultMax)}" />
+        </div>
+        <div class="form-group form-group--split">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Victory.CurrentValue")}</label>
+          <input type="number" name="current" min="0" step="1" value="${escapeAttribute(defaultCurrent)}" />
+        </div>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Victory.Notes")}</label>
+          <textarea name="notes" rows="3">${escapeHtml(initial.notes ?? "")}</textarea>
+        </div>
+      </form>
+    `;
+
+    return new Promise((resolve) => {
+      const dialog = new Dialog({
+        title,
+        content: template,
+        buttons: {
+          confirm: {
+            icon: "fas fa-save",
+            label,
+            callback: (html) => {
+              const form = html[0].querySelector("form");
+              if (!form) {
+                resolve(null);
+                return;
+              }
+
+              const formData = new FormData(form);
+              const name = String(formData.get("name") ?? "").trim();
+              if (!name) {
+                ui.notifications?.warn(
+                  game.i18n.localize("PF2E.PointsTracker.Victory.NameRequired")
+                );
+                resolve(null);
+                return;
+              }
+
+              const minValueRaw = Number(formData.get("minValue"));
+              let minValue = Number.isFinite(minValueRaw) ? Math.floor(minValueRaw) : defaultMin;
+              if (minValue < 0) minValue = 0;
+
+              const maxValueRaw = Number(formData.get("maxValue"));
+              let maxValue = Number.isFinite(maxValueRaw) ? Math.floor(maxValueRaw) : defaultMax;
+              if (maxValue < 0) maxValue = 0;
+              if (maxValue && maxValue < minValue) maxValue = minValue;
+
+              const currentRaw = Number(formData.get("current"));
+              let current = Number.isFinite(currentRaw) ? Math.floor(currentRaw) : defaultCurrent;
+              if (current < minValue) current = minValue;
+              if (maxValue && current > maxValue) current = maxValue;
+
+              const notes = String(formData.get("notes") ?? "").trim();
+
+              resolve({ name, minValue, maxValue, current, notes });
+            },
+          },
+          cancel: {
+            icon: "fas fa-times",
+            label: game.i18n.localize("PF2E.PointsTracker.Cancel"),
+            callback: () => resolve(null),
+          },
+        },
+        default: "confirm",
+        close: () => resolve(null),
+      });
+      dialog.render(true);
+    });
   }
 
   async _promptAwarenessDialog({ title, label, initial = {} }) {
