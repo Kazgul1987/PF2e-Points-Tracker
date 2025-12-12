@@ -1,0 +1,77 @@
+<section class="victory-tracker">
+  <header class="victory-tracker__header">
+    <h2>{{localize "PF2E.PointsTracker.Victory.Title"}}</h2>
+    {{#if isGM}}
+      <div class="victory-tracker__actions">
+        <button type="button" data-action="create-victory-entry">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          {{localize "PF2E.PointsTracker.Victory.CreateEntry"}}
+        </button>
+      </div>
+    {{/if}}
+  </header>
+
+  {{#if entries.length}}
+    <div class="victory-tracker__list">
+      {{#each entries as |entry|}}
+        <article class="victory-entry" data-victory-id="{{entry.id}}">
+          <header class="victory-entry__header">
+            <div class="victory-entry__title">
+              <h3 class="victory-entry__name">{{entry.name}}</h3>
+              <div class="victory-entry__meta">
+                <span class="victory-entry__value">
+                  {{localize "PF2E.PointsTracker.Victory.ValueLabel" current=entry.current min=entry.minValue max=entry.maxLabel}}
+                </span>
+                {{#if entry.updatedAtFormatted}}
+                  <span class="victory-entry__updated">
+                    {{localize "PF2E.PointsTracker.Victory.LastUpdated" timestamp=entry.updatedAtFormatted}}
+                  </span>
+                {{/if}}
+              </div>
+            </div>
+            {{#if ../isGM}}
+              <div class="victory-entry__controls">
+                <button
+                  type="button"
+                  data-action="adjust-victory"
+                  data-delta="-1"
+                  {{#unless entry.canDecrease}}disabled{{/unless}}
+                  title="{{localize 'PF2E.PointsTracker.Victory.AdjustDecrease'}}"
+                >
+                  <i class="fas fa-minus" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  data-action="adjust-victory"
+                  data-delta="1"
+                  {{#unless entry.canIncrease}}disabled{{/unless}}
+                  title="{{localize 'PF2E.PointsTracker.Victory.AdjustIncrease'}}"
+                >
+                  <i class="fas fa-plus" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-action="edit-victory" title="{{localize 'PF2E.PointsTracker.Victory.EditEntry'}}">
+                  <i class="fas fa-edit" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-action="delete-victory" title="{{localize 'PF2E.PointsTracker.Victory.DeleteEntry'}}">
+                  <i class="fas fa-trash" aria-hidden="true"></i>
+                </button>
+              </div>
+            {{/if}}
+          </header>
+
+          <div class="victory-entry__progress">
+            <div class="victory-entry__progress-track">
+              <div class="victory-entry__progress-bar" style="width: {{entry.progressPercent}}%"></div>
+            </div>
+          </div>
+
+          {{#if entry.notes}}
+            <p class="victory-entry__notes">{{entry.notes}}</p>
+          {{/if}}
+        </article>
+      {{/each}}
+    </div>
+  {{else}}
+    <p class="victory-tracker__empty">{{localize "PF2E.PointsTracker.Victory.Empty"}}</p>
+  {{/if}}
+</section>

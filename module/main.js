@@ -89,6 +89,16 @@ Hooks.once("init", () => {
           chaseTracker,
           influenceTracker,
         }),
+      openVictoryTracker: () =>
+        PointsTrackerApp.open({
+          researchTracker,
+          reputationTracker,
+          awarenessTracker,
+          victoryTracker,
+          chaseTracker,
+          influenceTracker,
+          activeTab: "victory",
+        }),
       openPointsTracker: () =>
         PointsTrackerApp.open({
           researchTracker,
@@ -146,6 +156,16 @@ Hooks.once("ready", async () => {
         victoryTracker,
         chaseTracker,
         influenceTracker,
+      }),
+    openVictory: () =>
+      PointsTrackerApp.open({
+        researchTracker,
+        reputationTracker,
+        awarenessTracker,
+        victoryTracker,
+        chaseTracker,
+        influenceTracker,
+        activeTab: "victory",
       }),
     import: () => ResearchImportExport.promptImport(researchTracker),
     export: () => ResearchImportExport.exportTopics(researchTracker),
