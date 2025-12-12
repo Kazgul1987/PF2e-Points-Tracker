@@ -374,70 +374,84 @@
                       {{/each}}
                     </ul>
                   {{/if}}
-                  {{#if npc.hasInfluenceNotes}}
-                    <div class="influence-npc__influence-notes">{{{npc.influenceNotesHtml}}}</div>
-                  {{/if}}
-                </section>
+              {{#if npc.hasInfluenceNotes}}
+                <div class="influence-npc__influence-notes">{{{npc.influenceNotesHtml}}}</div>
               {{/if}}
+            </section>
+          {{/if}}
 
-              {{#if ../isGM}}
-                {{#if npc.penalty}}
-                  <section class="influence-npc__penalty">
-                    <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>
-                    <div class="influence-npc__penalty-text">{{{npc.penaltyHtml}}}</div>
-                  </section>
-                {{/if}}
-              {{/if}}
+          {{#if ../isGM}}
+            {{#if npc.hasResistances}}
+              <section class="influence-npc__resistances">
+                <h4>{{localize "PF2E.PointsTracker.Influence.ResistancesHeader"}}</h4>
+                <div class="influence-npc__resistances-text">{{{npc.resistancesHtml}}}</div>
+              </section>
+            {{/if}}
 
-              {{#if npc.notes}}
-                <section class="influence-npc__notes">
-                  <h4>{{localize "PF2E.PointsTracker.Influence.NotesHeader"}}</h4>
-                  <div class="influence-npc__notes-text">{{{npc.notesHtml}}}</div>
-                </section>
-              {{/if}}
+            {{#if npc.hasWeaknesses}}
+              <section class="influence-npc__weaknesses">
+                <h4>{{localize "PF2E.PointsTracker.Influence.WeaknessesHeader"}}</h4>
+                <div class="influence-npc__weaknesses-text">{{{npc.weaknessesHtml}}}</div>
+              </section>
+            {{/if}}
 
-              <div class="influence-npc__log-actions">
-                <button type="button" data-action="add-influence-log-entry">
-                  <i class="fas fa-pen" aria-hidden="true"></i>
-                  {{localize "PF2E.PointsTracker.Influence.AddNpcLog"}}
+            {{#if npc.penalty}}
+              <section class="influence-npc__penalty">
+                <h4>{{localize "PF2E.PointsTracker.Influence.PenaltyHeader"}}</h4>
+                <div class="influence-npc__penalty-text">{{{npc.penaltyHtml}}}</div>
+              </section>
+            {{/if}}
+          {{/if}}
+
+          {{#if npc.notes}}
+            <section class="influence-npc__notes">
+              <h4>{{localize "PF2E.PointsTracker.Influence.NotesHeader"}}</h4>
+              <div class="influence-npc__notes-text">{{{npc.notesHtml}}}</div>
+            </section>
+          {{/if}}
+
+          <div class="influence-npc__log-actions">
+            <button type="button" data-action="add-influence-log-entry">
+              <i class="fas fa-pen" aria-hidden="true"></i>
+              {{localize "PF2E.PointsTracker.Influence.AddNpcLog"}}
+            </button>
+          </div>
+
+          {{#if npc.hasLogEntries}}
+            <section class="influence-npc__log" data-influence-npc-log data-npc-id="{{npc.id}}">
+              <header class="influence-npc__log-header">
+                <h4>{{localize "PF2E.PointsTracker.Influence.NpcLogHeader"}}</h4>
+                <button
+                  type="button"
+                  data-action="toggle-influence-npc-log"
+                  aria-expanded="{{#unless npc.isLogCollapsed}}true{{else}}false{{/unless}}"
+                  data-label-expanded="{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}"
+                  data-label-collapsed="{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}"
+                  title="{{#if npc.isLogCollapsed}}{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}{{else}}{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}{{/if}}"
+                  aria-label="{{#if npc.isLogCollapsed}}{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}{{else}}{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}{{/if}}"
+                >
+                  <i
+                    class="fas {{#if npc.isLogCollapsed}}fa-angle-down{{else}}fa-angle-up{{/if}}"
+                    aria-hidden="true"
+                    data-toggle-icon
+                  ></i>
+                  <span data-label>
+                    {{#if npc.isLogCollapsed}}
+                      {{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}
+                    {{else}}
+                      {{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}
+                    {{/if}}
+                  </span>
                 </button>
-              </div>
-
-              {{#if npc.hasLogEntries}}
-                <section class="influence-npc__log" data-influence-npc-log data-npc-id="{{npc.id}}">
-                  <header class="influence-npc__log-header">
-                    <h4>{{localize "PF2E.PointsTracker.Influence.NpcLogHeader"}}</h4>
-                    <button
-                      type="button"
-                      data-action="toggle-influence-npc-log"
-                      aria-expanded="{{#unless npc.isLogCollapsed}}true{{else}}false{{/unless}}"
-                      data-label-expanded="{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}"
-                      data-label-collapsed="{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}"
-                      title="{{#if npc.isLogCollapsed}}{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}{{else}}{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}{{/if}}"
-                      aria-label="{{#if npc.isLogCollapsed}}{{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}{{else}}{{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}{{/if}}"
-                    >
-                      <i
-                        class="fas {{#if npc.isLogCollapsed}}fa-angle-down{{else}}fa-angle-up{{/if}}"
-                        aria-hidden="true"
-                        data-toggle-icon
-                      ></i>
-                      <span data-label>
-                        {{#if npc.isLogCollapsed}}
-                          {{localize "PF2E.PointsTracker.Influence.ExpandNpcLog"}}
-                        {{else}}
-                          {{localize "PF2E.PointsTracker.Influence.CollapseNpcLog"}}
-                        {{/if}}
-                      </span>
-                    </button>
-                  </header>
-                  <div
-                    class="influence-log__body{{#if npc.isLogCollapsed}} is-collapsed{{/if}}"
-                    data-influence-npc-log-body
-                  >
-                    <ul>
-                      {{#each npc.logEntries as |entry|}}
-                        <li class="influence-log__entry" data-log-id="{{entry.id}}" data-npc-id="{{entry.npcId}}">
-                          <span class="influence-log__timestamp">{{entry.timestampFormatted}}</span>
+              </header>
+              <div
+                class="influence-log__body{{#if npc.isLogCollapsed}} is-collapsed{{/if}}"
+                data-influence-npc-log-body
+              >
+                <ul>
+                  {{#each npc.logEntries as |entry|}}
+                    <li class="influence-log__entry" data-log-id="{{entry.id}}" data-npc-id="{{entry.npcId}}">
+                      <span class="influence-log__timestamp">{{entry.timestampFormatted}}</span>
                           <span class="influence-log__delta">{{entry.deltaLabel}}</span>
                           {{#if entry.reason}}
                             <span class="influence-log__reason">{{entry.reason}}</span>

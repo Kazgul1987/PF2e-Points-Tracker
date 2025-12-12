@@ -4598,6 +4598,10 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       const personalityHtml = personality ? await this._enrichText(personality) : "";
       const penalty = npc.penalty ?? "";
       const penaltyHtml = escapeHtml(penalty).replace(/\n/g, "<br />");
+      const resistances = isGM ? npc.resistances ?? "" : "";
+      const resistancesHtml = isGM ? escapeHtml(resistances).replace(/\n/g, "<br />") : "";
+      const weaknesses = isGM ? npc.weaknesses ?? "" : "";
+      const weaknessesHtml = isGM ? escapeHtml(weaknesses).replace(/\n/g, "<br />") : "";
       const notes = npc.notes ?? "";
       const notesHtml = escapeHtml(notes).replace(/\n/g, "<br />");
       const updatedAt = Number.isFinite(npc.updatedAt) ? Number(npc.updatedAt) : null;
@@ -4688,6 +4692,12 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
         hasPersonality: Boolean(personalityHtml),
         penalty,
         penaltyHtml,
+        resistances,
+        resistancesHtml,
+        hasResistances: Boolean(resistancesHtml),
+        weaknesses,
+        weaknessesHtml,
+        hasWeaknesses: Boolean(weaknessesHtml),
         notes,
         notesHtml,
         updatedAt,

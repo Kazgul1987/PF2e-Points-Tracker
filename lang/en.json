@@ -265,6 +265,8 @@
         "InfluenceNotesPlaceholder": "Additional details about influence tactics or strategy.",
         "PenaltyText": "Penalty Text",
         "PenaltyHeader": "Penalty",
+        "ResistancesHeader": "Resistances",
+        "WeaknessesHeader": "Weaknesses",
         "Notes": "Notes",
         "NotesHeader": "Notes",
         "Progress": "Influence Progress",
