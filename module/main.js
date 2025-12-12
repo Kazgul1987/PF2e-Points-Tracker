@@ -1,6 +1,7 @@
 import { createResearchTracker } from "./research/tracker.js";
 import { createReputationTracker } from "./reputation/reputation-tracker.js";
 import { createAwarenessTracker } from "./awareness/awareness-tracker.js";
+import { createVictoryTracker } from "./victory/victory-tracker.js";
 import { createChaseTracker } from "./chase/tracker.js";
 import { createInfluenceTracker } from "./influence/tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
@@ -11,6 +12,7 @@ const MODULE_ID = "pf2e-points-tracker";
 const RESEARCH_SETTING_KEY = "research-tracker-state";
 const REPUTATION_SETTING_KEY = "reputation-tracker-state";
 const AWARENESS_SETTING_KEY = "awareness-tracker-state";
+const VICTORY_SETTING_KEY = "victory-tracker-state";
 const CHASE_SETTING_KEY = "chase-tracker-state";
 const INFLUENCE_SETTING_KEY = "influence-tracker-state";
 
@@ -25,6 +27,10 @@ const reputationTracker = createReputationTracker({
 const awarenessTracker = createAwarenessTracker({
   moduleId: MODULE_ID,
   settingKey: AWARENESS_SETTING_KEY,
+});
+const victoryTracker = createVictoryTracker({
+  moduleId: MODULE_ID,
+  settingKey: VICTORY_SETTING_KEY,
 });
 const chaseTracker = createChaseTracker({
   moduleId: MODULE_ID,
@@ -57,6 +63,7 @@ Hooks.once("init", () => {
   researchTracker.registerSettings();
   reputationTracker.registerSettings();
   awarenessTracker.registerSettings();
+  victoryTracker.registerSettings();
   chaseTracker.registerSettings();
   influenceTracker.registerSettings();
 
@@ -70,6 +77,7 @@ Hooks.once("init", () => {
       researchTracker,
       reputationTracker,
       awarenessTracker,
+      victoryTracker,
       chaseTracker,
       influenceTracker,
       openResearchTracker: () =>
@@ -77,6 +85,7 @@ Hooks.once("init", () => {
           researchTracker,
           reputationTracker,
           awarenessTracker,
+          victoryTracker,
           chaseTracker,
           influenceTracker,
         }),
@@ -85,6 +94,7 @@ Hooks.once("init", () => {
           researchTracker,
           reputationTracker,
           awarenessTracker,
+          victoryTracker,
           chaseTracker,
           influenceTracker,
         }),
@@ -110,6 +120,7 @@ Hooks.once("ready", async () => {
     await researchTracker.initialize();
     await reputationTracker.initialize();
     await awarenessTracker.initialize();
+    await victoryTracker.initialize();
     await chaseTracker.initialize();
     await influenceTracker.initialize();
   } catch (error) {
@@ -124,6 +135,7 @@ Hooks.once("ready", async () => {
     researchTracker,
     reputationTracker,
     awarenessTracker,
+    victoryTracker,
     chaseTracker,
     influenceTracker,
     open: () =>
@@ -131,6 +143,7 @@ Hooks.once("ready", async () => {
         researchTracker,
         reputationTracker,
         awarenessTracker,
+        victoryTracker,
         chaseTracker,
         influenceTracker,
       }),
@@ -163,6 +176,7 @@ Hooks.on("renderTokenHUD", (_app, html) => {
       researchTracker,
       reputationTracker,
       awarenessTracker,
+      victoryTracker,
       chaseTracker,
       influenceTracker,
     })
@@ -182,6 +196,7 @@ Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
         researchTracker,
         reputationTracker,
         awarenessTracker,
+        victoryTracker,
         chaseTracker,
         influenceTracker,
       }),
@@ -193,6 +208,7 @@ export function openResearchTracker() {
     researchTracker,
     reputationTracker,
     awarenessTracker,
+    victoryTracker,
     chaseTracker,
     influenceTracker,
   });

@@ -2,6 +2,7 @@ import { InfluenceImportExport } from "../influence/importer.js";
 import { INFLUENCE_UPDATE_HOOK } from "../influence/tracker.js";
 import { ResearchImportExport } from "../research/importer.js";
 import { RESEARCH_UPDATE_HOOK } from "../research/tracker.js";
+import { VICTORY_UPDATE_HOOK } from "../victory/victory-tracker.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 
@@ -3580,6 +3581,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
    * @param {import("../research/tracker.js").ResearchTracker} [options.researchTracker]
    * @param {import("../reputation/reputation-tracker.js").ReputationTracker} [options.reputationTracker]
    * @param {import("../awareness/awareness-tracker.js").AwarenessTracker} [options.awarenessTracker]
+   * @param {import("../victory/victory-tracker.js").VictoryTracker} [options.victoryTracker]
    * @param {import("../chase/tracker.js").ChaseTracker} [options.chaseTracker]
    * @param {object} [renderOptions]
    */
@@ -3588,6 +3590,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
       researchTracker = null,
       reputationTracker = null,
       awarenessTracker = null,
+      victoryTracker = null,
       chaseTracker = null,
       influenceTracker = null,
     } = {},
@@ -3597,6 +3600,7 @@ export class PointsTrackerApp extends BaseResearchTrackerApp {
     this.researchTracker = researchTracker ?? null;
     this.reputationTracker = reputationTracker ?? null;
     this.awarenessTracker = awarenessTracker ?? null;
+    this.victoryTracker = victoryTracker ?? null;
     this.chaseTracker = chaseTracker ?? null;
     this.influenceTracker = influenceTracker ?? null;
     this.tracker = this.researchTracker ?? this.tracker ?? null;
@@ -6447,4 +6451,5 @@ if (Hooks?.on) {
 
   Hooks.on(RESEARCH_UPDATE_HOOK, rerenderTrackers);
   Hooks.on(INFLUENCE_UPDATE_HOOK, rerenderTrackers);
+  Hooks.on(VICTORY_UPDATE_HOOK, rerenderTrackers);
 }

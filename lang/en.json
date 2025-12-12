@@ -378,6 +378,11 @@
         "LastUpdated": "Updated {timestamp}",
         "NameRequired": "Enter a name for the awareness entry before saving.",
         "ChangeNotification": "Awareness for {name} is now {current}."
+      },
+      "Victory": {
+        "Title": "Victory",
+        "DefaultName": "New Victory Entry",
+        "ChangeNotification": "Victory for {name} is now {current}."
       }
     }
   }
