@@ -212,6 +212,12 @@ function sanitizeNpc(entry) {
   const penalty = pickString(entry.penalty, entry.penalties);
   if (penalty !== undefined) npc.penalty = penalty;
 
+  const resistances = pickString(entry.resistances, entry.resistance, entry.resists);
+  if (resistances !== undefined) npc.resistances = resistances;
+
+  const weaknesses = pickString(entry.weaknesses, entry.weakness, entry.weak);
+  if (weaknesses !== undefined) npc.weaknesses = weaknesses;
+
   const notes = pickString(entry.notes, entry.note, entry.summary, entry.description);
   if (notes !== undefined) npc.notes = notes;
 

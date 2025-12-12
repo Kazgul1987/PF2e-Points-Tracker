@@ -3,7 +3,7 @@ import { localizeWithFallback } from "../utils/localize.js";
 export const INFLUENCE_UPDATE_HOOK = "pf2ePointsTrackerInfluenceUpdated";
 
 const DEFAULT_STATE = {
-  version: 7,
+  version: 8,
   npcs: [],
   log: [],
 };
@@ -340,6 +340,8 @@ function normalizeNpc(data = {}) {
       return explicit || legacy || structured || "";
     })(),
     penalty: typeof data.penalty === "string" ? data.penalty.trim() : "",
+    resistances: pickString(data.resistances, data.resistance),
+    weaknesses: pickString(data.weaknesses, data.weakness),
     notes: typeof data.notes === "string" ? data.notes.trim() : "",
     background: pickString(
       data.background,
@@ -499,6 +501,8 @@ export class InfluenceTracker {
           : [],
         influenceNotes: npc.influenceNotes ?? "",
         penalty: npc.penalty ?? "",
+        resistances: npc.resistances ?? "",
+        weaknesses: npc.weaknesses ?? "",
         notes: npc.notes ?? "",
         background: npc.background ?? "",
         appearance: npc.appearance ?? "",
@@ -690,6 +694,15 @@ export class InfluenceTracker {
         assignedActors: normalizeAssignedActors(npc.assignedActors ?? []),
       }));
       migrated.version = 7;
+    }
+
+    if (migrated.version < 8) {
+      migrated.npcs = migrated.npcs.map((npc) => ({
+        ...npc,
+        resistances: pickString(npc.resistances, npc.resistance),
+        weaknesses: pickString(npc.weaknesses, npc.weakness),
+      }));
+      migrated.version = 8;
     }
 
     if (migrated.version < DEFAULT_STATE.version) {
