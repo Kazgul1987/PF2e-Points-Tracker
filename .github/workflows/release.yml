@@ -44,5 +44,5 @@ jobs:
         run: |
           gh release upload \
             "${{ github.event.release.tag_name }}" \
-            "dist/pf2e-points-tracker.zip" \
+            "dist/module.zip" \
             --clobber
