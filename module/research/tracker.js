@@ -1,3 +1,4 @@
+import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
 export const RESEARCH_UPDATE_HOOK = "pf2ePointsTrackerResearchUpdated";
@@ -294,6 +295,7 @@ export class ResearchTracker {
    * Persist state into the world setting.
    */
   async _saveState() {
+    assertTrackerPermission(TrackerPermission.MODIFY);
     if (!this._initialized || !game?.settings?.set) return;
 
     const payload = {
@@ -413,6 +415,7 @@ export class ResearchTracker {
     });
 
     if (!needsCheckMigration && !needsRevealMigration) return;
+    if (!game.user?.isGM) return;
 
     try {
       await this._saveState();

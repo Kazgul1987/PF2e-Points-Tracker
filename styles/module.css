@@ -1861,3 +1861,9 @@
   font-style: italic;
   opacity: 0.75;
 }
+
+/* ApplicationV2 shell scope. Existing selectors remain for backwards-compatible embedded markup. */
+.pf2e-points-tracker .points-tracker {
+  min-height: 0;
+  overflow: auto;
+}

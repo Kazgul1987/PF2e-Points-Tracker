@@ -1,3 +1,4 @@
+import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
 export const VICTORY_UPDATE_HOOK = "pf2ePointsTrackerVictoryUpdated";
@@ -66,6 +67,7 @@ export class VictoryTracker {
       config: false,
       type: Object,
       default: duplicateData(DEFAULT_STATE),
+      onChange: (value) => this._applyState(value),
     });
   }
 
@@ -75,17 +77,24 @@ export class VictoryTracker {
     const stored = duplicateData(
       game.settings.get(this.moduleId, this.settingKey) ?? DEFAULT_STATE
     );
-
-    const entries = Array.isArray(stored.entries) ? stored.entries : [];
-    this.entries = new Collection(
-      entries.map((entry) => [entry.id ?? createId(), this._normalizeEntry(entry)])
-    );
+    this._applyState(stored);
     this._initialized = true;
 
     this._emitUpdate();
   }
 
+  _applyState(rawState) {
+    const state = duplicateData(rawState ?? DEFAULT_STATE);
+    const values = Array.isArray(state.entries) ? state.entries : [];
+    this.entries = new Collection(values.map((entry) => {
+      const normalized = this._normalizeEntry(entry);
+      return [normalized.id ?? createId(), normalized];
+    }));
+    Hooks?.callAll?.("pf2ePointsTrackerUpdated", { tracker: this, entries: this.getEntries() });
+  }
+
   async _saveState() {
+    assertTrackerPermission(TrackerPermission.MODIFY);
     if (!this._initialized || !game?.settings?.set) return;
 
     const payload = {

@@ -1,3 +1,4 @@
+import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
@@ -96,21 +97,24 @@ export class ChaseTracker {
       config: false,
       type: Object,
       default: duplicateData(DEFAULT_STATE),
-      onChange: () => this.initialize(),
+      onChange: (value) => this._applyState(value),
     });
   }
 
   async initialize() {
     if (typeof game?.settings?.get !== "function") return;
     const stored = await game.settings.get(this.moduleId, this.settingKey);
-    if (stored && typeof stored === "object") {
-      this.state = duplicateData({ ...DEFAULT_STATE, ...stored });
-    } else {
-      this.state = duplicateData(DEFAULT_STATE);
-    }
+    this._applyState(stored);
+  }
+
+  _applyState(rawState) {
+    const state = rawState && typeof rawState === "object" ? rawState : DEFAULT_STATE;
+    this.state = duplicateData({ ...DEFAULT_STATE, ...state });
+    Hooks?.callAll?.("pf2ePointsTrackerUpdated", { tracker: this, state: duplicateData(this.state) });
   }
 
   async _persist() {
+    assertTrackerPermission(TrackerPermission.MODIFY);
     if (typeof game?.settings?.set !== "function") return;
     await game.settings.set(this.moduleId, this.settingKey, duplicateData(this.state));
   }

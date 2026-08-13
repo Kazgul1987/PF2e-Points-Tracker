@@ -7,6 +7,7 @@ import { createInfluenceTracker } from "./influence/tracker.js";
 import { PointsTrackerApp } from "./apps/points-tracker-app.js";
 import { InfluenceImportExport } from "./influence/importer.js";
 import { ResearchImportExport } from "./research/importer.js";
+import { logger } from "./utils/logger.js";
 
 const MODULE_ID = "pf2e-points-tracker";
 const RESEARCH_SETTING_KEY = "research-tracker-state";
@@ -51,7 +52,7 @@ async function importInfluenceNpcsFromDialog() {
       const result = await influenceTracker.createNpc(npcData);
       if (result) created.push(result);
     } catch (error) {
-      console.error(`${MODULE_ID} | Failed to import influence NPC.`, error);
+      logger.error("Failed to import influence NPC.", error);
     }
   }
 
@@ -59,7 +60,7 @@ async function importInfluenceNpcsFromDialog() {
 }
 
 Hooks.once("init", () => {
-  console.log(`${MODULE_ID} | Initializing PF2e Points Tracker module.`);
+  logger.info("Initializing module.");
   researchTracker.registerSettings();
   reputationTracker.registerSettings();
   awarenessTracker.registerSettings();
@@ -124,7 +125,7 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
-  console.log(`${MODULE_ID} | Starting PF2e Points Tracker initialization.`);
+  logger.info("Starting tracker initialization.");
 
   try {
     await researchTracker.initialize();
@@ -134,11 +135,11 @@ Hooks.once("ready", async () => {
     await chaseTracker.initialize();
     await influenceTracker.initialize();
   } catch (error) {
-    console.error(`${MODULE_ID} | Failed to initialize PF2e Points Tracker.`, error);
+    logger.error("Failed to initialize trackers.", error);
     return;
   }
 
-  console.log(`${MODULE_ID} | PF2e Points Tracker initialized successfully.`);
+  logger.info("Trackers initialized successfully.");
 
   game.pf2ePointsTracker = {
     tracker: researchTracker,
@@ -180,7 +181,7 @@ Hooks.once("ready", async () => {
     },
   };
 
-  console.log(`${MODULE_ID} | PF2e Points Tracker global API registered.`);
+  logger.info("Global API registered.");
 });
 
 

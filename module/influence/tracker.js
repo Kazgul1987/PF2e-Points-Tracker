@@ -1,3 +1,4 @@
+import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
 export const INFLUENCE_UPDATE_HOOK = "pf2ePointsTrackerInfluenceUpdated";
@@ -463,6 +464,7 @@ export class InfluenceTracker {
   }
 
   async _saveState() {
+    assertTrackerPermission(TrackerPermission.MODIFY);
     if (!this._initialized) return;
 
     const payload = {
