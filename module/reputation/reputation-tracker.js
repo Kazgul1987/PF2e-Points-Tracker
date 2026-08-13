@@ -132,6 +132,8 @@ export class ReputationTracker {
    * @returns {Promise<ReputationFaction>}
    */
   async createFaction(data = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const id = data.id ?? createId();
     const faction = this._normalizeFaction({
       id,
@@ -161,6 +163,8 @@ export class ReputationTracker {
    * @returns {Promise<ReputationFaction | undefined>}
    */
   async updateFaction(factionId, updates) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const existing = this.factions.get(factionId);
     if (!existing) return undefined;
     const merged = this._normalizeFaction({ ...existing, ...updates, id: factionId });
@@ -173,6 +177,8 @@ export class ReputationTracker {
    * @param {string} factionId
    */
   async deleteFaction(factionId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     if (!this.factions.has(factionId)) return;
     this.factions.delete(factionId);
     await this._saveState();
@@ -184,6 +190,8 @@ export class ReputationTracker {
    * @param {object} [metadata]
    */
   async adjustReputation(factionId, delta, metadata = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const faction = this.factions.get(factionId);
     if (!faction) return;
     const change = Number(delta ?? 0);
@@ -213,6 +221,8 @@ export class ReputationTracker {
    * @param {object} state
    */
   async importState(state) {
+    assertTrackerPermission(TrackerPermission.IMPORT_EXPORT);
+
     const factions = Array.isArray(state?.factions) ? state.factions : [];
     this.factions = new Collection(
       factions.map((faction) => [faction.id ?? createId(), this._normalizeFaction(faction)])

@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
@@ -420,7 +421,7 @@ export class ResearchTracker {
     try {
       await this._saveState();
     } catch (error) {
-      console.error("pf2e-points-tracker | Failed to migrate research tracker data.", error);
+      logger.error("pf2e-points-tracker | Failed to migrate research tracker data.", error);
     }
   }
 
@@ -447,6 +448,8 @@ export class ResearchTracker {
    * @returns {Promise<ResearchTopic>}
   */
   async createTopic(data = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const id = data.id ?? createId();
     const topic = this._normalizeTopic({
       id,
@@ -489,6 +492,8 @@ export class ResearchTracker {
    * @returns {Promise<ResearchTopic | undefined>}
    */
   async updateTopic(topicId, updates) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const topic = this.topics.get(topicId);
     if (!topic) return undefined;
     const merged = this._normalizeTopic({ ...topic, ...updates, id: topicId });
@@ -502,6 +507,8 @@ export class ResearchTracker {
    * @param {string} topicId
    */
   async deleteTopic(topicId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     if (!this.topics.has(topicId)) return;
     this.topics.delete(topicId);
     this.log = this.log.filter((entry) => entry.topicId !== topicId);
@@ -515,6 +522,8 @@ export class ResearchTracker {
    * @param {object} [metadata]
    */
   async adjustPoints(topicId, delta, metadata = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
     const locationId = metadata.locationId;
@@ -525,7 +534,7 @@ export class ResearchTracker {
     }
 
     if ((topic.locations ?? []).length) {
-      console.warn(
+      logger.warn(
         "Adjusting topic points directly is not supported when locations are defined. Provide a locationId in metadata instead."
       );
       return;
@@ -557,6 +566,8 @@ export class ResearchTracker {
    * @param {Partial<ResearchLocation>} data
    */
   async createLocation(topicId, data = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
 
@@ -646,6 +657,8 @@ export class ResearchTracker {
    * @param {Partial<ResearchLocation>} updates
    */
   async updateLocation(topicId, locationId, updates) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
 
@@ -776,6 +789,8 @@ export class ResearchTracker {
    * @param {string} locationId
    */
   async deleteLocation(topicId, locationId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
 
@@ -796,6 +811,8 @@ export class ResearchTracker {
    * @param {object} [metadata]
    */
   async adjustLocationPoints(topicId, locationId, delta, metadata = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
 
@@ -848,6 +865,8 @@ export class ResearchTracker {
    * @param {boolean} [options.resend=false]
    */
   async sendLocationReveal(topicId, locationId, { resend = false } = {}) {
+    assertTrackerPermission(TrackerPermission.REVEAL);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
 
@@ -921,6 +940,8 @@ export class ResearchTracker {
    * @param {Partial<ResearchLogEntry>} entry
    */
   async recordLog(entry) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const logEntry = {
       id: entry.id ?? createId(),
       topicId: entry.topicId ?? "",
@@ -953,6 +974,8 @@ export class ResearchTracker {
    * @param {boolean} [options.resend=false]
    */
   async sendThresholdReveal(topicId, thresholdId, { resend = false } = {}) {
+    assertTrackerPermission(TrackerPermission.REVEAL);
+
     const topic = this.topics.get(topicId);
     if (!topic) return;
     const thresholds = Array.isArray(topic.thresholds) ? topic.thresholds : [];
@@ -1102,7 +1125,7 @@ export class ResearchTracker {
         const enriched = await TextEditor.enrichHTML(text, { async: true });
         if (typeof enriched === "string") return enriched;
       } catch (error) {
-        console.error(error);
+        logger.error(error);
       }
     }
     return text;
@@ -1419,7 +1442,7 @@ export class ResearchTracker {
         try {
           return foundry.utils.escapeHTML(value);
         } catch (error) {
-          console.error(error);
+          logger.error(error);
         }
       }
       const lookup = {

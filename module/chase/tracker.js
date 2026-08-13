@@ -128,6 +128,8 @@ export class ChaseTracker {
   }
 
   async createEvent({ name, description } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = {
       id: createId(),
       name: typeof name === "string" && name.trim() ? name.trim() : getDefaultEventName(),
@@ -142,6 +144,8 @@ export class ChaseTracker {
   }
 
   async updateEvent(eventId, updates = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const sanitized = {};
@@ -159,6 +163,8 @@ export class ChaseTracker {
   }
 
   async deleteEvent(eventId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     const before = this.state.events ?? [];
     const filtered = before.filter((entry) => entry.id !== eventId);
     if (filtered.length === before.length) return false;
@@ -168,6 +174,8 @@ export class ChaseTracker {
   }
 
   async createObstacle(eventId, { name, description, requiredPoints } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const obstacle = {
@@ -188,6 +196,8 @@ export class ChaseTracker {
   }
 
   async updateObstacle(eventId, obstacleId, updates = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const obstacle = event.obstacles?.find((entry) => entry.id === obstacleId);
@@ -216,6 +226,8 @@ export class ChaseTracker {
   }
 
   async adjustObstacleProgress(eventId, obstacleId, delta) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const obstacle = event.obstacles?.find((entry) => entry.id === obstacleId);
@@ -238,6 +250,8 @@ export class ChaseTracker {
   }
 
   async setObstacleProgress(eventId, obstacleId, value) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const obstacle = event.obstacles?.find((entry) => entry.id === obstacleId);
@@ -255,6 +269,8 @@ export class ChaseTracker {
   }
 
   async deleteObstacle(eventId, obstacleId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     const event = this.getEvent(eventId);
     if (!event) return false;
     const before = event.obstacles ?? [];
@@ -266,6 +282,8 @@ export class ChaseTracker {
   }
 
   async createOpportunity(eventId, { name, description } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const opportunity = {
@@ -284,6 +302,8 @@ export class ChaseTracker {
   }
 
   async updateOpportunity(eventId, opportunityId, updates = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const event = this.getEvent(eventId);
     if (!event) return null;
     const opportunity = event.opportunities?.find((entry) => entry.id === opportunityId);
@@ -303,6 +323,8 @@ export class ChaseTracker {
   }
 
   async deleteOpportunity(eventId, opportunityId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     const event = this.getEvent(eventId);
     if (!event) return false;
     const before = event.opportunities ?? [];
@@ -314,12 +336,16 @@ export class ChaseTracker {
   }
 
   async assignActorsToObstacle(eventId, obstacleId, assignments = []) {
+    assertTrackerPermission(TrackerPermission.ASSIGN_ACTOR);
+
     return this.updateObstacle(eventId, obstacleId, {
       assignedActors: normalizeAssignedActors(assignments),
     });
   }
 
   async assignActorsToOpportunity(eventId, opportunityId, assignments = []) {
+    assertTrackerPermission(TrackerPermission.ASSIGN_ACTOR);
+
     return this.updateOpportunity(eventId, opportunityId, {
       assignedActors: normalizeAssignedActors(assignments),
     });
