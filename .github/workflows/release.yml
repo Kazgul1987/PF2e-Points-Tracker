@@ -23,7 +23,6 @@ jobs:
 
           cp module.json dist/package/
           cp -r module dist/package/
-          cp -r templates dist/package/
           cp -r styles dist/package/
           cp -r lang dist/package/
 
