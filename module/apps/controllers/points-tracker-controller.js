@@ -72,7 +72,7 @@ export class PointsTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     position: { width: 720, height: "auto" },
     window: { resizable: true },
     actions: {
-      switchTab: PointsTrackerApp._onSwitchTab,
+      "switch-tab": PointsTrackerApp._onSwitchTab,
       "create-faction": PointsTrackerApp._onReputationAction,
       "edit-faction": PointsTrackerApp._onReputationAction,
       "delete-faction": PointsTrackerApp._onReputationAction,
