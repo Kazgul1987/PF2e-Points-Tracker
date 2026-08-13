@@ -141,6 +141,8 @@ export class VictoryTracker {
    * @returns {Promise<VictoryEntry>}
    */
   async createEntry(data = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const id = data.id ?? createId();
     const entry = this._normalizeEntry({
       id,
@@ -162,6 +164,8 @@ export class VictoryTracker {
    * @returns {Promise<VictoryEntry | undefined>}
    */
   async updateEntry(entryId, updates) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const existing = this.entries.get(entryId);
     if (!existing) return undefined;
     const merged = this._normalizeEntry({ ...existing, ...updates, id: entryId, updatedAt: Date.now() });
@@ -174,6 +178,8 @@ export class VictoryTracker {
    * @param {string} entryId
    */
   async deleteEntry(entryId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     if (!this.entries.has(entryId)) return;
     this.entries.delete(entryId);
     await this._saveState();
@@ -185,6 +191,8 @@ export class VictoryTracker {
    * @param {object} [metadata]
    */
   async adjustVictory(entryId, delta, metadata = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const entry = this.entries.get(entryId);
     if (!entry) return;
     const change = Number(delta ?? 0);
@@ -221,6 +229,8 @@ export class VictoryTracker {
    * @param {object} state
    */
   async importState(state) {
+    assertTrackerPermission(TrackerPermission.IMPORT_EXPORT);
+
     const entries = Array.isArray(state?.entries) ? state.entries : [];
     this.entries = new Collection(
       entries.map((entry) => [entry.id ?? createId(), this._normalizeEntry(entry)])

@@ -3,6 +3,7 @@
     <button
       type="button"
       class="points-tracker__tab{{#if isResearchActive}} is-active{{/if}}"
+      data-action="switch-tab"
       data-tab="research"
     >
       <i class="fas fa-flask" aria-hidden="true"></i>
@@ -11,6 +12,7 @@
     <button
       type="button"
       class="points-tracker__tab{{#if isInfluenceActive}} is-active{{/if}}"
+      data-action="switch-tab"
       data-tab="influence"
     >
       <i class="fas fa-handshake" aria-hidden="true"></i>
@@ -19,6 +21,7 @@
     <button
       type="button"
       class="points-tracker__tab{{#if isChaseActive}} is-active{{/if}}"
+      data-action="switch-tab"
       data-tab="chase"
     >
       <i class="fas fa-running" aria-hidden="true"></i>
@@ -27,6 +30,7 @@
     <button
       type="button"
       class="points-tracker__tab{{#if isReputationActive}} is-active{{/if}}"
+      data-action="switch-tab"
       data-tab="reputation"
     >
       <i class="fas fa-users" aria-hidden="true"></i>
@@ -36,6 +40,7 @@
       <button
         type="button"
         class="points-tracker__tab{{#if isVictoryActive}} is-active{{/if}}"
+        data-action="switch-tab"
         data-tab="victory"
       >
         <i class="fas fa-flag-checkered" aria-hidden="true"></i>
@@ -46,6 +51,7 @@
       <button
         type="button"
         class="points-tracker__tab{{#if isAwarenessActive}} is-active{{/if}}"
+        data-action="switch-tab"
         data-tab="awareness"
       >
         <i class="fas fa-eye" aria-hidden="true"></i>

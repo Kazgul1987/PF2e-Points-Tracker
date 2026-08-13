@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 const MODULE_ID = "pf2e-points-tracker";
 
 function createLocalId() {
@@ -628,7 +629,7 @@ export class ResearchImportExport {
     try {
       text = await file.text();
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       ui.notifications?.error?.(
         game.i18n.localize("PF2E.PointsTracker.Research.ImportFailure")
       );
@@ -639,7 +640,7 @@ export class ResearchImportExport {
     try {
       parsed = JSON.parse(text);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       ui.notifications?.error?.(
         game.i18n.localize("PF2E.PointsTracker.Research.ImportInvalid")
       );

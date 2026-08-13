@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 const MODULE_ID = "pf2e-points-tracker";
 
 function clampNumber(value, { min = -Infinity, max = Infinity, fallback = 0 } = {}) {
@@ -315,7 +316,7 @@ export class InfluenceImportExport {
     try {
       text = await file.text();
     } catch (error) {
-      console.error(`${MODULE_ID} | Failed to read influence NPC import.`, error);
+      logger.error(`${MODULE_ID} | Failed to read influence NPC import.`, error);
       ui.notifications?.error?.(
         game.i18n.localize("PF2E.PointsTracker.Influence.ImportFailure")
       );
@@ -326,7 +327,7 @@ export class InfluenceImportExport {
     try {
       parsed = JSON.parse(text);
     } catch (error) {
-      console.error(`${MODULE_ID} | Failed to parse influence NPC import.`, error);
+      logger.error(`${MODULE_ID} | Failed to parse influence NPC import.`, error);
       ui.notifications?.error?.(
         game.i18n.localize("PF2E.PointsTracker.Influence.ImportInvalid")
       );

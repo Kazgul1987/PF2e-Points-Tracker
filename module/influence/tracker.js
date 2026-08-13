@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
@@ -724,6 +725,8 @@ export class InfluenceTracker {
   }
 
   async createNpc(data = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const npc = normalizeNpc({ ...data, id: createId(), createdAt: Date.now(), updatedAt: Date.now() });
     this.npcs.set(npc.id, npc);
     await this._saveState();
@@ -731,6 +734,8 @@ export class InfluenceTracker {
   }
 
   async updateNpc(npcId, updates = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const existing = this.npcs.get(npcId);
     if (!existing) return undefined;
 
@@ -741,6 +746,8 @@ export class InfluenceTracker {
   }
 
   async deleteNpc(npcId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     if (!this.npcs.has(npcId)) return;
     this.npcs.delete(npcId);
     this.log = this.log.filter((entry) => entry.npcId !== npcId);
@@ -748,6 +755,8 @@ export class InfluenceTracker {
   }
 
   async adjustInfluence(npcId, delta, { reason = "", note = "", notify = true } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const npc = this.npcs.get(npcId);
     if (!npc) return;
     const change = Number(delta ?? 0);
@@ -794,6 +803,8 @@ export class InfluenceTracker {
   }
 
   async setInfluence(npcId, value, { reason = "", note = "", notify = true } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const npc = this.npcs.get(npcId);
     if (!npc) return;
     const numeric = Number(value ?? 0);
@@ -807,6 +818,8 @@ export class InfluenceTracker {
   }
 
   async sendThresholdReveal(npcId, thresholdId, { resend = false } = {}) {
+    assertTrackerPermission(TrackerPermission.REVEAL);
+
     const npc = this.npcs.get(npcId);
     if (!npc) return;
 
@@ -964,7 +977,7 @@ export class InfluenceTracker {
         const enriched = await TextEditor.enrichHTML(text, { async: true });
         if (typeof enriched === "string") return enriched;
       } catch (error) {
-        console.error(error);
+        logger.error(error);
       }
     }
     return text;
@@ -984,6 +997,8 @@ export class InfluenceTracker {
   }
 
   async addLogEntry({ npcId = "", note = "", reason = "", type = "note" } = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const entry = normalizeLogEntry({
       id: createId(),
       npcId,
@@ -1002,6 +1017,8 @@ export class InfluenceTracker {
   }
 
   async updateLogEntry(entryId, updates = {}) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+
     const index = this.log.findIndex((entry) => entry.id === entryId);
     if (index === -1) return undefined;
     const existing = this.log[index];
@@ -1014,6 +1031,8 @@ export class InfluenceTracker {
   }
 
   async deleteLogEntry(entryId) {
+    assertTrackerPermission(TrackerPermission.DELETE);
+
     const index = this.log.findIndex((entry) => entry.id === entryId);
     if (index === -1) return;
     this.log.splice(index, 1);
