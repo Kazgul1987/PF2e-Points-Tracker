@@ -5,8 +5,8 @@
   "version": "0.1.0",
   "type": "module",
   "compatibility": {
-    "minimum": "13",
-    "verified": "13"
+    "minimum": "14",
+    "verified": "14"
   },
   "authors": [
     {
@@ -29,5 +29,15 @@
   "packs": [],
   "manifest": "https://raw.githubusercontent.com/Kazgul1987/PF2e-Points-Tracker/main/module.json",
   "download": "https://github.com/Kazgul1987/PF2e-Points-Tracker/releases/latest/download/module.zip",
-  "license": "LICENSE"
+  "relationships": {
+    "systems": [
+      {
+        "id": "pf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "7.0.0"
+        }
+      }
+    ]
+  }
 }

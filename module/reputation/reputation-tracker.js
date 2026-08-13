@@ -1,3 +1,4 @@
+import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
 const DEFAULT_STATE = {
@@ -63,6 +64,7 @@ export class ReputationTracker {
       config: false,
       type: Object,
       default: duplicateData(DEFAULT_STATE),
+      onChange: (value) => this._applyState(value),
     });
   }
 
@@ -72,15 +74,22 @@ export class ReputationTracker {
     const stored = duplicateData(
       game.settings.get(this.moduleId, this.settingKey) ?? DEFAULT_STATE
     );
-
-    const factions = Array.isArray(stored.factions) ? stored.factions : [];
-    this.factions = new Collection(
-      factions.map((faction) => [faction.id, this._normalizeFaction(faction)])
-    );
+    this._applyState(stored);
     this._initialized = true;
   }
 
+  _applyState(rawState) {
+    const state = duplicateData(rawState ?? DEFAULT_STATE);
+    const values = Array.isArray(state.factions) ? state.factions : [];
+    this.factions = new Collection(values.map((entry) => {
+      const normalized = this._normalizeFaction(entry);
+      return [normalized.id ?? createId(), normalized];
+    }));
+    Hooks?.callAll?.("pf2ePointsTrackerUpdated", { tracker: this, factions: this.getFactions() });
+  }
+
   async _saveState() {
+    assertTrackerPermission(TrackerPermission.MODIFY);
     if (!this._initialized || !game?.settings?.set) return;
 
     const payload = {
