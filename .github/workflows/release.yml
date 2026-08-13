@@ -1,0 +1,49 @@
+name: Build and Attach Module ZIP
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Build Foundry module ZIP
+        run: |
+          mkdir -p dist/package
+
+          cp module.json dist/package/
+          cp -r module dist/package/
+          cp -r templates dist/package/
+          cp -r styles dist/package/
+          cp -r lang dist/package/
+
+          if [ -f README.md ]; then
+            cp README.md dist/package/
+          fi
+
+          if [ -f LICENSE ]; then
+            cp LICENSE dist/package/
+          fi
+
+          cd dist/package
+          zip -r ../pf2e-points-tracker.zip .
+          cd ../..
+
+      - name: Upload ZIP to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload \
+            "${{ github.event.release.tag_name }}" \
+            "dist/pf2e-points-tracker.zip" \
+            --clobber
