@@ -50,7 +50,6 @@ export class PointsTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     this.influenceTracker = influenceTracker ?? null;
     this.tracker = this.researchTracker ?? this.tracker ?? null;
     this._activeTab = renderOptions?.activeTab ?? "research";
-    this.options.activeTab = this._activeTab;
     this._initializedTabs = new Set();
     this._collapsedInfluenceLogs = {
       session: false,
@@ -180,7 +179,6 @@ export class PointsTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     }
     const normalized = allowedTabs.has(value) ? value : "research";
     this._activeTab = normalized;
-    this.options.activeTab = this._activeTab;
   }
 
   _canAccessAwareness() {
