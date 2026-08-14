@@ -35,7 +35,7 @@ jobs:
           fi
 
           cd dist/package
-          zip -r ../pf2e-points-tracker.zip .
+          zip -r ../module.zip .
           cd ../..
 
       - name: Upload ZIP to GitHub Release
