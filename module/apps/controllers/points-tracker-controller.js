@@ -4,6 +4,7 @@ import { InfluenceController } from "./influence-controller.js";
 import { ReputationController } from "./reputation-controller.js";
 import { VictoryController } from "./victory-controller.js";
 import { ResearchTrackerApp } from "./research-controller.js";
+import { logger } from "../../utils/logger.js";
 const MODULE_ID = "pf2e-points-tracker";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -260,9 +261,21 @@ export class PointsTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     }
   }
 
-  static _dispatchControllerAction(event, target, controllerName, handlers) {
-    const handler = handlers[target?.dataset.action];
-    if (!handler) return;
+  _dispatchControllerAction(event, target, controllerName, handlers) {
+    const controller = this.controllers?.[controllerName];
+    if (!controller) {
+      logger.error(`Missing controller for ApplicationV2 action: ${controllerName}.`);
+      return;
+    }
+    const action = target?.dataset.action;
+    const handler = handlers[action];
+    const controllerHandler = controller[handler];
+    if (typeof controllerHandler !== "function") {
+      logger.error(
+        `Missing controller handler for ApplicationV2 action: ${controllerName}.${handler ?? action}.`
+      );
+      return;
+    }
     const actionEvent = new Proxy(event, {
       get(source, property) {
         if (property === "currentTarget") return target;
@@ -270,7 +283,7 @@ export class PointsTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) 
         return typeof value === "function" ? value.bind(source) : value;
       },
     });
-    return this.controllers[controllerName][handler](actionEvent);
+    return controllerHandler.call(controller, actionEvent);
   }
 
   static _onReputationAction(event, target) {
