@@ -6,7 +6,13 @@
         "HideObstacle": "Hindernis verbergen",
         "RevealOpportunity": "Gelegenheit enthüllen",
         "HideOpportunity": "Gelegenheit verbergen",
-        "Hidden": "Verborgen"
+        "Hidden": "Verborgen",
+        "ResolutionMode": "Auflösungsmodus",
+        "GroupObstacle": "Gruppe",
+        "IndividualObstacle": "Individuell",
+        "GroupProgress": "Gruppenfortschritt",
+        "IndividualProgress": "Individueller Fortschritt",
+        "RequiredPerActor": "Benötigte Punkte pro Charakter"
       }
     }
   }

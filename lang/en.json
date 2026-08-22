@@ -204,7 +204,13 @@
         "NoOpportunities": "No opportunities have been added yet.",
         "ParticipantsHeading": "Participants",
         "NoEvents": "No chase events have been created yet.",
-      "NoTracker": "The chase tracker is not available in this world."
+      "NoTracker": "The chase tracker is not available in this world.",
+      "ResolutionMode": "Resolution Mode",
+      "GroupObstacle": "Group",
+      "IndividualObstacle": "Individual",
+      "GroupProgress": "Group Progress",
+      "IndividualProgress": "Individual Progress",
+      "RequiredPerActor": "Required Points per Character"
       },
       "Influence": {
         "Title": "Influence",

@@ -145,7 +145,28 @@
                           </div>
                         </th>
                         <td>
+                          {{#if obstacle.isIndividual}}
+                            <div class="chase-obstacle__individual-progress">
+                              <strong>{{localize "PF2E.PointsTracker.Chase.IndividualProgress"}}</strong>
+                              <small>{{localize "PF2E.PointsTracker.Chase.RequiredPerActor"}}: {{obstacle.requiredPoints}}</small>
+                              {{#each obstacle.individualActors as |actor|}}
+                                <div class="chase-obstacle__individual-actor{{#if actor.complete}} is-complete{{/if}}">
+                                  {{#if actor.img}}<img src="{{actor.img}}" alt="{{actor.name}}" />{{/if}}
+                                  <span>{{actor.name}}</span>
+                                  {{#if ../../../isGM}}
+                                    <button type="button" data-action="adjust-chase-individual-progress" data-event-id="{{../../id}}" data-obstacle-id="{{../id}}" data-actor-uuid="{{actor.uuid}}" data-delta="-1"><i class="fas fa-minus"></i></button>
+                                  {{/if}}
+                                  <span>{{actor.progress}} / {{obstacle.requiredPoints}}</span>
+                                  {{#if ../../../isGM}}
+                                    <button type="button" data-action="adjust-chase-individual-progress" data-event-id="{{../../id}}" data-obstacle-id="{{../id}}" data-actor-uuid="{{actor.uuid}}" data-delta="1"><i class="fas fa-plus"></i></button>
+                                  {{/if}}
+                                  {{#if actor.complete}}<i class="fas fa-check" title="{{localize 'PF2E.PointsTracker.Chase.ObstacleComplete'}}"></i>{{/if}}
+                                </div>
+                              {{/each}}
+                            </div>
+                          {{else}}
                           <div class="chase-obstacle__progress">
+                            <strong>{{localize "PF2E.PointsTracker.Chase.GroupProgress"}}</strong>
                             <div class="chase-obstacle__progress-track">
                               <div class="chase-obstacle__progress-bar" style="width: {{obstacle.progressPercent}}%"></div>
                             </div>
@@ -160,6 +181,7 @@
                               {{/if}}
                             </div>
                           </div>
+                          {{/if}}
                         </td>
                         {{#if ../../isGM}}
                           <td class="chase-obstacle__actions">
@@ -171,6 +193,7 @@
                             >
                               <i class="fas {{#if obstacle.revealed}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
                             </button>
+                            {{#unless obstacle.isIndividual}}
                             <button type="button" data-action="nudge-chase-obstacle" data-delta="1">
                               <i class="fas fa-plus"></i>
                             </button>
@@ -180,6 +203,7 @@
                             <button type="button" data-action="set-chase-obstacle-progress">
                               <i class="fas fa-sliders-h"></i>
                             </button>
+                            {{/unless}}
                             <button type="button" data-action="edit-chase-obstacle">
                               <i class="fas fa-edit"></i>
                             </button>
