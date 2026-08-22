@@ -12,6 +12,8 @@
         "IndividualObstacle": "Individuell",
         "GroupProgress": "Gruppenfortschritt",
         "IndividualProgress": "Individueller Fortschritt",
+        "DecreaseProgress": "Fortschritt verringern",
+        "IncreaseProgress": "Fortschritt erhöhen",
         "RequiredPerActor": "Benötigte Punkte pro Charakter"
       }
     }
