@@ -1325,9 +1325,17 @@
 }
 
 .chase-obstacle__individual-actor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chase-obstacle__individual-actor-identity {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .chase-obstacle__individual-actor img {
@@ -1338,11 +1346,48 @@
   object-fit: cover;
 }
 
-.chase-obstacle__individual-actor > span:first-of-type {
+.chase-obstacle__individual-actor-identity > span {
   flex: 1;
+  min-width: 0;
 }
 
-.chase-obstacle__individual-actor.is-complete > .fa-check {
+.chase-individual-progress {
+  min-width: 0;
+}
+
+.chase-individual-progress-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.chase-individual-progress-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chase-individual-progress-bar {
+  width: 100%;
+  height: 0.35rem;
+  margin-top: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chase-individual-progress-bar-fill {
+  height: 100%;
+  background: var(--color-border-highlight, #f4a261);
+  transition: width 150ms ease;
+}
+
+.chase-obstacle__individual-actor.is-complete .fa-check {
   color: var(--color-level-success, green);
 }
 

@@ -210,6 +210,8 @@
       "IndividualObstacle": "Individual",
       "GroupProgress": "Group Progress",
       "IndividualProgress": "Individual Progress",
+      "DecreaseProgress": "Decrease progress",
+      "IncreaseProgress": "Increase progress",
       "RequiredPerActor": "Required Points per Character"
       },
       "Influence": {
