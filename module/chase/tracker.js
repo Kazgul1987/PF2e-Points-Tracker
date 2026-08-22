@@ -82,6 +82,32 @@ function normalizeAssignedActors(raw) {
   return normalized;
 }
 
+function normalizeIndividualProgress(raw) {
+  const seen = new Set();
+  const normalized = [];
+  if (!Array.isArray(raw)) return normalized;
+  for (const entry of raw) {
+    const actorUuid = typeof entry?.actorUuid === "string" ? entry.actorUuid.trim() : "";
+    if (!actorUuid || seen.has(actorUuid)) continue;
+    seen.add(actorUuid);
+    normalized.push({
+      actorUuid,
+      progress: Math.max(0, Number(entry.progress) || 0),
+    });
+  }
+  return normalized;
+}
+
+function normalizeObstacle(obstacle) {
+  const assignedActors = normalizeAssignedActors(obstacle?.assignedActors);
+  return {
+    ...obstacle,
+    resolutionMode: obstacle?.resolutionMode === "individual" ? "individual" : "group",
+    assignedActors,
+    individualProgress: normalizeIndividualProgress(obstacle?.individualProgress),
+  };
+}
+
 export class ChaseTracker {
   constructor({ moduleId, settingKey }) {
     this.moduleId = moduleId;
@@ -110,6 +136,14 @@ export class ChaseTracker {
   _applyState(rawState) {
     const state = rawState && typeof rawState === "object" ? rawState : DEFAULT_STATE;
     this.state = duplicateData({ ...DEFAULT_STATE, ...state });
+    this.state.events = Array.isArray(this.state.events)
+      ? this.state.events.map((event) => ({
+          ...event,
+          obstacles: Array.isArray(event?.obstacles)
+            ? event.obstacles.map(normalizeObstacle)
+            : [],
+        }))
+      : [];
     Hooks?.callAll?.("pf2ePointsTrackerUpdated", { tracker: this, state: duplicateData(this.state) });
   }
 
@@ -173,7 +207,7 @@ export class ChaseTracker {
     return true;
   }
 
-  async createObstacle(eventId, { name, description, requiredPoints } = {}) {
+  async createObstacle(eventId, { name, description, requiredPoints, resolutionMode } = {}) {
     assertTrackerPermission(TrackerPermission.MODIFY);
 
     const event = this.getEvent(eventId);
@@ -186,8 +220,10 @@ export class ChaseTracker {
       requiredPoints: Number.isFinite(Number(requiredPoints))
         ? Math.max(0, Number(requiredPoints))
         : 0,
+      resolutionMode: resolutionMode === "individual" ? "individual" : "group",
       progress: 0,
       assignedActors: [],
+      individualProgress: [],
       revealed: false,
       createdAt: Date.now(),
     };
@@ -221,9 +257,70 @@ export class ChaseTracker {
     }
     if (Array.isArray(updates.assignedActors)) {
       obstacle.assignedActors = normalizeAssignedActors(updates.assignedActors);
+      const assignedUuids = new Set(obstacle.assignedActors.map((entry) => entry.uuid));
+      obstacle.individualProgress = normalizeIndividualProgress(obstacle.individualProgress)
+        .filter((entry) => assignedUuids.has(entry.actorUuid));
+      if (obstacle.resolutionMode === "individual") {
+        const existing = new Set(obstacle.individualProgress.map((entry) => entry.actorUuid));
+        for (const actor of obstacle.assignedActors) {
+          if (!existing.has(actor.uuid)) {
+            obstacle.individualProgress.push({ actorUuid: actor.uuid, progress: 0 });
+          }
+        }
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "resolutionMode")) {
+      this._setObstacleResolutionMode(obstacle, updates.resolutionMode);
     }
     await this._persist();
     return duplicateData(obstacle);
+  }
+
+  _setObstacleResolutionMode(obstacle, mode) {
+    if (!["group", "individual"].includes(mode)) {
+      throw new Error(`Invalid obstacle resolution mode: ${mode}`);
+    }
+    obstacle.resolutionMode = mode;
+    obstacle.individualProgress = normalizeIndividualProgress(obstacle.individualProgress);
+    if (mode === "individual") {
+      const existing = new Set(obstacle.individualProgress.map((entry) => entry.actorUuid));
+      for (const actor of normalizeAssignedActors(obstacle.assignedActors)) {
+        if (!existing.has(actor.uuid)) {
+          obstacle.individualProgress.push({ actorUuid: actor.uuid, progress: 0 });
+        }
+      }
+    }
+  }
+
+  async setObstacleResolutionMode(eventId, obstacleId, mode) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+    if (!["group", "individual"].includes(mode)) {
+      throw new Error(`Invalid obstacle resolution mode: ${mode}`);
+    }
+    const event = this.getEvent(eventId);
+    const obstacle = event?.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle) return null;
+    this._setObstacleResolutionMode(obstacle, mode);
+    await this._persist();
+    return duplicateData(obstacle);
+  }
+
+  async adjustIndividualObstacleProgress(eventId, obstacleId, actorUuid, delta) {
+    assertTrackerPermission(TrackerPermission.MODIFY);
+    const event = this.getEvent(eventId);
+    const obstacle = event?.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle || obstacle.resolutionMode !== "individual") return null;
+    const actorProgress = obstacle.individualProgress?.find(
+      (entry) => entry.actorUuid === actorUuid
+    );
+    if (!actorProgress) return null;
+    const numericDelta = Number(delta);
+    if (!Number.isFinite(numericDelta)) return duplicateData(actorProgress);
+    const required = Number(obstacle.requiredPoints) || 0;
+    const next = (Number(actorProgress.progress) || 0) + numericDelta;
+    actorProgress.progress = Math.max(0, required > 0 ? Math.min(required, next) : next);
+    await this._persist();
+    return duplicateData(actorProgress);
   }
 
   async adjustObstacleProgress(eventId, obstacleId, delta) {

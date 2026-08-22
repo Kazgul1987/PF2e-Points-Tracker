@@ -49,6 +49,10 @@ export class ChaseController extends TrackerTabController {
       .off("click")
       .on("click", (event) => this._onSetChaseObstacleProgress(event));
     panel
+      .find("[data-action='adjust-chase-individual-progress']")
+      .off("click")
+      .on("click", (event) => this._onAdjustChaseIndividualProgress(event));
+    panel
       .find("[data-action='create-chase-opportunity']")
       .off("click")
       .on("click", (event) => this._onCreateChaseOpportunity(event));
@@ -204,6 +208,26 @@ export class ChaseController extends TrackerTabController {
     this.render();
   }
 
+  async _onAdjustChaseIndividualProgress(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.dataset.eventId
+      ?? button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.dataset.obstacleId
+      ?? button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    const actorUuid = button?.dataset.actorUuid;
+    const delta = Number(button?.dataset.delta);
+    if (!chaseEventId || !obstacleId || !actorUuid || !Number.isFinite(delta)) return;
+    await this.chaseTracker.adjustIndividualObstacleProgress(
+      chaseEventId,
+      obstacleId,
+      actorUuid,
+      delta
+    );
+    this.render();
+  }
+
   async _onCreateChaseOpportunity(event) {
     event.preventDefault();
     if (!this.chaseTracker) return;
@@ -312,8 +336,16 @@ export class ChaseController extends TrackerTabController {
     const name = typeof initial?.name === "string" ? initial.name : "";
     const description = typeof initial?.description === "string" ? initial.description : "";
     const requiredPoints = Number.isFinite(initial?.requiredPoints) ? initial.requiredPoints : 0;
+    const resolutionMode = initial?.resolutionMode === "individual" ? "individual" : "group";
     const template = `
       <form>
+        <div class="form-group">
+          <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ResolutionMode")}</label>
+          <select name="resolutionMode">
+            <option value="group" ${resolutionMode === "group" ? "selected" : ""}>${game.i18n.localize("PF2E.PointsTracker.Chase.GroupObstacle")}</option>
+            <option value="individual" ${resolutionMode === "individual" ? "selected" : ""}>${game.i18n.localize("PF2E.PointsTracker.Chase.IndividualObstacle")}</option>
+          </select>
+        </div>
         <div class="form-group">
           <label>${game.i18n.localize("PF2E.PointsTracker.Chase.ObstacleName")}</label>
           <input type="text" name="name" value="${escapeAttribute(name)}" required />
@@ -342,6 +374,7 @@ export class ChaseController extends TrackerTabController {
           name: nameValue ?? "",
           description: descriptionValue ?? "",
           requiredPoints: Number.isFinite(requiredPointsValue) ? requiredPointsValue : 0,
+          resolutionMode: formData.get("resolutionMode") === "individual" ? "individual" : "group",
         };
       },
       rejectClose: false,
@@ -460,6 +493,13 @@ export class ChaseController extends TrackerTabController {
           ? Math.max(0, Number(obstacle.progress))
           : 0;
         const percent = required > 0 ? Math.min((progress / required) * 100, 100) : 0;
+        const resolutionMode = obstacle.resolutionMode === "individual" ? "individual" : "group";
+        const assignedActors = this._mapAssignedActors(obstacle.assignedActors, actorLookup);
+        const individualLookup = new Map(
+          (Array.isArray(obstacle.individualProgress) ? obstacle.individualProgress : [])
+            .filter((entry) => typeof entry?.actorUuid === "string")
+            .map((entry) => [entry.actorUuid, Math.max(0, Number(entry.progress) || 0)])
+        );
         return {
           ...obstacle,
           revealed: obstacle.revealed === true,
@@ -467,7 +507,20 @@ export class ChaseController extends TrackerTabController {
           progress,
           progressPercent: percent,
           isComplete: required > 0 && progress >= required,
-          assignedActors: this._mapAssignedActors(obstacle.assignedActors, actorLookup),
+          resolutionMode,
+          isIndividual: resolutionMode === "individual",
+          assignedActors,
+          individualActors: assignedActors.map((actor) => {
+            const actorProgress = individualLookup.get(actor.uuid) ?? 0;
+            return {
+              ...actor,
+              progress: actorProgress,
+              progressPercent: required > 0
+                ? Math.min((actorProgress / required) * 100, 100)
+                : 0,
+              complete: required > 0 && actorProgress >= required,
+            };
+          }),
         };
       });
 

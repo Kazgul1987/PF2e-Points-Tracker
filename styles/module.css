@@ -1315,6 +1315,37 @@
   align-items: center;
 }
 
+.chase-obstacle__individual-progress {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.chase-obstacle__individual-progress > small {
+  color: var(--color-text-dark-secondary);
+}
+
+.chase-obstacle__individual-actor {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chase-obstacle__individual-actor img {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chase-obstacle__individual-actor > span:first-of-type {
+  flex: 1;
+}
+
+.chase-obstacle__individual-actor.is-complete > .fa-check {
+  color: var(--color-level-success, green);
+}
+
 .chase-obstacle__badge {
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
