@@ -77,7 +77,7 @@
                   <thead>
                     <tr>
                       <th scope="col">{{localize "PF2E.PointsTracker.Chase.ObstacleNameHeader"}}</th>
-                      <th scope="col">{{localize "PF2E.PointsTracker.Chase.ObstacleProgressHeader"}}</th>
+                      <th scope="col" class="chase-obstacle__progress-header">{{localize "PF2E.PointsTracker.Chase.ObstacleProgressHeader"}}</th>
                       {{#if ../../isGM}}
                         <th scope="col" class="chase-obstacle__actions-header">{{localize "PF2E.PointsTracker.Chase.Actions"}}</th>
                       {{/if}}
@@ -144,18 +144,20 @@
                             </div>
                           </div>
                         </th>
-                        <td>
+                        <td class="chase-obstacle__progress-cell">
                           {{#if obstacle.isIndividual}}
                             <div class="chase-obstacle__individual-progress">
-                              <strong>{{localize "PF2E.PointsTracker.Chase.IndividualProgress"}}</strong>
-                              <small>{{localize "PF2E.PointsTracker.Chase.RequiredPerActor"}}: {{obstacle.requiredPoints}}</small>
-                              {{#each obstacle.individualActors as |actor|}}
-                                <div class="chase-obstacle__individual-actor{{#if actor.complete}} is-complete{{/if}}">
-                                  <div class="chase-obstacle__individual-actor-identity">
-                                    {{#if actor.img}}<img src="{{actor.img}}" alt="{{actor.name}}" />{{/if}}
-                                    <span>{{actor.name}}</span>
-                                  </div>
-                                  <div class="chase-individual-progress">
+                              <div class="chase-individual-progress-header">
+                                <strong>{{localize "PF2E.PointsTracker.Chase.IndividualProgress"}}</strong>
+                                <small class="chase-individual-required">{{localize "PF2E.PointsTracker.Chase.RequiredPerActor"}}: {{obstacle.requiredPoints}}</small>
+                              </div>
+                              <div class="chase-individual-progress-list">
+                                {{#each obstacle.individualActors as |actor|}}
+                                  <div class="chase-individual-progress-entry{{#if actor.complete}} is-complete{{/if}}">
+                                    <div class="chase-individual-progress-actor">
+                                      {{#if actor.img}}<img src="{{actor.img}}" alt="{{actor.name}}" />{{/if}}
+                                      <span>{{actor.name}}</span>
+                                    </div>
                                     <div class="chase-individual-progress-controls">
                                       {{#if ../../../isGM}}
                                         <button type="button" data-action="adjust-chase-individual-progress" data-event-id="{{../../id}}" data-obstacle-id="{{../id}}" data-actor-uuid="{{actor.uuid}}" data-delta="-1" aria-label="{{localize 'PF2E.PointsTracker.Chase.DecreaseProgress'}}" title="{{localize 'PF2E.PointsTracker.Chase.DecreaseProgress'}}"><i class="fas fa-minus"></i></button>
@@ -170,8 +172,8 @@
                                       <div class="chase-individual-progress-bar-fill" style="width: {{actor.progressPercent}}%"></div>
                                     </div>
                                   </div>
-                                </div>
-                              {{/each}}
+                                {{/each}}
+                              </div>
                             </div>
                           {{else}}
                           <div class="chase-obstacle__progress">
