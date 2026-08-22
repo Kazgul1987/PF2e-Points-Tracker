@@ -188,6 +188,7 @@ export class ChaseTracker {
         : 0,
       progress: 0,
       assignedActors: [],
+      revealed: false,
       createdAt: Date.now(),
     };
     event.obstacles = [...(event.obstacles ?? []), obstacle];
@@ -281,6 +282,18 @@ export class ChaseTracker {
     return true;
   }
 
+  async setObstacleRevealed(eventId, obstacleId, revealed) {
+    assertTrackerPermission(TrackerPermission.REVEAL);
+
+    const event = this.getEvent(eventId);
+    if (!event) return null;
+    const obstacle = event.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle) return null;
+    obstacle.revealed = Boolean(revealed);
+    await this._persist();
+    return duplicateData(obstacle);
+  }
+
   async createOpportunity(eventId, { name, description } = {}) {
     assertTrackerPermission(TrackerPermission.MODIFY);
 
@@ -294,6 +307,7 @@ export class ChaseTracker {
           : getDefaultOpportunityName(),
       description: typeof description === "string" ? description.trim() : "",
       assignedActors: [],
+      revealed: false,
       createdAt: Date.now(),
     };
     event.opportunities = [...(event.opportunities ?? []), opportunity];
@@ -333,6 +347,18 @@ export class ChaseTracker {
     event.opportunities = filtered;
     await this._persist();
     return true;
+  }
+
+  async setOpportunityRevealed(eventId, opportunityId, revealed) {
+    assertTrackerPermission(TrackerPermission.REVEAL);
+
+    const event = this.getEvent(eventId);
+    if (!event) return null;
+    const opportunity = event.opportunities?.find((entry) => entry.id === opportunityId);
+    if (!opportunity) return null;
+    opportunity.revealed = Boolean(revealed);
+    await this._persist();
+    return duplicateData(opportunity);
   }
 
   async assignActorsToObstacle(eventId, obstacleId, assignments = []) {

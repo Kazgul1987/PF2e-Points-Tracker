@@ -37,6 +37,10 @@ export class ChaseController extends TrackerTabController {
       .off("click")
       .on("click", (event) => this._onDeleteChaseObstacle(event));
     panel
+      .find("[data-action='toggle-chase-obstacle-reveal']")
+      .off("click")
+      .on("click", (event) => this._onToggleChaseObstacleReveal(event));
+    panel
       .find("[data-action='nudge-chase-obstacle']")
       .off("click")
       .on("click", (event) => this._onNudgeChaseObstacle(event));
@@ -56,6 +60,10 @@ export class ChaseController extends TrackerTabController {
       .find("[data-action='delete-chase-opportunity']")
       .off("click")
       .on("click", (event) => this._onDeleteChaseOpportunity(event));
+    panel
+      .find("[data-action='toggle-chase-opportunity-reveal']")
+      .off("click")
+      .on("click", (event) => this._onToggleChaseOpportunityReveal(event));
   }
 
   async _onCreateChaseEvent(event) {
@@ -166,6 +174,20 @@ export class ChaseController extends TrackerTabController {
     this.render();
   }
 
+  async _onToggleChaseObstacleReveal(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const obstacleId = button?.closest("[data-obstacle-id]")?.dataset.obstacleId;
+    if (!chaseEventId || !obstacleId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    const obstacle = eventData?.obstacles?.find((entry) => entry.id === obstacleId);
+    if (!obstacle) return;
+    await this.chaseTracker.setObstacleRevealed(chaseEventId, obstacleId, obstacle.revealed !== true);
+    this.render();
+  }
+
   async _onSetChaseObstacleProgress(event) {
     event.preventDefault();
     if (!this.chaseTracker) return;
@@ -230,6 +252,24 @@ export class ChaseController extends TrackerTabController {
     });
     if (!confirmed) return;
     await this.chaseTracker.deleteOpportunity(chaseEventId, opportunityId);
+    this.render();
+  }
+
+  async _onToggleChaseOpportunityReveal(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const button = event.currentTarget;
+    const chaseEventId = button?.closest("[data-chase-event-id]")?.dataset.chaseEventId;
+    const opportunityId = button?.closest("[data-opportunity-id]")?.dataset.opportunityId;
+    if (!chaseEventId || !opportunityId) return;
+    const eventData = this.chaseTracker.getEvent(chaseEventId);
+    const opportunity = eventData?.opportunities?.find((entry) => entry.id === opportunityId);
+    if (!opportunity) return;
+    await this.chaseTracker.setOpportunityRevealed(
+      chaseEventId,
+      opportunityId,
+      opportunity.revealed !== true
+    );
     this.render();
   }
 
@@ -405,8 +445,12 @@ export class ChaseController extends TrackerTabController {
     }
 
     const enrichedEvents = events.map((event) => {
-      const obstacles = Array.isArray(event.obstacles) ? event.obstacles : [];
-      const opportunities = Array.isArray(event.opportunities) ? event.opportunities : [];
+      const obstacles = Array.isArray(event.obstacles)
+        ? event.obstacles.filter((obstacle) => isGM || obstacle.revealed === true)
+        : [];
+      const opportunities = Array.isArray(event.opportunities)
+        ? event.opportunities.filter((opportunity) => isGM || opportunity.revealed === true)
+        : [];
 
       const normalizedObstacles = obstacles.map((obstacle) => {
         const required = Number.isFinite(obstacle.requiredPoints)
@@ -418,6 +462,7 @@ export class ChaseController extends TrackerTabController {
         const percent = required > 0 ? Math.min((progress / required) * 100, 100) : 0;
         return {
           ...obstacle,
+          revealed: obstacle.revealed === true,
           requiredPoints: required,
           progress,
           progressPercent: percent,
@@ -428,6 +473,7 @@ export class ChaseController extends TrackerTabController {
 
       const normalizedOpportunities = opportunities.map((opportunity) => ({
         ...opportunity,
+        revealed: opportunity.revealed === true,
         assignedActors: this._mapAssignedActors(opportunity.assignedActors, actorLookup),
       }));
 
