@@ -1422,6 +1422,18 @@
   margin-left: 0.35rem;
 }
 
+.chase-obstacle.is-hidden,
+.chase-opportunity.is-hidden {
+  opacity: 0.7;
+}
+
+.chase-hidden-indicator {
+  color: var(--color-text-dark-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .chase-event__empty,
 .chase-tracker__empty {
   opacity: 0.75;

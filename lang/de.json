@@ -1,0 +1,13 @@
+{
+  "PF2E": {
+    "PointsTracker": {
+      "Chase": {
+        "RevealObstacle": "Hindernis enthüllen",
+        "HideObstacle": "Hindernis verbergen",
+        "RevealOpportunity": "Gelegenheit enthüllen",
+        "HideOpportunity": "Gelegenheit verbergen",
+        "Hidden": "Verborgen"
+      }
+    }
+  }
+}

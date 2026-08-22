@@ -85,9 +85,12 @@
                   </thead>
                   <tbody>
                     {{#each chaseEvent.obstacles as |obstacle|}}
-                      <tr class="chase-obstacle" data-obstacle-id="{{obstacle.id}}">
+                      <tr class="chase-obstacle{{#unless obstacle.revealed}} is-hidden{{/unless}}" data-obstacle-id="{{obstacle.id}}">
                         <th scope="row">
                           <div class="chase-obstacle__name">{{obstacle.name}}</div>
+                          {{#unless obstacle.revealed}}
+                            <span class="chase-hidden-indicator"><i class="fas fa-eye-slash"></i> {{localize "PF2E.PointsTracker.Chase.Hidden"}}</span>
+                          {{/unless}}
                           {{#if obstacle.description}}
                             <p class="chase-obstacle__description">{{obstacle.description}}</p>
                           {{/if}}
@@ -160,6 +163,14 @@
                         </td>
                         {{#if ../../isGM}}
                           <td class="chase-obstacle__actions">
+                            <button
+                              type="button"
+                              data-action="toggle-chase-obstacle-reveal"
+                              title="{{#if obstacle.revealed}}{{localize 'PF2E.PointsTracker.Chase.HideObstacle'}}{{else}}{{localize 'PF2E.PointsTracker.Chase.RevealObstacle'}}{{/if}}"
+                              aria-label="{{#if obstacle.revealed}}{{localize 'PF2E.PointsTracker.Chase.HideObstacle'}}{{else}}{{localize 'PF2E.PointsTracker.Chase.RevealObstacle'}}{{/if}}"
+                            >
+                              <i class="fas {{#if obstacle.revealed}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+                            </button>
                             <button type="button" data-action="nudge-chase-obstacle" data-delta="1">
                               <i class="fas fa-plus"></i>
                             </button>
@@ -193,11 +204,22 @@
               {{#if chaseEvent.opportunities.length}}
                 <ul class="chase-opportunity__list">
                   {{#each chaseEvent.opportunities as |opportunity|}}
-                    <li class="chase-opportunity" data-opportunity-id="{{opportunity.id}}">
+                    <li class="chase-opportunity{{#unless opportunity.revealed}} is-hidden{{/unless}}" data-opportunity-id="{{opportunity.id}}">
                       <div class="chase-opportunity__header">
                         <h5 class="chase-opportunity__name">{{opportunity.name}}</h5>
                         {{#if ../../isGM}}
                           <div class="chase-opportunity__controls">
+                            {{#unless opportunity.revealed}}
+                              <span class="chase-hidden-indicator"><i class="fas fa-eye-slash"></i> {{localize "PF2E.PointsTracker.Chase.Hidden"}}</span>
+                            {{/unless}}
+                            <button
+                              type="button"
+                              data-action="toggle-chase-opportunity-reveal"
+                              title="{{#if opportunity.revealed}}{{localize 'PF2E.PointsTracker.Chase.HideOpportunity'}}{{else}}{{localize 'PF2E.PointsTracker.Chase.RevealOpportunity'}}{{/if}}"
+                              aria-label="{{#if opportunity.revealed}}{{localize 'PF2E.PointsTracker.Chase.HideOpportunity'}}{{else}}{{localize 'PF2E.PointsTracker.Chase.RevealOpportunity'}}{{/if}}"
+                            >
+                              <i class="fas {{#if opportunity.revealed}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
+                            </button>
                             <button type="button" data-action="edit-chase-opportunity">
                               <i class="fas fa-edit"></i>
                             </button>
