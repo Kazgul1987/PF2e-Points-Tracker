@@ -2,7 +2,7 @@
   "id": "pf2e-points-tracker",
   "title": "PF2e Points Tracker",
   "description": "Tracks Research, Influence, Chase, Reputation, Victory, and Awareness subsystems for Pathfinder Second Edition campaigns.",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "type": "module",
   "compatibility": {
     "minimum": "14",
