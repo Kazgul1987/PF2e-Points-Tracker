@@ -1292,6 +1292,17 @@
   border-top: none;
 }
 
+.chase-obstacle__progress-header,
+.chase-obstacle__progress-cell {
+  width: clamp(260px, 34%, 340px);
+}
+
+.chase-obstacle__actions-header,
+.chase-obstacle__actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .chase-obstacle__progress-track {
   width: 100%;
   height: 0.6rem;
@@ -1316,51 +1327,66 @@
 }
 
 .chase-obstacle__individual-progress {
-  display: grid;
-  gap: 0.35rem;
+  min-width: 0;
 }
 
-.chase-obstacle__individual-progress > small {
+.chase-individual-progress-header {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.chase-individual-required {
   color: var(--color-text-dark-secondary);
+  white-space: normal;
 }
 
-.chase-obstacle__individual-actor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.35rem;
+.chase-individual-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
-.chase-obstacle__individual-actor-identity {
+.chase-individual-progress-entry {
+  min-width: 0;
+  padding-block: 0.25rem;
+}
+
+.chase-individual-progress-actor {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.chase-obstacle__individual-actor img {
+.chase-individual-progress-actor img {
   width: 28px;
   height: 28px;
   border: 0;
   border-radius: 50%;
   object-fit: cover;
+  flex: 0 0 auto;
 }
 
-.chase-obstacle__individual-actor-identity > span {
+.chase-individual-progress-actor > span {
   flex: 1;
   min-width: 0;
-}
-
-.chase-individual-progress {
-  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chase-individual-progress-controls {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
   white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .chase-individual-progress-value {
@@ -1387,7 +1413,7 @@
   transition: width 150ms ease;
 }
 
-.chase-obstacle__individual-actor.is-complete .fa-check {
+.chase-individual-progress-entry.is-complete .fa-check {
   color: var(--color-level-success, green);
 }
 
@@ -1470,6 +1496,33 @@
 
 .chase-obstacle__actions button {
   margin-right: 0.35rem;
+}
+
+@media (max-width: 760px) {
+  .chase-obstacle__table,
+  .chase-obstacle__table tbody,
+  .chase-obstacle__table tr,
+  .chase-obstacle__table th,
+  .chase-obstacle__table td {
+    display: block;
+  }
+
+  .chase-obstacle__table thead {
+    display: none;
+  }
+
+  .chase-obstacle__table tr {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .chase-obstacle__table tr:first-child {
+    border-top: none;
+  }
+
+  .chase-obstacle__progress-cell,
+  .chase-obstacle__actions {
+    width: auto;
+  }
 }
 
 .chase-opportunity__list {
