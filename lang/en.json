@@ -153,6 +153,12 @@
       "Thresholds": "Threshold Reveals"
       },
       "Chase": {
+        "Import": "Import events",
+        "ImportTitle": "Import Chase Events",
+        "ImportDescription": "Choose a JSON file with one event, an event array, or {\"events\": [...]}. Existing events are kept. Imported obstacles and opportunities start hidden, without progress or assignments.",
+        "ImportInvalid": "The file could not be read or contains invalid chase events. Every entry needs a name; points must be nonnegative numbers.",
+        "ImportSuccess": "Imported {count} chase events.",
+        "ImportFailure": "The chase events could not be saved.",
         "Title": "Chase Events",
         "CreateEvent": "Create Chase Event",
         "Create": "Create",

@@ -2,6 +2,10 @@
   <header class="chase-tracker__header">
     <h2>{{localize "PF2E.PointsTracker.Chase.Title"}}</h2>
     {{#if isGM}}
+      <button type="button" data-action="import-chase-events">
+        <i class="fas fa-file-import"></i>
+        {{localize "PF2E.PointsTracker.Chase.Import"}}
+      </button>
       <button type="button" class="chase-tracker__create" data-action="create-chase-event">
         <i class="fas fa-plus"></i>
         {{localize "PF2E.PointsTracker.Chase.CreateEvent"}}

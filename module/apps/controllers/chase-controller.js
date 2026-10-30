@@ -1,3 +1,4 @@
+import { ChaseImportExport } from "../../chase/importer.js";
 import { TrackerTabController, escapeAttribute, escapeHtml } from "./tracker-tab-controller.js";
 
 /** Owns the chase tab context, dialogs, and event handling. */
@@ -12,6 +13,10 @@ export class ChaseController extends TrackerTabController {
     const panel = html.find("[data-tab-panel='chase']");
     if (!panel.length) return;
 
+    panel
+      .find("[data-action='import-chase-events']")
+      .off("click")
+      .on("click", (event) => this._onImportChaseEvents(event));
     panel
       .find("[data-action='create-chase-event']")
       .off("click")
@@ -68,6 +73,13 @@ export class ChaseController extends TrackerTabController {
       .find("[data-action='toggle-chase-opportunity-reveal']")
       .off("click")
       .on("click", (event) => this._onToggleChaseOpportunityReveal(event));
+  }
+
+  async _onImportChaseEvents(event) {
+    event.preventDefault();
+    if (!this.chaseTracker) return;
+    const created = await ChaseImportExport.promptImport(this.chaseTracker);
+    if (created.length) this.render();
   }
 
   async _onCreateChaseEvent(event) {

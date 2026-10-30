@@ -2,6 +2,12 @@
   "PF2E": {
     "PointsTracker": {
       "Chase": {
+        "Import": "Events importieren",
+        "ImportTitle": "Chase-Events importieren",
+        "ImportDescription": "JSON-Datei mit einem Event, einer Event-Liste oder {\"events\": [...]} wählen. Bestehende Events bleiben erhalten. Importierte Hindernisse und Gelegenheiten starten verborgen, ohne Fortschritt oder Zuweisungen.",
+        "ImportInvalid": "Die Datei konnte nicht gelesen werden oder enthält ungültige Chase-Events. Jeder Eintrag benötigt einen Namen; Punkte müssen nichtnegative Zahlen sein.",
+        "ImportSuccess": "{count} Chase-Events importiert.",
+        "ImportFailure": "Die Chase-Events konnten nicht gespeichert werden.",
         "RevealObstacle": "Hindernis enthüllen",
         "HideObstacle": "Hindernis verbergen",
         "RevealOpportunity": "Gelegenheit enthüllen",

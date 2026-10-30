@@ -34,3 +34,41 @@ To use the tracker in play:
 
 ## Maintenance and Support
 Issues and feature requests are welcome through the [GitHub issue tracker](https://github.com/Lutece239/PF2e-Points-Tracker/issues). If you would like to contribute improvements, please submit a pull request with a clear description of your changes. For questions about module usage, contact the maintainer via GitHub.
+
+## Import Chase Events
+
+As GM, open the Chase tab and choose **Import events** (**Events importieren**).
+Select a JSON file containing a single event, an array of events, or an object
+with an `events` array. For example:
+
+```json
+{
+  "events": [
+    {
+      "name": "Rooftop pursuit",
+      "description": "Catch the courier before the city gates.",
+      "obstacles": [
+        {
+          "name": "Jump the alley",
+          "description": "Athletics or Acrobatics DC 20",
+          "requiredPoints": 4,
+          "resolutionMode": "individual"
+        }
+      ],
+      "opportunities": [
+        { "name": "Market shortcut", "description": "A merchant knows a faster route." }
+      ]
+    }
+  ]
+}
+```
+
+Every event, obstacle and opportunity requires a nonempty `name`. Descriptions
+are optional strings. `requiredPoints` defaults to 0 (open-ended progress) and
+must be a nonnegative finite number; `resolutionMode` defaults to `group` and
+also accepts `individual`. Obstacles and opportunities may be omitted.
+The entire file is validated before saving. Existing events and logs are kept.
+Imported entries receive new IDs, start hidden, and have no progress or actor
+assignments; importing the same file again creates additional events.
+
+Run import tests with `node tests/chase-import.test.mjs` (Node.js 24).
