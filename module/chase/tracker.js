@@ -1,3 +1,4 @@
+import { sanitizeChaseImportPayload } from "./importer.js";
 import { assertTrackerPermission, TrackerPermission } from "../utils/permissions.js";
 import { localizeWithFallback } from "../utils/localize.js";
 
@@ -175,6 +176,33 @@ export class ChaseTracker {
     this.state.events = [...(this.state.events ?? []), event];
     await this._persist();
     return duplicateData(event);
+  }
+
+  /** Append fresh events in one settings write, preserving existing events and logs. */
+  async importEvents(data) {
+    assertTrackerPermission(TrackerPermission.IMPORT_EXPORT);
+    const templates = sanitizeChaseImportPayload(data);
+    const createdAt = Date.now();
+    const events = templates.map((event) => ({
+      ...event,
+      id: createId(),
+      createdAt,
+      obstacles: event.obstacles.map((obstacle) => ({
+        ...obstacle, id: createId(), createdAt, progress: 0,
+        assignedActors: [], individualProgress: [], revealed: false,
+      })),
+      opportunities: event.opportunities.map((opportunity) => ({
+        ...opportunity, id: createId(), createdAt, assignedActors: [], revealed: false,
+      })),
+    }));
+    const nextState = duplicateData({
+      ...this.state, events: [...(this.state.events ?? []), ...events],
+    });
+    // Publish local changes only after persistence succeeds.
+    if (typeof game?.settings?.set !== "function") throw new Error("Chase settings unavailable.");
+    await game.settings.set(this.moduleId, this.settingKey, nextState);
+    this._applyState(nextState);
+    return duplicateData(events);
   }
 
   async updateEvent(eventId, updates = {}) {
